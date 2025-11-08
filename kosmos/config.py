@@ -292,6 +292,12 @@ class SafetyConfig(BaseSettings):
         description="Maximum memory usage (MB)",
         alias="MAX_MEMORY_MB"
     )
+    max_cpu_cores: Optional[float] = Field(
+        default=None,
+        ge=0.1,
+        description="Maximum CPU cores to use (None = unlimited)",
+        alias="MAX_CPU_CORES"
+    )
     enable_sandboxing: bool = Field(
         default=True,
         description="Enable sandboxed code execution",
@@ -301,6 +307,79 @@ class SafetyConfig(BaseSettings):
         default=False,
         description="Require human approval for high-risk operations",
         alias="REQUIRE_HUMAN_APPROVAL"
+    )
+
+    # Ethical guidelines
+    ethical_guidelines_path: Optional[str] = Field(
+        default=None,
+        description="Path to ethical guidelines JSON file",
+        alias="ETHICAL_GUIDELINES_PATH"
+    )
+
+    # Result verification
+    enable_result_verification: bool = Field(
+        default=True,
+        description="Enable result verification",
+        alias="ENABLE_RESULT_VERIFICATION"
+    )
+    outlier_threshold: float = Field(
+        default=3.0,
+        ge=1.0,
+        description="Z-score threshold for outlier detection",
+        alias="OUTLIER_THRESHOLD"
+    )
+
+    # Reproducibility
+    default_random_seed: int = Field(
+        default=42,
+        description="Default random seed for reproducibility",
+        alias="DEFAULT_RANDOM_SEED"
+    )
+    capture_environment: bool = Field(
+        default=True,
+        description="Capture environment snapshots",
+        alias="CAPTURE_ENVIRONMENT"
+    )
+
+    # Human oversight
+    approval_mode: str = Field(
+        default="blocking",
+        description="Approval workflow mode (blocking/queue/automatic/disabled)",
+        alias="APPROVAL_MODE"
+    )
+    auto_approve_low_risk: bool = Field(
+        default=True,
+        description="Automatically approve low-risk operations",
+        alias="AUTO_APPROVE_LOW_RISK"
+    )
+
+    # Notifications
+    notification_channel: str = Field(
+        default="both",
+        description="Notification channel (console/log/both)",
+        alias="NOTIFICATION_CHANNEL"
+    )
+    notification_min_level: str = Field(
+        default="info",
+        description="Minimum notification level (debug/info/warning/error/critical)",
+        alias="NOTIFICATION_MIN_LEVEL"
+    )
+    use_rich_formatting: bool = Field(
+        default=True,
+        description="Use rich formatting for console notifications",
+        alias="USE_RICH_FORMATTING"
+    )
+
+    # Incident logging
+    incident_log_path: str = Field(
+        default="safety_incidents.jsonl",
+        description="Path to safety incident log file",
+        alias="INCIDENT_LOG_PATH"
+    )
+    audit_log_path: str = Field(
+        default="human_review_audit.jsonl",
+        description="Path to human review audit log",
+        alias="AUDIT_LOG_PATH"
     )
 
     model_config = SettingsConfigDict(populate_by_name=True)

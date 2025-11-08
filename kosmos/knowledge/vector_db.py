@@ -4,8 +4,6 @@ Vector database interface using ChromaDB.
 Stores and retrieves paper embeddings for semantic search.
 """
 
-import chromadb
-from chromadb.config import Settings
 from typing import List, Dict, Any, Optional, Union
 import numpy as np
 from pathlib import Path
@@ -16,6 +14,17 @@ from kosmos.knowledge.embeddings import get_embedder
 from kosmos.config import get_config
 
 logger = logging.getLogger(__name__)
+
+# Optional dependency - chromadb
+try:
+    import chromadb
+    from chromadb.config import Settings
+    HAS_CHROMADB = True
+except ImportError:
+    logger.warning("chromadb not installed. Install with: pip install chromadb")
+    HAS_CHROMADB = False
+    chromadb = None
+    Settings = None
 
 
 class PaperVectorDB:
@@ -50,6 +59,13 @@ class PaperVectorDB:
             results = db.search("machine learning", top_k=10)
             ```
         """
+        if not HAS_CHROMADB:
+            logger.warning("ChromaDB not available. PaperVectorDB will not function.")
+            self.client = None
+            self.collection = None
+            self.collection_name = collection_name
+            return
+
         config = get_config()
 
         # Set persist directory
