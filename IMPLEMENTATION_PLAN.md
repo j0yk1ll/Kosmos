@@ -20,10 +20,10 @@
 
 ## Project Status Dashboard
 
-**Current Phase**: Phase 9 In Progress 🔄 (39% - see checkpoint v2)
+**Current Phase**: Phase 9 In Progress 🔄 (55% - see checkpoint v3)
 **Last Updated**: 2025-11-08
-**Overall Progress**: ~76% (211 + 12 = 223/285 tasks)
-**Checkpoint**: docs/PHASE_9_CHECKPOINT_2025-11-08_v2.md (Second checkpoint at 50% tokens)
+**Overall Progress**: ~77% (211 + 17 = 228/285 tasks)
+**Checkpoint**: docs/PHASE_9_CHECKPOINT_2025-11-08_v3.md (Third checkpoint - Biology + Neuroscience complete)
 **Previous Completion**: docs/PHASE_8_COMPLETION.md
 
 ---
@@ -498,8 +498,8 @@
 ---
 
 ## Phase 9: Multi-Domain Support
-**Status**: 🔄 In Progress | **Progress**: 12/31 tasks (39%)
-**Checkpoint**: docs/PHASE_9_CHECKPOINT_2025-11-08_v2.md (Biology complete, Neuroscience APIs done)
+**Status**: 🔄 In Progress | **Progress**: 17/31 tasks (55%)
+**Checkpoint**: docs/PHASE_9_CHECKPOINT_2025-11-08_v3.md (Biology + Neuroscience complete)
 
 **Note**: Reference domain roadmaps created in Phase 0.3 (`docs/domain-roadmaps/`) for methodology and tool guidance based on kosmos-figures repository analysis.
 
@@ -513,8 +513,8 @@
 - [x] Biology API clients: KEGG, GWAS, GTEx, ENCODE, dbSNP, Ensembl, HMDB, MetaboLights, UniProt, PDB (~660 lines) ✅
 - [x] Biology analyzers: MetabolomicsAnalyzer (~480 lines), GenomicsAnalyzer (~540 lines) ✅
 - [x] Neuroscience API clients (7 APIs): FlyWire, AllenBrain, MICrONS, GEO, AMPAD, OpenConnectome, WormBase (~640 lines) ✅
-<!-- In progress: Neuroscience analyzers - see PHASE_9_CHECKPOINT_2025-11-08_v2.md -->
-- [ ] Neuroscience analyzers: ConnectomicsAnalyzer, NeurodegenerationAnalyzer
+- [x] Neuroscience analyzers: ConnectomicsAnalyzer (~480 lines), NeurodegenerationAnalyzer (~600 lines) ✅
+<!-- Next: Materials domain - see PHASE_9_CHECKPOINT_2025-11-08_v3.md -->
 - [ ] Materials API clients (5 APIs): MaterialsProject, NOMAD, AFLOW, Citrination, PerovskiteDB
 - [ ] Materials optimizer: MaterialsOptimizer
 
@@ -522,7 +522,7 @@
 
 ### 9.2 Domain Knowledge Bases
 - [x] Biology ontology module (~390 lines) ✅
-- [ ] Neuroscience ontology module
+- [x] Neuroscience ontology module (~470 lines) ✅
 - [ ] Materials ontology module
 - [ ] Unified domain knowledge base system (`kosmos/knowledge/domain_kb.py`)
 - [ ] Cross-domain concept mapping
@@ -541,8 +541,7 @@
 
 ### 9.4 Domain-Specific Experiment Templates
 - [x] Biology templates: metabolomics_comparison (~370 lines), gwas_multimodal (~420 lines) ✅
-<!-- In progress: Neuroscience templates - see PHASE_9_CHECKPOINT_2025-11-08_v2.md -->
-- [ ] Neuroscience templates: connectome_scaling, differential_expression
+- [x] Neuroscience templates: connectome_scaling (~450 lines), differential_expression (~490 lines) ✅
 - [ ] Materials templates: parameter_correlation, optimization, shap_analysis
 - [ ] Template registry enhancement for domain-specific discovery
 
