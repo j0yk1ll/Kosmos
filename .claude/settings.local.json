@@ -5,7 +5,8 @@
       "Bash(python3:*)",
       "Bash(tree:*)",
       "Bash(git log:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
