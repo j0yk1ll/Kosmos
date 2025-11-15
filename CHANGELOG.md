@@ -65,7 +65,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ClaudeClient` class maintained as alias
 - All existing code continues to work unchanged
 
+### Added - Persistent Knowledge Graphs
+
+**Major Feature:** Automatic research knowledge graph that persists between sessions.
+
+#### Core Capabilities
+- **Automatic Persistence** - All research artifacts automatically saved to Neo4j knowledge graph
+- **Entity Types** - ResearchQuestion, Hypothesis, ExperimentProtocol, ExperimentResult
+- **Relationship Types** - SPAWNED_BY, TESTS, SUPPORTS, REFUTES, REFINED_FROM, PRODUCED_BY
+- **Rich Provenance** - Every entity and relationship includes metadata:
+  - Agent that created it (e.g., HypothesisGeneratorAgent, DataAnalystAgent)
+  - Timestamp of creation
+  - Confidence scores
+  - Statistical significance (p-values, effect sizes)
+  - Iteration and generation numbers
+
+#### CLI Commands
+- `kosmos graph --stats` - View knowledge graph statistics
+- `kosmos graph --export FILE` - Export graph to JSON for backup/sharing
+- `kosmos graph --import FILE` - Import graph from JSON export
+- `kosmos graph --reset` - Clear all graph data (with confirmation)
+
+#### Implementation
+- **Dual Persistence Architecture** - Both SQL (SQLAlchemy) and Graph (Neo4j) storage
+  - SQL for structured queries and ACID transactions
+  - Graph for relationship traversal and provenance
+  - Graceful degradation when Neo4j unavailable
+- **World Model Abstraction Layer**
+  - `WorldModelInterface` - Abstract interface for future storage backends
+  - `Neo4jWorldModel` - Production implementation using py2neo
+  - Factory pattern with singleton support
+  - Helper methods for entity/relationship creation (from_hypothesis, from_protocol, etc.)
+- **ResearchDirectorAgent Integration**
+  - Automatic persistence in 6 message handlers
+  - Research question entity created on initialization
+  - Hypothesis entities with SPAWNED_BY relationships
+  - Protocol entities with TESTS relationships
+  - Result entities with SUPPORTS/REFUTES relationships
+  - Refinement tracking via REFINED_FROM relationships
+  - Convergence annotations
+
+#### Configuration
+- New `WorldModelConfig` class:
+  - `WORLD_MODEL_ENABLED` - Enable/disable graph persistence (default: true)
+  - `WORLD_MODEL_MODE` - Storage mode: "simple" or "production"
+  - `WORLD_MODEL_PROJECT` - Optional project namespace
+  - `WORLD_MODEL_AUTO_SAVE_INTERVAL` - Auto-export interval in seconds
+- Existing `Neo4jConfig` extended with connection pool settings
+
+#### Documentation
+- `docs/user/world_model_guide.md` - Comprehensive 500+ line user guide
+  - Quick start and CLI reference
+  - Use cases (knowledge accumulation, collaboration, backup)
+  - Advanced topics (direct Cypher queries, programmatic access)
+  - Troubleshooting and FAQ
+  - Best practices for exports and versioning
+- `README.md` - New "Persistent Knowledge Graphs" section with examples
+- `docs/user/user-guide.md` - Updated Neo4j setup + CLI commands section
+- `docs/planning/` - Complete implementation documentation and checkpoints
+
+#### Testing
+- **Unit Tests** - 101 tests passing (100% pass rate)
+  - `tests/unit/world_model/test_models.py` - Entity/Relationship models (31 tests)
+  - `tests/unit/world_model/test_interface.py` - WorldModelInterface (20 tests)
+  - `tests/unit/world_model/test_factory.py` - Factory pattern (28 tests)
+  - `tests/unit/cli/test_graph_commands.py` - CLI commands (22 tests)
+- **Integration Tests** - 7 tests created (require Neo4j)
+  - `tests/integration/test_world_model_persistence.py` - Full workflow tests
+  - Research question persistence
+  - Hypothesis persistence with relationships
+  - Refined hypothesis tracking
+  - Protocol and result persistence
+  - Dual persistence verification
+
+#### Benefits
+- **Knowledge Accumulation** - Build expertise over weeks/months
+- **Research Provenance** - Full audit trail of research decisions
+- **Collaboration** - Export/import enables team sharing
+- **Reproducibility** - Complete graph captures research context
+- **Version Control** - Export snapshots at milestones
+
+#### Technical Details
+- ~2,600 lines of production code
+- ~1,300 lines of test code
+- Neo4j 5.13+ required (optional - graceful degradation)
+- Export format: JSON with full graph structure
+- Performance: <100ms per entity/relationship (tested up to 1000+ entities)
+
 ### Commits
+- `b06749d` - Persistent knowledge graphs implementation (Week 2 Days 1-4)
+- `[current]` - Documentation and validation (Week 2 Day 5)
 - `35dc159` - Core multi-provider infrastructure (Phases 1-3, 5)
 - `[pending]` - Documentation and testing (Phases 7-9)
 

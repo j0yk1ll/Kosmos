@@ -173,10 +173,27 @@ ls -la kosmos.db
 
 ### Optional: Neo4j Knowledge Graph
 
-For literature integration and knowledge graph features:
+Kosmos maintains a **persistent knowledge graph** that automatically captures your entire research journey. This is optional but highly recommended for building cumulative knowledge.
 
+**What you get:**
+- Automatic persistence of all research artifacts (questions, hypotheses, experiments, results)
+- Relationship tracking (SPAWNED_BY, TESTS, SUPPORTS, REFUTES)
+- Export/import capabilities for backup and collaboration
+- Provenance metadata (who, when, why for every entity)
+
+**Installation:**
+
+Using Docker (recommended):
 ```bash
-# Install Neo4j (optional)
+# Start Neo4j via docker-compose (included in Kosmos)
+docker-compose up -d neo4j
+
+# Verify it's running
+docker-compose ps
+```
+
+Manual installation:
+```bash
 # Ubuntu/Debian:
 sudo apt install neo4j
 
@@ -185,12 +202,32 @@ brew install neo4j
 
 # Start Neo4j
 neo4j start
+```
 
-# Configure in .env
+**Configuration:**
+
+Add to your `.env` file:
+```bash
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=your_password
+NEO4J_PASSWORD=kosmos-password
+WORLD_MODEL_ENABLED=true
 ```
+
+**Verify Neo4j is working:**
+```bash
+# Access Neo4j browser
+open http://localhost:7474
+
+# Login with credentials from .env
+# Run test query:
+MATCH (n) RETURN count(n)
+```
+
+**Works without Neo4j:**
+If Neo4j is unavailable, Kosmos continues working normally (graceful degradation). Graph features are optional enhancements.
+
+See [World Model Guide](world_model_guide.md) for detailed documentation and CLI commands.
 
 ### Verification
 
@@ -583,6 +620,96 @@ kosmos cache --clear-type claude
 # Clear all caches (requires confirmation)
 kosmos cache --clear
 ```
+
+### Managing Knowledge Graphs
+
+Kosmos automatically builds a persistent knowledge graph as you conduct research. Use these commands to manage and explore your accumulated knowledge.
+
+**View Graph Statistics:**
+
+```bash
+kosmos graph --stats
+```
+
+**Example output:**
+```
+📊 Knowledge Graph Statistics
+
+Entities:        127
+Relationships:   243
+
+Entity Types:
+  Hypothesis: 45
+  ExperimentProtocol: 28
+  ExperimentResult: 23
+  ResearchQuestion: 5
+
+Relationship Types:
+  SPAWNED_BY: 45
+  TESTS: 28
+  SUPPORTS: 15
+  REFUTES: 8
+  REFINED_FROM: 12
+```
+
+**Export Knowledge Graph:**
+
+Export your graph for backup or collaboration:
+
+```bash
+# Export to JSON file
+kosmos graph --export my_research.json
+
+# Example output:
+# ✅ Exported 127 entities and 243 relationships
+#    File: my_research.json
+#    Size: 2.3 MB
+```
+
+The export file is human-readable JSON containing all entities, relationships, and provenance metadata.
+
+**Import Knowledge Graph:**
+
+Restore or merge graphs from export files:
+
+```bash
+# Merge with existing graph
+kosmos graph --import colleague_research.json
+
+# Replace entire graph (clear first)
+kosmos graph --import baseline_research.json --clear
+```
+
+**Reset Graph:**
+
+Clear all graph data (use with caution):
+
+```bash
+# Prompts for confirmation
+kosmos graph --reset
+
+# Example:
+# ⚠️  Delete all graph data? [y/N]: y
+# ✅ Deleted 127 entities
+```
+
+**Use Cases:**
+
+```bash
+# Daily backup
+kosmos graph --export backups/graph_$(date +%Y%m%d).json
+
+# Share with colleague
+kosmos graph --export team_knowledge.json
+
+# Start fresh after major milestone
+kosmos graph --export milestone_complete.json
+kosmos graph --reset
+```
+
+**See Also:**
+- [World Model Guide](world_model_guide.md) - Complete documentation
+- [Neo4j Setup](#optional-neo4j-knowledge-graph) - Installation instructions
 
 ### Configuration Management
 

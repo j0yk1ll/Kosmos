@@ -32,6 +32,7 @@ Kosmos is **production-ready** (v0.2.0) with all 10 development phases complete:
 - **Autonomous Research Cycle**: Complete end-to-end scientific workflow
 - **Multi-Domain Support**: Biology, physics, chemistry, neuroscience, materials science
 - **Multi-Provider LLM Support**: Choose between Anthropic, OpenAI, or local models
+- **Persistent Knowledge Graphs**: Automatic research tracking with export/import capabilities
 - **Command-line Interface**: Rich terminal interface with 8 commands, interactive mode, and live progress
 - **Agent-Based Architecture**: Modular agents for each research task
 - **Safety-First Design**: Sandboxed execution, validation, reproducibility checks
@@ -70,6 +71,83 @@ OPENAI_MODEL=llama3.1:70b
 - **Access Specialized Models**: Domain-specific or fine-tuned models
 
 **[Provider Setup Guide](docs/providers/README.md)** - Detailed instructions for all supported providers
+
+### Persistent Knowledge Graphs
+
+Kosmos maintains a **persistent knowledge graph** that automatically captures your entire research journey. Every hypothesis, experiment, and finding is stored in a connected graph that survives between sessions.
+
+**What Gets Captured:**
+- Research questions and hypotheses
+- Experiment protocols and results
+- Relationships (SPAWNED_BY, TESTS, SUPPORTS, REFUTES, REFINED_FROM)
+- Rich provenance (who, when, why, confidence scores, p-values)
+
+**Key Benefits:**
+- **Knowledge Accumulation**: Build expertise over weeks/months instead of starting fresh
+- **Research Provenance**: Track how hypotheses evolved and what evidence supports them
+- **Collaboration**: Export and share knowledge graphs with colleagues
+- **Version Control**: Save snapshots at research milestones
+- **Data Safety**: Regular exports protect against data loss
+
+**CLI Commands:**
+
+```bash
+# View your accumulated knowledge
+kosmos graph --stats
+
+# Example output:
+# 📊 Knowledge Graph Statistics
+#
+# Entities:        127
+# Relationships:   243
+#
+# Entity Types:
+#   Hypothesis: 45
+#   ExperimentProtocol: 28
+#   ExperimentResult: 23
+
+# Export for backup or sharing
+kosmos graph --export my_research.json
+
+# Restore from backup
+kosmos graph --import my_research.json
+```
+
+**Automatic Persistence:**
+
+No manual action required! When you run research:
+
+```bash
+kosmos research "How do transformers learn long-range dependencies?"
+```
+
+Kosmos **automatically** persists:
+- ResearchQuestion entity
+- Generated Hypothesis entities + SPAWNED_BY relationships
+- ExperimentProtocol entities + TESTS relationships
+- ExperimentResult entities + SUPPORTS/REFUTES relationships with statistical metadata
+- Refined hypotheses + REFINED_FROM relationships
+
+**Setup:**
+
+```bash
+# Using Docker (recommended)
+docker-compose up -d neo4j
+
+# Or manual Neo4j installation
+# Ubuntu: sudo apt install neo4j
+# macOS: brew install neo4j
+
+# Configure in .env
+NEO4J_URI=bolt://localhost:7687
+NEO4J_PASSWORD=kosmos-password
+WORLD_MODEL_ENABLED=true
+```
+
+**Works Without Neo4j:**
+Kosmos continues working normally if Neo4j is unavailable (graceful degradation). Graph features are optional enhancements.
+
+**[Complete Guide](docs/user/world_model_guide.md)** - Detailed documentation with use cases, advanced queries, and best practices
 
 ### Performance & Scalability
 - **20-40× Overall Performance**: Combined optimizations for significant speedup
