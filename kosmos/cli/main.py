@@ -95,6 +95,14 @@ def main(
     # Configure logging
     setup_logging(verbose=verbose, debug=debug)
 
+    # Initialize database
+    try:
+        from kosmos.db import init_from_config
+        init_from_config()
+    except Exception as e:
+        if debug:
+            logger.warning(f"Could not initialize database: {e}")
+
     # Suppress console output if quiet mode
     if quiet:
         console.quiet = True

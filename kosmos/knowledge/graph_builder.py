@@ -370,6 +370,11 @@ class GraphBuilder:
 
         logger.info("Computing semantic similarity edges...")
 
+        # Check if vector_db was initialized
+        if not hasattr(self, 'vector_db') or self.vector_db is None:
+            logger.warning("Vector DB not initialized. Cannot compute semantic edges.")
+            return
+
         # Ensure papers are in vector DB
         try:
             self.vector_db.add_papers(papers)
