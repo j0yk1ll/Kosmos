@@ -1,6 +1,6 @@
 # Bug Fixes Archive Summary
 **Date Archived:** November 19, 2025
-**Total Bugs Fixed:** 48 (21 CLI-based + 27 Web-based)
+**Total Bugs Fixed:** 50 (21 CLI-based + 27 Web-based + 2 Critical)
 
 ## Branches Merged to Master
 
@@ -27,6 +27,13 @@
   - scipy.stats fixes using statsmodels
   - Code validator AST parsing
   - Resource limit fixes
+
+### 3. Critical Execution Fixes
+- **Bugs Fixed:** 2 execution-blocking bugs
+- **Commit:** 8f675a5
+- **Key Fixes:**
+  - Undefined logger in CLI main.py
+  - Pydantic v1/v2 compatibility wrapper implementation
 
 ## Archived Branches
 
@@ -61,6 +68,11 @@ All bugfix branches have been archived with `archive/` prefix:
    - `MERGE_CONFLICT_STRATEGY.md` - Conflict prevention approach
    - `CLI_MODEL_PROMPT.md` - CLI model instructions
    - `WEB_MODEL_PROMPT.md` - Web model instructions
+
+3. **Critical Bug Fixes (November 19):**
+   - `BUG_FIX_PLAN_2025_11_19.md` - Implementation plan for 2 execution-blocking bugs
+   - `BUG_FIX_COMPLETED_2025_11_19.md` - Completion report with test verification
+   - `bugfixes.png` - Screenshot of bug identification
 
 ## Testing Progress
 
