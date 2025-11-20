@@ -19,10 +19,10 @@ from datetime import datetime
 from contextlib import contextmanager
 
 from kosmos.models.safety import (
-from kosmos.utils.compat import model_to_dict
     SafetyReport, SafetyIncident, ViolationType, RiskLevel,
     ResourceLimit, EmergencyStopStatus
 )
+from kosmos.utils.compat import model_to_dict
 from kosmos.safety.code_validator import CodeValidator
 from kosmos.config import get_config
 

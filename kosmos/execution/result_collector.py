@@ -17,10 +17,10 @@ import numpy as np
 import pandas as pd
 
 from kosmos.models.result import (
-from kosmos.utils.compat import model_to_dict
     ExperimentResult, ResultStatus, ExecutionMetadata,
     StatisticalTestResult, VariableResult, ResultExport
 )
+from kosmos.utils.compat import model_to_dict
 from kosmos.models.experiment import ExperimentProtocol
 from kosmos.db import operations as db_ops, get_session
 

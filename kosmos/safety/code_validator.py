@@ -15,10 +15,10 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from kosmos.models.safety import (
-from kosmos.utils.compat import model_to_dict
     SafetyReport, SafetyViolation, ViolationType, RiskLevel,
     EthicalGuideline, ApprovalRequest, ApprovalStatus
 )
+from kosmos.utils.compat import model_to_dict
 from kosmos.config import get_config
 
 logger = logging.getLogger(__name__)

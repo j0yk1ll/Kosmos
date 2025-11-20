@@ -46,11 +46,11 @@ dependencies = [
     "tenacity>=8.2.0",
 
     # Scientific computing
-    "numpy>=1.24.0",        # Allow 2.x for pydeseq2 compatibility
+    "numpy>=1.24.0,<2.0.0",     # Pin to 1.x for compatibility
     "pandas>=2.0.0",
-    "scipy>=1.10.0",
+    "scipy>=1.10.0,<1.14.0",    # Pin to <1.14.0 for NumPy 1.x compatibility
     "scikit-learn>=1.3.0",
-    "statsmodels>=0.14.0",  # Statistical power analysis (Phase 4)
+    "statsmodels>=0.14.0",      # Statistical power analysis (Phase 4)
 
     # Visualization
     "matplotlib>=3.7.0",
