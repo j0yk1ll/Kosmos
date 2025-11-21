@@ -874,6 +874,84 @@ If you use Kosmos in your research, please cite:
 - **Edison Scientific** for kosmos-figures analysis patterns
 - **Open science community** for literature APIs and tools
 
+## Troubleshooting
+
+### "Database fails" Error
+
+If `kosmos doctor` shows database issues:
+
+```bash
+# Check Docker containers are running
+docker-compose ps
+
+# Should show all services as "Up (healthy)"
+# If not, restart services:
+docker-compose restart neo4j postgres redis
+
+# Re-run diagnostics
+kosmos doctor
+```
+
+**Note**: Minor warnings about missing indexes are normal and don't block functionality.
+
+### "Sandbox errors" When Running Experiments
+
+If experiments fail with Docker/sandbox errors:
+
+```bash
+# Rebuild sandbox image with latest dependencies
+docker build -t kosmos-sandbox:latest docker/sandbox/
+
+# Verify image exists
+docker images | grep kosmos-sandbox
+
+# Test sandbox
+docker run --rm kosmos-sandbox:latest python3 --version
+```
+
+### "Neo4j connection" Issues
+
+If knowledge graph features fail:
+
+```bash
+# Check Neo4j is running
+docker logs kosmos-neo4j
+
+# Restart Neo4j if needed
+docker-compose restart neo4j
+
+# Verify Neo4j is accessible
+curl http://localhost:7474  # Should return HTTP 200
+
+# Access Neo4j browser (optional)
+# Open http://localhost:7474 in browser
+# Login: neo4j / kosmos-password
+```
+
+### "Import errors" for Advanced Analytics
+
+If you see `ModuleNotFoundError` for new features:
+
+```bash
+# Reinstall with latest dependencies
+pip install -e . --upgrade
+
+# Verify advanced analytics packages
+pip list | grep -E "shap|gseapy|pwlf|nbformat"
+
+# Should show:
+# gseapy       1.1.11
+# shap         0.49.1
+# pwlf         2.5.2
+# nbformat     5.10.4
+```
+
+### More Help
+
+- 📖 **New users**: See [Quick Start Guide](docs/setup/QUICK_START.md)
+- 🔄 **Upgrading**: See [Upgrade Guide](docs/setup/UPGRADE_GUIDE.md)
+- 🐛 **Found a bug**: Open an [issue](https://github.com/jimmc414/Kosmos/issues) with `kosmos doctor` output
+
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/jimmc414/Kosmos/issues)

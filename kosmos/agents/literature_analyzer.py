@@ -767,12 +767,102 @@ class LiteratureAnalyzerAgent(BaseAgent):
         return bool(paper.title and (paper.abstract or paper.full_text))
 
     def _build_citation_graph_on_demand(self, paper_id: str) -> bool:
-        """Fetch citations from APIs and build in graph."""
-        # This would integrate with Semantic Scholar to fetch citation data
-        # and use GraphBuilder to populate Neo4j
-        # Placeholder for now
-        logger.info(f"Would build citation graph for {paper_id}")
-        return False
+        """
+        Fetch citations from APIs and build in graph.
+
+        Integrates with Semantic Scholar API to fetch citation data
+        and populate Neo4j knowledge graph.
+
+        Args:
+            paper_id: Paper identifier (arXiv, DOI, S2, etc.)
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            from kosmos.literature.semantic_scholar import SemanticScholarClient
+
+            # Initialize Semantic Scholar client
+            ss_client = SemanticScholarClient()
+
+            # Fetch paper details with citations
+            try:
+                paper_data = ss_client.get_paper(paper_id, fields=['citations', 'references', 'title', 'year', 'authors'])
+            except Exception as e:
+                logger.warning(f"Failed to fetch paper from Semantic Scholar: {e}")
+                return False
+
+            if not paper_data:
+                logger.warning(f"Paper {paper_id} not found in Semantic Scholar")
+                return False
+
+            # Add main paper to knowledge graph
+            if self.knowledge_graph:
+                try:
+                    from kosmos.literature.base_client import PaperMetadata, PaperSource
+
+                    # Create PaperMetadata object
+                    paper_meta = PaperMetadata(
+                        title=paper_data.get('title', ''),
+                        authors=[a.get('name', '') for a in paper_data.get('authors', [])],
+                        year=paper_data.get('year'),
+                        abstract=paper_data.get('abstract', ''),
+                        source=PaperSource.SEMANTIC_SCHOLAR,
+                        source_id=paper_data.get('paperId', paper_id)
+                    )
+
+                    # Add paper node
+                    self.knowledge_graph.add_paper(paper_meta)
+
+                    # Add citations (papers this paper cites)
+                    references = paper_data.get('references', [])
+                    for ref in references[:50]:  # Limit to 50 most relevant
+                        if ref and ref.get('paperId'):
+                            ref_meta = PaperMetadata(
+                                title=ref.get('title', ''),
+                                authors=[a.get('name', '') for a in ref.get('authors', [])],
+                                year=ref.get('year'),
+                                source=PaperSource.SEMANTIC_SCHOLAR,
+                                source_id=ref['paperId']
+                            )
+
+                            self.knowledge_graph.add_paper(ref_meta)
+                            self.knowledge_graph.add_citation(
+                                citing_paper_id=paper_meta.primary_identifier,
+                                cited_paper_id=ref_meta.primary_identifier
+                            )
+
+                    # Add citing papers (papers that cite this paper)
+                    citations = paper_data.get('citations', [])
+                    for cite in citations[:50]:  # Limit to 50 most relevant
+                        if cite and cite.get('paperId'):
+                            cite_meta = PaperMetadata(
+                                title=cite.get('title', ''),
+                                authors=[a.get('name', '') for a in cite.get('authors', [])],
+                                year=cite.get('year'),
+                                source=PaperSource.SEMANTIC_SCHOLAR,
+                                source_id=cite['paperId']
+                            )
+
+                            self.knowledge_graph.add_paper(cite_meta)
+                            self.knowledge_graph.add_citation(
+                                citing_paper_id=cite_meta.primary_identifier,
+                                cited_paper_id=paper_meta.primary_identifier
+                            )
+
+                    logger.info(f"Built citation graph for {paper_id}: {len(references)} references, {len(citations)} citations")
+                    return True
+
+                except Exception as e:
+                    logger.error(f"Failed to add citations to knowledge graph: {e}")
+                    return False
+            else:
+                logger.warning("Knowledge graph not available")
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to build citation graph for {paper_id}: {e}")
+            return False
 
     # Prompt builders
 

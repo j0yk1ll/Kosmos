@@ -25,3 +25,10 @@ pytz==2024.1
 
 # Optional: Additional scientific libraries
 sympy==1.12
+
+# Advanced Analytics (REQ-DAA-CAP-005, REQ-DAA-CAP-008, REQ-DAA-SUM-004)
+shap>=0.44.0          # Feature importance analysis
+gseapy>=1.0.0         # Pathway enrichment analysis
+pwlf>=2.2.0           # Segmented regression
+nbformat>=5.9.0       # Jupyter notebook support
+nbconvert>=7.11.0     # Jupyter notebook conversion

@@ -151,9 +151,8 @@ def validate_database_schema(database_url: str) -> dict:
             "papers",
             "agents",
             "research_sessions",
-            "performance_metrics",      # From migration 2
-            "execution_trace",          # From migration 2
-            "memory_usage",            # From migration 2
+            "execution_profiles",       # From migration dc24ead48293 (profiling tables)
+            "profiling_bottlenecks",   # From migration dc24ead48293 (profiling tables)
             "alembic_version"
         }
 

@@ -76,9 +76,16 @@ dependencies = [
     "pykegg>=0.1.0",              # KEGG pathway database API
     "mygene>=3.2.0",              # Gene annotation queries
     "pyensembl>=2.3.0",           # Ensembl genome database API
+    "gseapy>=1.0.0",              # Gene Set Enrichment Analysis (pathway enrichment - REQ-DAA-CAP-008)
 
     # Phase 9: Multi-Domain Support - Neuroscience
     "pydeseq2>=0.4.0",            # Differential expression analysis
+
+    # Advanced Analytics (REQ-DAA-CAP-005)
+    "shap>=0.44.0",               # SHAP values for feature importance
+    "pwlf>=2.2.0",                # Piecewise Linear Fit (segmented regression)
+    "nbformat>=5.9.0",            # Jupyter notebook format support (REQ-DAA-SUM-004)
+    "nbconvert>=7.11.0",          # Jupyter notebook conversion
 
     # Phase 9: Multi-Domain Support - Materials/Physics
     "pymatgen>=2024.1.0",         # Materials analysis and property prediction

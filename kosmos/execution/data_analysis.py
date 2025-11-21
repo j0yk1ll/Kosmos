@@ -393,6 +393,433 @@ class DataAnalyzer:
             'n_groups': int(len(unique_groups))
         }
 
+    @staticmethod
+    def shap_feature_importance(
+        model,
+        X_train: Union[pd.DataFrame, np.ndarray],
+        X_test: Optional[Union[pd.DataFrame, np.ndarray]] = None,
+        max_display: int = 20
+    ) -> Dict[str, Any]:
+        """
+        Calculate SHAP values for feature importance explanation (REQ-DAA-CAP-005).
+
+        SHAP (SHapley Additive exPlanations) provides unified measure of feature
+        importance based on cooperative game theory.
+
+        Args:
+            model: Trained sklearn model (tree-based models work best)
+            X_train: Training data for background distribution
+            X_test: Test data to explain (if None, uses X_train sample)
+            max_display: Maximum features to include in results
+
+        Returns:
+            Dictionary with:
+                - feature_importance: Dict of {feature: importance}
+                - shap_values: SHAP values array
+                - base_value: Expected model output
+                - feature_names: List of feature names
+
+        Example:
+            >>> from sklearn.ensemble import RandomForestClassifier
+            >>> model = RandomForestClassifier().fit(X_train, y_train)
+            >>> result = DataAnalyzer.shap_feature_importance(model, X_train, X_test)
+            >>> print(result['feature_importance'])
+        """
+        try:
+            import shap
+        except ImportError:
+            raise ImportError("shap package required. Install with: pip install shap")
+
+        # Convert to DataFrame if numpy array
+        if isinstance(X_train, np.ndarray):
+            X_train = pd.DataFrame(X_train, columns=[f'feature_{i}' for i in range(X_train.shape[1])])
+
+        if X_test is None:
+            # Sample from training data
+            X_test = X_train.sample(min(100, len(X_train)))
+        elif isinstance(X_test, np.ndarray):
+            X_test = pd.DataFrame(X_test, columns=X_train.columns)
+
+        # Create explainer (TreeExplainer for tree models, otherwise KernelExplainer)
+        try:
+            explainer = shap.TreeExplainer(model)
+        except Exception:
+            # Fallback to KernelExplainer for non-tree models
+            explainer = shap.KernelExplainer(model.predict, shap.sample(X_train, 100))
+
+        # Calculate SHAP values
+        shap_values = explainer.shap_values(X_test)
+
+        # Handle multi-output case (classification with >2 classes)
+        if isinstance(shap_values, list):
+            # Use first class for importance ranking
+            shap_values_importance = np.abs(shap_values[0]).mean(axis=0)
+        else:
+            shap_values_importance = np.abs(shap_values).mean(axis=0)
+
+        # Create feature importance dictionary
+        feature_importance = dict(zip(
+            X_train.columns,
+            shap_values_importance
+        ))
+
+        # Sort by importance
+        feature_importance = dict(sorted(
+            feature_importance.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:max_display])
+
+        return {
+            'feature_importance': {k: float(v) for k, v in feature_importance.items()},
+            'base_value': float(explainer.expected_value if not isinstance(explainer.expected_value, list) else explainer.expected_value[0]),
+            'feature_names': list(X_train.columns),
+            'n_samples': int(len(X_test))
+        }
+
+    @staticmethod
+    def pathway_enrichment_analysis(
+        gene_list: List[str],
+        organism: str = 'human',
+        gene_sets: str = 'KEGG_2021_Human',
+        outdir: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Perform pathway enrichment analysis using gseapy (REQ-DAA-CAP-008).
+
+        Identifies biological pathways that are over-represented in gene list.
+
+        Args:
+            gene_list: List of gene symbols
+            organism: Species ('human', 'mouse', etc.)
+            gene_sets: Gene set library (KEGG, GO, Reactome, etc.)
+            outdir: Output directory for plots (optional)
+
+        Returns:
+            Dictionary with:
+                - enriched_pathways: List of enriched pathways
+                - top_pathway: Most significant pathway
+                - significant_count: Number of significant pathways
+                - results_table: Full results as dict
+
+        Example:
+            >>> genes = ['BRCA1', 'TP53', 'EGFR', 'KRAS']
+            >>> result = DataAnalyzer.pathway_enrichment_analysis(genes)
+            >>> print(result['top_pathway'])
+        """
+        try:
+            import gseapy as gp
+        except ImportError:
+            raise ImportError("gseapy package required. Install with: pip install gseapy")
+
+        # Run enrichment analysis
+        enr = gp.enrichr(
+            gene_list=gene_list,
+            gene_sets=gene_sets,
+            organism=organism.capitalize(),
+            outdir=outdir,
+            no_plot=True if outdir is None else False,
+            cutoff=0.05  # Adjusted p-value cutoff
+        )
+
+        results_df = enr.results
+
+        # Extract significant pathways
+        significant = results_df[results_df['Adjusted P-value'] < 0.05]
+
+        enriched_pathways = []
+        for _, row in significant.iterrows():
+            enriched_pathways.append({
+                'pathway': row['Term'],
+                'p_value': float(row['P-value']),
+                'adj_p_value': float(row['Adjusted P-value']),
+                'genes': row['Genes'].split(';') if isinstance(row['Genes'], str) else [],
+                'n_genes': int(row['Overlap'].split('/')[0]) if '/' in str(row['Overlap']) else 0
+            })
+
+        return {
+            'enriched_pathways': enriched_pathways,
+            'top_pathway': enriched_pathways[0] if enriched_pathways else None,
+            'significant_count': len(enriched_pathways),
+            'total_tested': len(results_df)
+        }
+
+    @staticmethod
+    def fit_distributions(
+        data: pd.Series,
+        distributions: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Fit multiple statistical distributions and find best fit (REQ-DAA-CAP-005).
+
+        Args:
+            data: Data to fit
+            distributions: List of distribution names (default: common distributions)
+
+        Returns:
+            Dictionary with:
+                - best_fit: Best distribution name
+                - best_params: Parameters of best distribution
+                - aic_scores: AIC scores for all distributions
+                - ks_test: Kolmogorov-Smirnov test results
+
+        Example:
+            >>> data = pd.Series(np.random.lognormal(0, 1, 1000))
+            >>> result = DataAnalyzer.fit_distributions(data)
+            >>> print(f"Best fit: {result['best_fit']}")
+        """
+        if distributions is None:
+            distributions = ['norm', 'lognorm', 'gamma', 'expon', 'weibull_min']
+
+        # Remove NaN values
+        data_clean = data.dropna()
+
+        results = {}
+        best_aic = float('inf')
+        best_dist = None
+        best_params = None
+
+        for dist_name in distributions:
+            try:
+                dist = getattr(stats, dist_name)
+
+                # Fit distribution
+                params = dist.fit(data_clean)
+
+                # Calculate AIC (Akaike Information Criterion)
+                log_likelihood = np.sum(dist.logpdf(data_clean, *params))
+                k = len(params)  # Number of parameters
+                aic = 2 * k - 2 * log_likelihood
+
+                # Kolmogorov-Smirnov test
+                ks_stat, ks_pvalue = stats.kstest(data_clean, dist_name, args=params)
+
+                results[dist_name] = {
+                    'params': params,
+                    'aic': float(aic),
+                    'ks_statistic': float(ks_stat),
+                    'ks_pvalue': float(ks_pvalue)
+                }
+
+                if aic < best_aic:
+                    best_aic = aic
+                    best_dist = dist_name
+                    best_params = params
+
+            except Exception as e:
+                logger.debug(f"Failed to fit {dist_name}: {e}")
+                continue
+
+        return {
+            'best_fit': best_dist,
+            'best_params': list(best_params) if best_params else None,
+            'aic_scores': {k: v['aic'] for k, v in results.items()},
+            'all_results': results
+        }
+
+    @staticmethod
+    def segmented_regression(
+        x: Union[pd.Series, np.ndarray],
+        y: Union[pd.Series, np.ndarray],
+        n_breakpoints: int = 1
+    ) -> Dict[str, Any]:
+        """
+        Perform piecewise linear (segmented) regression (REQ-DAA-CAP-005).
+
+        Fits multiple linear segments to data, useful for identifying regime changes.
+
+        Args:
+            x: Independent variable
+            y: Dependent variable
+            n_breakpoints: Number of breakpoints (segments = breakpoints + 1)
+
+        Returns:
+            Dictionary with:
+                - breakpoints: List of breakpoint locations
+                - slopes: Slope of each segment
+                - intercepts: Intercept of each segment
+                - r_squared: R² of the fit
+
+        Example:
+            >>> x = np.array([1, 2, 3, 4, 5, 6, 7, 8])
+            >>> y = np.array([1, 2, 3, 3.5, 4, 5, 6, 7])  # Change at x=4
+            >>> result = DataAnalyzer.segmented_regression(x, y, n_breakpoints=1)
+            >>> print(f"Breakpoint at x={result['breakpoints'][0]:.2f}")
+        """
+        try:
+            import pwlf
+        except ImportError:
+            raise ImportError("pwlf package required. Install with: pip install pwlf")
+
+        # Convert to numpy arrays
+        if isinstance(x, pd.Series):
+            x = x.values
+        if isinstance(y, pd.Series):
+            y = y.values
+
+        # Initialize piecewise linear fit
+        model = pwlf.PiecewiseLinFit(x, y)
+
+        # Fit model
+        breakpoints = model.fit(n_breakpoints + 1)  # +1 because includes endpoints
+
+        # Get slopes and intercepts for each segment
+        slopes = model.calc_slopes()
+        intercepts = []
+
+        # Calculate R²
+        y_pred = model.predict(x)
+        ss_res = np.sum((y - y_pred) ** 2)
+        ss_tot = np.sum((y - np.mean(y)) ** 2)
+        r_squared = 1 - (ss_res / ss_tot)
+
+        return {
+            'breakpoints': [float(bp) for bp in breakpoints[1:-1]],  # Exclude endpoints
+            'slopes': [float(s) for s in slopes],
+            'r_squared': float(r_squared),
+            'prediction_function': lambda x_new: model.predict(x_new)
+        }
+
+    @staticmethod
+    def create_publication_plot(
+        data: Union[pd.DataFrame, Dict[str, Any]],
+        plot_type: str,
+        output_path: str,
+        title: Optional[str] = None,
+        **kwargs
+    ) -> str:
+        """
+        Generate publication-quality plots (REQ-DAA-CAP-006).
+
+        Args:
+            data: Data to plot (DataFrame or dict)
+            plot_type: Type of plot ('scatter', 'boxplot', 'heatmap', 'distribution', 'bar')
+            output_path: Path to save figure
+            title: Plot title
+            **kwargs: Additional plot-specific parameters
+
+        Returns:
+            str: Path to saved figure
+
+        Example:
+            >>> df = pd.DataFrame({'x': [1,2,3,4], 'y': [2,4,6,8]})
+            >>> path = DataAnalyzer.create_publication_plot(
+            ...     df, 'scatter', 'output.png',
+            ...     x='x', y='y', title='My Plot'
+            ... )
+        """
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        # Set publication-quality style
+        sns.set_style('whitegrid')
+        plt.rcParams['font.size'] = 12
+        plt.rcParams['axes.labelsize'] = 14
+        plt.rcParams['axes.titlesize'] = 16
+        plt.rcParams['xtick.labelsize'] = 11
+        plt.rcParams['ytick.labelsize'] = 11
+        plt.rcParams['legend.fontsize'] = 11
+        plt.rcParams['figure.dpi'] = 300
+
+        fig, ax = plt.subplots(figsize=kwargs.get('figsize', (8, 6)))
+
+        if plot_type == 'scatter':
+            x_col = kwargs.get('x')
+            y_col = kwargs.get('y')
+            if isinstance(data, pd.DataFrame):
+                ax.scatter(data[x_col], data[y_col], alpha=0.6)
+                ax.set_xlabel(x_col)
+                ax.set_ylabel(y_col)
+
+        elif plot_type == 'boxplot':
+            if isinstance(data, pd.DataFrame):
+                data.boxplot(ax=ax, **{k: v for k, v in kwargs.items() if k not in ['figsize']})
+
+        elif plot_type == 'heatmap':
+            if isinstance(data, pd.DataFrame):
+                sns.heatmap(data, annot=True, fmt='.2f', cmap='coolwarm', ax=ax)
+
+        elif plot_type == 'distribution':
+            values = kwargs.get('values')
+            if values is not None:
+                ax.hist(values, bins=kwargs.get('bins', 30), alpha=0.7, edgecolor='black')
+                ax.set_xlabel(kwargs.get('xlabel', 'Value'))
+                ax.set_ylabel(kwargs.get('ylabel', 'Frequency'))
+
+        elif plot_type == 'bar':
+            x_col = kwargs.get('x')
+            y_col = kwargs.get('y')
+            if isinstance(data, pd.DataFrame):
+                data.plot(x=x_col, y=y_col, kind='bar', ax=ax, legend=False)
+
+        if title:
+            ax.set_title(title)
+
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+
+        logger.info(f"Saved publication plot to {output_path}")
+        return output_path
+
+    @staticmethod
+    def save_to_notebook(
+        analysis_results: Dict[str, Any],
+        output_path: str,
+        title: str = "Data Analysis Results"
+    ) -> str:
+        """
+        Save analysis results to Jupyter notebook format (REQ-DAA-SUM-004).
+
+        Each statement should cite a Jupyter notebook for traceability.
+
+        Args:
+            analysis_results: Dictionary containing analysis results
+            output_path: Path to save .ipynb file
+            title: Notebook title
+
+        Returns:
+            str: Path to saved notebook
+
+        Example:
+            >>> results = {'mean': 5.0, 'std': 1.2, 'p_value': 0.03}
+            >>> path = DataAnalyzer.save_to_notebook(
+            ...     results, 'analysis.ipynb', 'Statistical Analysis'
+            ... )
+        """
+        try:
+            import nbformat
+            from nbformat.v4 import new_notebook, new_markdown_cell, new_code_cell
+        except ImportError:
+            raise ImportError("nbformat required. Install with: pip install nbformat")
+
+        # Create new notebook
+        nb = new_notebook()
+
+        # Add title cell
+        nb.cells.append(new_markdown_cell(f"# {title}\n\nGenerated by Kosmos AI Scientist"))
+
+        # Add results as code cells with outputs
+        for key, value in analysis_results.items():
+            # Create code that produces the result
+            code = f"# {key}\nresult = {repr(value)}\nprint(result)"
+
+            cell = new_code_cell(code)
+            # Add output
+            cell.outputs = [{
+                'output_type': 'stream',
+                'name': 'stdout',
+                'text': str(value)
+            }]
+            nb.cells.append(cell)
+
+        # Save notebook
+        with open(output_path, 'w') as f:
+            nbformat.write(nb, f)
+
+        logger.info(f"Saved analysis notebook to {output_path}")
+        return output_path
+
 
 class DataLoader:
     """
