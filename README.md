@@ -5,7 +5,6 @@
 [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/jimmc414/Kosmos)
 [![Status](https://img.shields.io/badge/status-e2e%20testing-yellow.svg)](https://github.com/jimmc414/Kosmos)
 [![Tests](https://img.shields.io/badge/tests-in%20development-yellow.svg)](https://github.com/jimmc414/Kosmos)
-[![Performance](https://img.shields.io/badge/performance-20--40×%20faster-blue.svg)](https://github.com/jimmc414/Kosmos)
 
 Kosmos is an open-source implementation of an autonomous AI scientist that conducts research cycles: literature analysis, hypothesis generation, experimental design, execution, analysis, and iterative refinement.
 
