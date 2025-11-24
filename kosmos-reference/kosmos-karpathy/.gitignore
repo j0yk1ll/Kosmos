@@ -1,0 +1,36 @@
+# Environment
+.env
+
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# uv
+uv.lock
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Project specific
+sandbox/
+
+# Modal
+.modal/
