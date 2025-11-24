@@ -135,3 +135,6 @@ pgadmin_data/
 
 # Local analysis files
 req_to_paper_analysis_*.md
+
+# Reference repositories (cloned for implementation patterns)
+kosmos-reference/

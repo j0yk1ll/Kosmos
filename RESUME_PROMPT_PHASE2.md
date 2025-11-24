@@ -284,7 +284,7 @@ git status
 **Config in .env:**
 ```bash
 LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-c3447443aa1e40c4bb4d10d74f70280a
+OPENAI_API_KEY=<see .env>
 OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_MODEL=deepseek-chat
 ```
