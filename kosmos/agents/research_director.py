@@ -1447,10 +1447,16 @@ Provide a structured, actionable plan in 2-3 paragraphs.
             logger.info("Iteration limit reached")
             return True
 
-        # Check if no testable hypotheses (mandatory)
+        # Don't converge if we haven't generated any hypotheses yet
+        # Let the state machine handle generating hypotheses first
         if not self.research_plan.hypothesis_pool:
-            logger.info("No hypotheses in pool")
-            return True
+            # Only converge if we're past the hypothesis generation state
+            # and hypothesis generation was attempted but failed
+            if self.workflow.current_state != WorkflowState.GENERATING_HYPOTHESES:
+                logger.info("No hypotheses in pool after generation attempted")
+                return True
+            # Otherwise, let it try to generate hypotheses first
+            return False
 
         untested = self.research_plan.get_untested_hypotheses()
         if not untested and not self.research_plan.experiment_queue:

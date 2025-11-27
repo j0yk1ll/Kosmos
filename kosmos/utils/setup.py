@@ -164,12 +164,12 @@ def validate_database_schema(database_url: str) -> dict:
             results["complete"] = False
             results["missing_tables"] = sorted(missing_tables)
 
-        # Expected indexes (from migration 3)
+        # Expected indexes (from migration 3) - uses idx_ prefix
         expected_indexes = {
-            "hypotheses": ["ix_hypotheses_domain_status"],
-            "experiments": ["ix_experiments_created_at", "ix_experiments_domain_status"],
-            "results": ["ix_results_experiment_id"],
-            "papers": ["ix_papers_domain_relevance"]
+            "hypotheses": ["idx_hypotheses_domain_status"],
+            "experiments": ["idx_experiments_created_at", "idx_experiments_domain_status"],
+            "results": ["idx_results_experiment_id"],
+            "papers": ["idx_papers_domain_relevance"]
         }
 
         # Check indexes for each table

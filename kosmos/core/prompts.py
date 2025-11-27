@@ -73,6 +73,18 @@ class PromptTemplate:
 
         return self._template.safe_substitute(**kwargs)
 
+    def format(self, **kwargs) -> str:
+        """
+        Alias for render() to match common string formatting convention.
+
+        Args:
+            **kwargs: Variable values
+
+        Returns:
+            str: Rendered prompt
+        """
+        return self.render(**kwargs)
+
     def get_full_prompt(self, **kwargs) -> Dict[str, str]:
         """
         Get both system and user prompts.

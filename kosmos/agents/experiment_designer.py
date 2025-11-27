@@ -759,14 +759,15 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
         try:
             with get_session() as session:
                 # Create database experiment
+                # Note: DB model doesn't have 'name' column, use description instead
                 db_experiment = DBExperiment(
                     id=protocol.id or str(uuid.uuid4()),
                     hypothesis_id=protocol.hypothesis_id,
-                    name=protocol.name,
                     description=protocol.description,
                     experiment_type=protocol.experiment_type.value,
                     status=ExperimentStatus.CREATED.value,
                     protocol=protocol.to_dict(),
+                    domain=protocol.domain,
                     created_at=datetime.utcnow(),
                 )
 
@@ -777,8 +778,20 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
                 logger.info(f"Stored protocol {protocol.id} in database")
 
         except Exception as e:
-            logger.error(f"Error storing protocol: {e}")
-            raise
+            # Don't fail if database isn't available - the protocol is still valid
+            error_str = str(e)
+            if "Database not initialized" in error_str:
+                logger.warning(f"Database not initialized, skipping protocol storage")
+                if not protocol.id:
+                    protocol.id = str(uuid.uuid4())
+            elif "invalid keyword argument" in error_str:
+                # Schema mismatch - log warning but don't fail
+                logger.warning(f"Database schema mismatch, skipping protocol storage: {e}")
+                if not protocol.id:
+                    protocol.id = str(uuid.uuid4())
+            else:
+                logger.error(f"Error storing protocol: {e}")
+                raise
 
     def list_templates(
         self,

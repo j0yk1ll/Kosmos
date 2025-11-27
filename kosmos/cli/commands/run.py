@@ -116,7 +116,11 @@ def run_research(
         config_obj.research.max_iterations = max_iterations
         if budget:
             config_obj.research.budget_usd = budget
-        config_obj.claude.enable_cache = not no_cache
+
+        # Handle cache setting - claude config may be None for non-Anthropic providers
+        cache_enabled = not no_cache
+        if config_obj.claude:
+            config_obj.claude.enable_cache = cache_enabled
 
         # Create flattened config dict for agents
         # Agents expect flat keys, not nested KosmosConfig structure
@@ -138,7 +142,7 @@ def run_research(
 
             # LLM provider settings
             "llm_provider": config_obj.llm_provider,
-            "enable_cache": config_obj.claude.enable_cache,
+            "enable_cache": cache_enabled,
         }
 
         # Create research director

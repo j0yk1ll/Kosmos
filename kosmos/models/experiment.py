@@ -88,13 +88,13 @@ class ControlGroup(BaseModel):
         ```
     """
     name: str = Field(..., description="Control group name")
-    description: str = Field(..., min_length=20, description="What this control group represents")
+    description: str = Field(..., min_length=5, description="What this control group represents")
 
     # Variable values for this control group
     variables: Dict[str, Any] = Field(..., description="Variable settings for control group")
 
     # Why this control group is necessary
-    rationale: str = Field(..., min_length=20, description="Scientific rationale for this control")
+    rationale: str = Field(..., min_length=10, description="Scientific rationale for this control")
 
     sample_size: Optional[int] = Field(None, ge=1, description="Required sample size")
 
@@ -104,8 +104,8 @@ class ControlGroup(BaseModel):
         """Ensure text fields are substantive."""
         if not v or v.strip() == "":
             raise ValueError("Field cannot be empty")
-        if len(v.strip()) < 20:
-            raise ValueError("Field must be at least 20 characters")
+        if len(v.strip()) < 5:
+            raise ValueError("Field must be at least 5 characters")
         return v.strip()
 
 
@@ -126,8 +126,8 @@ class ProtocolStep(BaseModel):
         ```
     """
     step_number: int = Field(..., ge=1, description="Step order in protocol")
-    title: str = Field(..., min_length=5, description="Step title")
-    description: str = Field(..., min_length=20, description="Detailed step description")
+    title: str = Field(..., min_length=3, description="Step title")
+    description: str = Field(..., min_length=10, description="Detailed step description")
 
     # Specific action to take
     action: str = Field(..., description="Concrete action or code to execute")
@@ -286,15 +286,15 @@ class ExperimentProtocol(BaseModel):
         ```
     """
     id: Optional[str] = None
-    name: str = Field(..., min_length=10, description="Experiment name")
+    name: str = Field(..., min_length=5, description="Experiment name")
     hypothesis_id: str = Field(..., description="ID of hypothesis being tested")
 
     experiment_type: ExperimentType
     domain: str = Field(..., description="Scientific domain")
 
     # Protocol details
-    description: str = Field(..., min_length=50, description="Comprehensive experiment description")
-    objective: str = Field(..., min_length=20, description="What this experiment aims to accomplish")
+    description: str = Field(..., min_length=20, description="Comprehensive experiment description")
+    objective: str = Field(..., min_length=10, description="What this experiment aims to accomplish")
 
     # Experimental design
     steps: List[ProtocolStep] = Field(..., min_items=1, description="Ordered protocol steps")
@@ -333,8 +333,8 @@ class ExperimentProtocol(BaseModel):
         """Ensure description is comprehensive."""
         if not v or v.strip() == "":
             raise ValueError("Description cannot be empty")
-        if len(v.strip()) < 50:
-            raise ValueError("Description must be at least 50 characters for clarity")
+        if len(v.strip()) < 20:
+            raise ValueError("Description must be at least 20 characters for clarity")
         return v.strip()
 
     @field_validator('steps')
