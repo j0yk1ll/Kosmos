@@ -5,9 +5,9 @@ Open-source implementation of the autonomous AI scientist described in [Lu et al
 [![Version](https://img.shields.io/badge/version-0.2.0--alpha-blue.svg)](https://github.com/jimmc414/Kosmos)
 [![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/jimmc414/Kosmos)
 [![Implementation](https://img.shields.io/badge/gaps-6%2F6%20complete-green.svg)](IMPLEMENTATION_REPORT.md)
-[![Tests](https://img.shields.io/badge/tests-339%20passing-brightgreen.svg)](TESTS_STATUS.md)
+[![Tests](https://img.shields.io/badge/E2E-32%2F39%20passing-yellow.svg)](TESTS_STATUS.md)
 
-**Current state**: All 6 gaps implemented. Next step is end-to-end integration testing.
+**Current state**: All 6 gaps implemented. E2E testing in progress with local LLMs via Ollama/LiteLLM. See [Project Status](#project-status) for honest assessment of remaining work.
 
 ## Paper Gap Analysis
 
@@ -130,37 +130,60 @@ This implementation draws from the K-Dense ecosystem:
 
 Reference repositories in [`kosmos-reference/`](kosmos-reference/). Skills integrated as git subtree at project root.
 
-## Current State
+## Project Status
 
-### Test Results
+### Test Results (as of 2025-11-27)
 
-| Category | Total | Pass | Fail | Notes |
-|----------|-------|------|------|-------|
-| Unit (core gap modules) | 273 | 273 | 0 | All gap implementations tested |
-| Smoke tests | 7 | 7 | 0 | Basic functionality verified |
-| Integration | 96 | 43 | 53 | Some require API updates |
-| E2E | 4 | 0 | 4 | Require Docker + API keys |
+| Category | Total | Pass | Fail | Skip | Notes |
+|----------|-------|------|------|------|-------|
+| Unit tests | 273+ | 273+ | 0 | 0 | Core gap implementations |
+| LiteLLM provider | 20 | 20 | 0 | 0 | Multi-provider support |
+| E2E tests | 39 | 32 | 0 | 7 | Tested with Ollama |
 
-Details in [TESTS_STATUS.md](TESTS_STATUS.md).
+The 7 skipped E2E tests are due to:
+- Docker sandbox not configured (1 test)
+- Neo4j not configured (1 test)
+- Test setup complexity requiring refactoring (4 tests)
+- Database model minor issue (1 test)
 
-### Production Readiness
+### What Works
 
-**Status**: Partially ready.
+- Research workflow initialization and hypothesis generation
+- Experiment design from hypotheses via LLM
+- Result analysis and interpretation
+- Multi-provider LLM support (Anthropic, OpenAI, LiteLLM/Ollama)
+- Basic research cycle progression
 
-The core research workflow (compression, state management, orchestration, validation) is functional and tested. Production deployment requires:
+### What Does Not Work Yet
 
-1. Docker installation for sandboxed code execution
-2. Environment configuration (.env file with API keys)
-3. At least one LLM provider configured (Anthropic or OpenAI)
+1. **Docker sandbox execution**: Code execution currently runs without containerization. The sandbox implementation exists but is not integrated into tests.
 
-See [PRODUCTION_READINESS_REPORT.md](PRODUCTION_READINESS_REPORT.md) for detailed assessment.
+2. **Knowledge graph**: Neo4j integration requires external database setup. The code exists but is untested in E2E flows.
+
+3. **Full autonomous loop**: While individual components work, running 20 cycles with 10 tasks each (as described in the paper) has not been validated. The workflow tends to converge early or requires manual intervention.
+
+4. **Cost tracking**: No mechanism to track or limit API costs during long research runs.
+
+5. **Literature search**: The `arxiv` package has Python 3.11+ compatibility issues. Literature features are limited.
+
+### Honest Assessment
+
+This implementation provides the architectural skeleton described in the Lu et al. paper. The 6 gaps identified in the paper have been filled with working code. However:
+
+- We have not reproduced the paper's claimed 79.4% accuracy or 7 validated discoveries
+- The system has been tested primarily with small local models (Qwen 4B via Ollama), not production-scale LLMs
+- Multi-cycle autonomous research runs have not been validated end-to-end
+- The codebase has accumulated technical debt from rapid development
+
+The project is suitable for experimentation and further development, not production research use.
 
 ### Next Steps
 
-1. End-to-end integration testing with Docker sandbox
-2. Multi-cycle research workflow validation
-3. Performance benchmarking
-4. Integration test API updates
+1. Validate full research cycles with production LLMs
+2. Integrate Docker sandbox into E2E test suite
+3. Fix remaining test setup issues
+4. Add cost tracking and budget limits
+5. Document actual performance vs paper claims
 
 ## Limitations
 
@@ -243,12 +266,18 @@ ANTHROPIC_API_KEY=sk-ant-...
 # OpenAI
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4-turbo
+OPENAI_MODEL=gpt-4o
 
-# Local models (Ollama)
-LLM_PROVIDER=openai
-OPENAI_BASE_URL=http://localhost:11434/v1
-OPENAI_MODEL=llama3.1:70b
+# LiteLLM (supports 100+ providers including local models)
+LLM_PROVIDER=litellm
+LITELLM_MODEL=ollama/llama3.1:8b
+LITELLM_API_BASE=http://localhost:11434
+LITELLM_TIMEOUT=300
+
+# DeepSeek via LiteLLM
+LLM_PROVIDER=litellm
+LITELLM_MODEL=deepseek/deepseek-chat
+LITELLM_API_KEY=sk-...
 ```
 
 ### Optional Services
