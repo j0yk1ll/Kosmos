@@ -235,6 +235,25 @@ class StatisticalTestSpec(BaseModel):
     required_power: float = Field(default=0.8, ge=0.0, le=1.0)
     expected_effect_size: Optional[float] = None
 
+    @field_validator('expected_effect_size', mode='before')
+    @classmethod
+    def parse_effect_size(cls, v):
+        """Parse effect size from string if needed (LLM may return text like 'Medium (Cohen's d = 0.5)')."""
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        if isinstance(v, str):
+            # Try to extract a number from the string
+            import re
+            # Look for patterns like "0.5", "= 0.5", "d = 0.5"
+            match = re.search(r'[-+]?\d*\.?\d+', v)
+            if match:
+                return float(match.group())
+            # Return None if no number found
+            return None
+        return None
+
 
 class ValidationCheck(BaseModel):
     """

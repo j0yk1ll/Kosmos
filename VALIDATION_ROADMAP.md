@@ -40,14 +40,14 @@ The skipped tests are not optional - they represent untested critical path compo
 
 ## Phase 2: Critical Path Completion
 
-**Status:** Not Started
+**Status:** In Progress (2.1 Complete)
 
 **Objective:** Fix skipped tests that block the autonomous research loop.
 
 ### 2.1 Code Generation Path
-- [ ] Unskip test_experiment_designer (stale skip reason)
-- [ ] Fix test_code_generator (needs proper ExperimentProtocol setup)
-- [ ] Verify: hypothesis → experiment → code generation chain works
+- [x] Unskip test_experiment_designer (stale skip reason) - Session 8
+- [x] Fix test_code_generator (needs proper ExperimentProtocol setup) - Session 8
+- [x] Verify: hypothesis → experiment → code generation chain works - Session 8
 
 **Why this matters:** Without code generation, experiments cannot be executed.
 
@@ -67,8 +67,8 @@ The skipped tests are not optional - they represent untested critical path compo
 **Why this matters:** Without analysis, results cannot inform hypothesis refinement.
 
 ### 2.4 Persistence Path
-- [ ] Fix Hypothesis model ID autoincrement issue
-- [ ] Fix test_database_persistence
+- [x] Fix Hypothesis model ID autoincrement issue - Session 8 (was not an issue - uses String UUIDs)
+- [x] Fix test_database_persistence - Session 8
 - [ ] Verify: research state survives restart
 
 **Why this matters:** Long runs require state persistence.
@@ -199,7 +199,7 @@ The skipped tests are not optional - they represent untested critical path compo
 
 | Metric | Paper Claim | Realistic Target | Current |
 |--------|-------------|------------------|---------|
-| E2E Tests | N/A | 39/39 | 32/39 |
+| E2E Tests | N/A | 39/39 | 35/39 |
 | Max Autonomous Cycles | 20 | 10+ | 2-3 |
 | Tasks per Cycle | 10 | 10 | 5 |
 | Accuracy | 79.4% | Measured honestly | Unknown |
@@ -251,4 +251,4 @@ After each phase, create:
 ---
 
 *Roadmap created: 2025-11-27*
-*Last updated: 2025-11-27*
+*Last updated: 2025-11-27 Session 8*

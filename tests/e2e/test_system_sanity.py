@@ -78,15 +78,134 @@ class TestComponentSanity:
         if hasattr(hyp, 'testability_score'):
             print(f"   Testability: {hyp.testability_score}")
 
-    @pytest.mark.skip(reason="PromptTemplate.format() internal framework issue - deferred to Phase 2")
+    @pytest.mark.skipif(
+        not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"),
+        reason="API key required"
+    )
     def test_experiment_designer(self):
         """Test experiment designer creates protocols."""
-        pass
+        from kosmos.agents.experiment_designer import ExperimentDesignerAgent
+        from kosmos.models.hypothesis import Hypothesis
+        import uuid
 
-    @pytest.mark.skip(reason="CodeGenerator requires ExperimentProtocol object - complex setup")
+        print("\n🔬 Testing experiment designer...")
+
+        hypothesis = Hypothesis(
+            id=str(uuid.uuid4()),
+            research_question="Does temperature affect chemical reaction rates?",
+            statement="Higher temperatures increase chemical reaction rates due to increased molecular kinetic energy",
+            rationale="According to kinetic molecular theory, higher temperatures result in faster molecular motion and more frequent collisions with sufficient activation energy",
+            domain="chemistry",
+            testability_score=0.8,
+            novelty_score=0.6
+        )
+
+        designer = ExperimentDesignerAgent()
+        response = designer.design_experiment(hypothesis)
+
+        assert response is not None, "ExperimentDesigner returned None"
+        assert response.protocol is not None, "Response has no protocol"
+        assert response.protocol.hypothesis_id == hypothesis.id, "Protocol hypothesis_id mismatch"
+        assert response.protocol.experiment_type is not None, "Protocol has no experiment_type"
+        assert len(response.protocol.steps) > 0, "Protocol has no steps"
+
+        print(f"✅ Experiment designer operational")
+        print(f"   Protocol: {response.protocol.name}")
+        print(f"   Type: {response.protocol.experiment_type.value}")
+        print(f"   Steps: {len(response.protocol.steps)}")
+
     def test_code_generator(self):
         """Test code generator creates valid Python code."""
-        pass
+        from kosmos.execution.code_generator import ExperimentCodeGenerator
+        from kosmos.models.experiment import (
+            ExperimentProtocol, ProtocolStep, Variable, VariableType,
+            ResourceRequirements, StatisticalTestSpec, StatisticalTest
+        )
+        from kosmos.models.hypothesis import ExperimentType
+
+        print("\n💻 Testing code generator...")
+
+        # Create a complete ExperimentProtocol with correct schema
+        from kosmos.models.experiment import ControlGroup
+
+        protocol = ExperimentProtocol(
+            id="test-e2e-001",
+            hypothesis_id="hyp-e2e-001",
+            name="T-Test Comparison Experiment",
+            domain="statistics",
+            description="Statistical comparison of treatment vs control groups using t-test analysis",
+            objective="Determine if treatment has significant effect on outcome measure",
+            experiment_type=ExperimentType.DATA_ANALYSIS,
+            steps=[
+                ProtocolStep(
+                    step_number=1,
+                    title="Load Data",
+                    description="Load experimental data from CSV source file",
+                    action="df = pd.read_csv('data.csv')"
+                ),
+                ProtocolStep(
+                    step_number=2,
+                    title="Perform T-Test",
+                    description="Run independent samples t-test comparing groups",
+                    action="result = stats.ttest_ind(group1, group2)"
+                )
+            ],
+            variables={
+                "group": Variable(
+                    name="group",
+                    type=VariableType.INDEPENDENT,
+                    description="Treatment group assignment variable"
+                ),
+                "measurement": Variable(
+                    name="measurement",
+                    type=VariableType.DEPENDENT,
+                    description="Primary outcome measurement variable"
+                )
+            },
+            control_groups=[
+                ControlGroup(
+                    name="control",
+                    description="Untreated baseline control group",
+                    variables={"treatment": False},
+                    rationale="Baseline for comparison against treatment group"
+                )
+            ],
+            statistical_tests=[
+                StatisticalTestSpec(
+                    test_type=StatisticalTest.T_TEST,
+                    description="Independent samples t-test for group comparison",
+                    null_hypothesis="No difference between group means",
+                    variables=["measurement"]
+                )
+            ],
+            resource_requirements=ResourceRequirements(
+                estimated_duration_days=1.0,
+                estimated_cost_usd=0.0
+            )
+        )
+
+        # Test code generation without LLM (template-only)
+        generator = ExperimentCodeGenerator(use_templates=True, use_llm=False)
+        code = generator.generate(protocol)
+
+        assert code is not None, "Code generator returned None"
+        assert len(code) > 0, "Generated code is empty"
+        assert "import" in code, "Code missing imports"
+
+        # Verify it's valid Python syntax
+        import ast
+        try:
+            ast.parse(code)
+            syntax_valid = True
+        except SyntaxError as e:
+            syntax_valid = False
+            print(f"   Syntax error: {e}")
+
+        assert syntax_valid, "Generated code has invalid Python syntax"
+
+        print(f"✅ Code generator operational")
+        print(f"   Generated {len(code)} characters of code")
+        print(f"   Syntax: valid Python")
 
     def test_safety_validator(self):
         """Test safety validator blocks dangerous code."""
@@ -150,10 +269,51 @@ print(f"Mean: {result}")
         """Test data analyst interprets results."""
         pass
 
-    @pytest.mark.skip(reason="Hypothesis model ID missing autoincrement=True - model definition issue")
     def test_database_persistence(self):
         """Test database persistence works."""
-        pass
+        from kosmos.db import init_database, get_session
+        from kosmos.db.models import Hypothesis, HypothesisStatus
+        import tempfile
+        import uuid
+
+        print("\n💾 Testing database persistence...")
+
+        # Use a temporary database for testing
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp:
+            db_path = tmp.name
+
+        init_database(f"sqlite:///{db_path}")
+
+        # Create a hypothesis with explicit ID
+        hyp_id = str(uuid.uuid4())
+        with get_session() as session:
+            hypothesis = Hypothesis(
+                id=hyp_id,
+                research_question="Does X affect Y?",
+                statement="X increases Y through mechanism Z",
+                rationale="Prior research suggests a causal relationship between X and Y",
+                domain="test_domain",
+                status=HypothesisStatus.GENERATED,
+                novelty_score=0.75,
+                testability_score=0.80
+            )
+            session.add(hypothesis)
+
+        # Verify retrieval
+        with get_session() as session:
+            retrieved = session.query(Hypothesis).filter(Hypothesis.id == hyp_id).first()
+            assert retrieved is not None, "Failed to retrieve hypothesis"
+            assert retrieved.statement == "X increases Y through mechanism Z"
+            assert retrieved.domain == "test_domain"
+            assert retrieved.novelty_score == 0.75
+
+        # Clean up
+        import os
+        os.unlink(db_path)
+
+        print(f"✅ Database persistence operational")
+        print(f"   Created, stored, and retrieved hypothesis")
+        print(f"   ID: {hyp_id[:8]}...")
 
     @pytest.mark.skip(reason="Neo4j authentication not configured")
     def test_knowledge_graph(self):
