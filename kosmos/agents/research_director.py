@@ -1292,6 +1292,8 @@ Provide a structured, actionable plan in 2-3 paragraphs.
                     try:
                         # Run async evaluation with timeout
                         logger.info(f"Starting concurrent evaluation of {len(hypothesis_batch)} hypotheses")
+                        timeout_seconds = 300
+                        evaluations = None
                         try:
                             # Check if there's already a running event loop
                             loop = asyncio.get_running_loop()
@@ -1299,28 +1301,30 @@ Provide a structured, actionable plan in 2-3 paragraphs.
                             future = asyncio.run_coroutine_threadsafe(
                                 self.evaluate_hypotheses_concurrently(hypothesis_batch), loop
                             )
-                            # Add timeout to prevent indefinite blocking (5 minutes default)
-                            timeout_seconds = 300
                             evaluations = future.result(timeout=timeout_seconds)
                             logger.info(f"Concurrent hypothesis evaluation completed")
                         except RuntimeError:
-                            # No running loop, use asyncio.run
-                            evaluations = asyncio.run(
-                                self.evaluate_hypotheses_concurrently(hypothesis_batch)
-                            )
+                            # No running loop - this can cause issues with nested event loops
+                            # Fall back to sequential execution for safety
+                            logger.warning("No running event loop, falling back to sequential hypothesis evaluation")
+                            evaluations = None
                         except concurrent.futures.TimeoutError:
-                            logger.error(f"Hypothesis evaluation timed out after {timeout_seconds}s")
-                            raise Exception(f"Concurrent hypothesis evaluation timed out")
+                            logger.warning(f"Hypothesis evaluation timed out after {timeout_seconds}s, falling back to sequential")
+                            evaluations = None
 
-                        # Process best candidate(s)
-                        for eval_result in evaluations:
-                            if eval_result.get("recommendation") == "proceed":
-                                self._send_to_experiment_designer(
-                                    hypothesis_id=eval_result["hypothesis_id"]
-                                )
-                                break  # Design experiment for first promising hypothesis
+                        if evaluations:
+                            # Process best candidate(s)
+                            for eval_result in evaluations:
+                                if eval_result.get("recommendation") == "proceed":
+                                    self._send_to_experiment_designer(
+                                        hypothesis_id=eval_result["hypothesis_id"]
+                                    )
+                                    break  # Design experiment for first promising hypothesis
+                            else:
+                                # No promising hypotheses, design for first untested
+                                self._send_to_experiment_designer(hypothesis_id=untested[0])
                         else:
-                            # No promising hypotheses, design for first untested
+                            # Fallback to sequential
                             self._send_to_experiment_designer(hypothesis_id=untested[0])
 
                     except Exception as e:
@@ -1365,6 +1369,8 @@ Provide a structured, actionable plan in 2-3 paragraphs.
                     try:
                         # Run async analysis with timeout
                         logger.info(f"Starting concurrent analysis of {len(result_batch)} results")
+                        timeout_seconds = 300
+                        analyses = None
                         try:
                             # Check if there's already a running event loop
                             loop = asyncio.get_running_loop()
@@ -1372,26 +1378,29 @@ Provide a structured, actionable plan in 2-3 paragraphs.
                             future = asyncio.run_coroutine_threadsafe(
                                 self.analyze_results_concurrently(result_batch), loop
                             )
-                            # Add timeout to prevent indefinite blocking (5 minutes default)
-                            timeout_seconds = 300
                             analyses = future.result(timeout=timeout_seconds)
                             logger.info(f"Concurrent result analysis completed")
                         except RuntimeError:
-                            # No running loop, use asyncio.run
-                            analyses = asyncio.run(
-                                self.analyze_results_concurrently(result_batch)
-                            )
+                            # No running loop - this can cause issues with nested event loops
+                            # Fall back to sequential execution for safety
+                            logger.warning("No running event loop, falling back to sequential result analysis")
+                            analyses = None
                         except concurrent.futures.TimeoutError:
-                            logger.error(f"Result analysis timed out after {timeout_seconds}s")
-                            raise Exception(f"Concurrent result analysis timed out")
+                            logger.warning(f"Result analysis timed out after {timeout_seconds}s, falling back to sequential")
+                            analyses = None
 
-                        # Process analyses and update hypotheses
-                        for analysis in analyses:
-                            result_id = analysis.get("result_id")
-                            # Send to data analyst for full processing
-                            if result_id:
-                                self._send_to_data_analyst(result_id=result_id)
-                                break  # Process one at a time in workflow
+                        if analyses:
+                            # Process analyses and update hypotheses
+                            for analysis in analyses:
+                                result_id = analysis.get("result_id")
+                                # Send to data analyst for full processing
+                                if result_id:
+                                    self._send_to_data_analyst(result_id=result_id)
+                                    break  # Process one at a time in workflow
+                        else:
+                            # Fallback to sequential
+                            result_id = results[-1]
+                            self._send_to_data_analyst(result_id=result_id)
 
                     except Exception as e:
                         logger.error(f"Concurrent result analysis failed: {e}")
