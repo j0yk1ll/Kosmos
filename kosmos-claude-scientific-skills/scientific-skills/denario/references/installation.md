@@ -152,12 +152,12 @@ If older, install a newer version or use pyenv for version management.
 
 **Linux/macOS:**
 ```bash
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 **Windows:**
 ```bash
-venv\Scripts\activate
+.venv\Scripts\activate
 ```
 
 ### Permission Errors

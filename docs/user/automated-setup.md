@@ -122,7 +122,7 @@ Kosmos provides four main automation scripts:
 
 **What it does:**
 - ✓ Checks Python 3.11+ is installed
-- ✓ Creates virtual environment in `venv/`
+- ✓ Creates virtual environment in `.venv/`
 - ✓ Upgrades pip to latest version
 - ✓ Installs all Kosmos dependencies
 - ✓ Copies `.env.example` to `.env` (if needed)
@@ -252,7 +252,7 @@ make verify
 # OR: ./scripts/verify_deployment.sh
 
 # Step 8: Run your first research query
-source venv/bin/activate
+source .venv/bin/activate
 kosmos research "How do neural networks learn?"
 ```
 
@@ -279,7 +279,7 @@ make setup-neo4j
 nano .env
 
 # Step 5: Start using Kosmos
-source venv/bin/activate
+source .venv/bin/activate
 kosmos --help
 ```
 
@@ -303,7 +303,7 @@ make install
 nano .env
 
 # Step 4: Use Kosmos without knowledge graphs
-source venv/bin/activate
+source .venv/bin/activate
 kosmos research "Your question"
 # Note: Knowledge graphs won't persist without Neo4j
 ```
@@ -360,7 +360,7 @@ make logs-postgres  # PostgreSQL logs only
 
 ```bash
 make clean          # Remove caches and temp files
-make clean-all      # Remove caches and venv
+make clean-all      # Remove caches and .venv
 make db-migrate     # Run database migrations
 make info           # Show environment information
 ```
@@ -541,14 +541,14 @@ docker compose ps
 
 ### Issue: "Virtual environment activation not working"
 
-**Problem:** `source venv/bin/activate` doesn't change prompt
+**Problem:** `source .venv/bin/activate` doesn't change prompt
 
 **Solution:**
 
 **Make sure you're in project directory:**
 ```bash
 cd /path/to/Kosmos
-ls venv/  # Should show bin/, lib/, etc.
+ls .venv/  # Should show bin/, lib/, etc.
 ```
 
 **Try explicit path:**
@@ -558,7 +558,7 @@ source ./venv/bin/activate
 
 **Verify activation:**
 ```bash
-which python  # Should show /path/to/Kosmos/venv/bin/python
+which python  # Should show /path/to/Kosmos/.venv/bin/python
 ```
 
 ---
@@ -571,13 +571,13 @@ which python  # Should show /path/to/Kosmos/venv/bin/python
 
 ```bash
 # Activate virtual environment first
-source venv/bin/activate
+source .venv/bin/activate
 
 # Reinstall dependencies
 pip install -e .
 
 # Or full reinstall
-rm -rf venv/
+rm -rf .venv/
 ./scripts/setup_environment.sh
 ```
 
@@ -597,8 +597,8 @@ rm -rf venv/
 # - Verify installation
 
 # 2. Setup Python Environment (10-15 min)
-python3.11 -m venv venv
-source venv/bin/activate
+python3.11 -m venv .venv
+source .venv/bin/activate
 pip install --upgrade pip
 pip install -e .
 cp .env.example .env
@@ -747,8 +747,8 @@ If you prefer more control, run scripts individually:
 **Skip virtual environment recreation:**
 ```bash
 # When prompted by setup_environment.sh, answer "N"
-# OR delete venv/ first if you want clean reinstall
-rm -rf venv/
+# OR delete .venv/ first if you want clean reinstall
+rm -rf .venv/
 ./scripts/setup_environment.sh
 ```
 
@@ -786,7 +786,7 @@ jobs:
       - name: Run automated setup
         run: |
           make install
-          source venv/bin/activate
+          source .venv/bin/activate
           kosmos doctor
 
       - name: Run tests
@@ -807,7 +807,7 @@ Once automated setup is complete:
 
 2. **Run First Research Query:**
    ```bash
-   source venv/bin/activate
+   source .venv/bin/activate
    kosmos research "How do transformers work in neural networks?"
    ```
 

@@ -28,8 +28,8 @@ git clone https://github.com/your-org/kosmos-ai-scientist.git
 cd kosmos-ai-scientist
 
 # Create virtual environment
-python3.11 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+python3.11 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # Install in development mode with dev dependencies
 pip install -e ".[dev]"

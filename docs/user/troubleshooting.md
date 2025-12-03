@@ -41,7 +41,7 @@ ModuleNotFoundError: No module named 'kosmos'
 1. **Verify virtual environment:**
    ```bash
    which python
-   # Should show venv path, not system Python
+   # Should show .venv path, not system Python
    ```
 
 2. **Reinstall in editable mode:**
@@ -70,12 +70,12 @@ ERROR: pip's dependency resolver does not currently take into account all the pa
 
 1. **Use fresh virtual environment:**
    ```bash
-   # Remove old venv
-   rm -rf venv
+   # Remove old .venv
+   rm -rf .venv
    
    # Create fresh
-   python3.11 -m venv venv
-   source venv/bin/activate
+   python3.11 -m venv .venv
+   source .venv/bin/activate
    
    # Install
    pip install --upgrade pip
@@ -343,7 +343,7 @@ kosmos: command not found
 2. **Check PATH:**
    ```bash
    which kosmos
-   # Should show: /path/to/venv/bin/kosmos
+   # Should show: /path/to/.venv/bin/kosmos
    ```
 
 3. **Use python -m:**

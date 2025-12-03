@@ -28,8 +28,38 @@ readonly NC='\033[0m' # No Color
 # Script configuration
 readonly SCRIPT_NAME="Kosmos Environment Setup"
 readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly PYTHON_MIN_VERSION="3.11"
-readonly VENV_DIR="venv"
+readonly PYTHON_BIN="${PYTHON_BIN:-python3}"
+readonly PYTHON_VERSION="3.11"
+readonly VENV_DIR=".venv"
+
+# EXTRAS_ARG may be provided via the EXTRAS environment variable or as the
+# first script argument. Do not mark it readonly until after potential
+# reassignment to avoid "readonly variable" errors.
+EXTRAS_ARG="${EXTRAS:-}"
+
+# Allow optional extras to be passed as the first command-line argument or via
+# the EXTRAS environment variable. Values should be comma-separated extras
+# (for example: dev,docs or dev,test,docs).
+if [ "$#" -gt 0 ]; then
+    EXTRAS_ARG="$1"
+fi
+
+#============================================================================
+# Deactivate Existing Virtual Environment
+#============================================================================
+
+# If running from within a virtual environment, deactivate it first
+# to ensure we use the system Python for creating a fresh venv
+if [ -n "${VIRTUAL_ENV:-}" ]; then
+    _DEACTIVATED_VENV="$VIRTUAL_ENV"
+    # Remove the venv's bin directory from PATH
+    # The venv's bin dir is always at the front of PATH when activated
+    PATH=$(echo "$PATH" | sed -e "s|${VIRTUAL_ENV}/bin:||g" -e "s|:${VIRTUAL_ENV}/bin||g" -e "s|${VIRTUAL_ENV}/bin||g")
+    # Clear virtual environment variables
+    unset VIRTUAL_ENV
+    unset PYTHONHOME
+    # Also need to restore PS1 if it was modified, but we'll let the new activation handle that
+fi
 
 #============================================================================
 # Helper Functions
@@ -68,26 +98,47 @@ print_info() {
 check_python() {
     print_step "Checking Python version..."
 
-    if ! command -v python3 &> /dev/null; then
+    if ! command -v "$PYTHON_BIN" &> /dev/null; then
         print_error "Python 3 is not installed"
-        print_info "Please install Python ${PYTHON_MIN_VERSION} or higher"
+        print_info "Please install Python ${PYTHON_VERSION}"
         exit 1
     fi
 
-    local python_version=$(python3 --version | grep -oP '\d+\.\d+')
+    local python_version=$("$PYTHON_BIN" --version | grep -oP '\d+\.\d+')
     print_info "Found Python $python_version"
 
-    # Compare versions
-    if awk "BEGIN {exit !($python_version >= $PYTHON_MIN_VERSION)}"; then
-        print_success "Python version is ${python_version} (>= ${PYTHON_MIN_VERSION})"
-    else
-        print_error "Python ${python_version} is too old"
-        print_info "Please install Python ${PYTHON_MIN_VERSION} or higher"
-        exit 1
+    # Warn if using newer version due to compatibility issues
+    if awk "BEGIN {exit !($python_version > $PYTHON_VERSION)}"; then
+        print_warning "Python ${python_version} is newer than recommended (${PYTHON_VERSION})"
+        print_warning "Some packages like pyarrow may not have pre-built wheels and will build from source"
+        print_info "For best compatibility, install Python 3.11:"
+        print_info "  sudo apt install python3.11 python3.11-venv"
+        print_info "Then re-run this script"
+        echo ""
+        read -p "Continue with Python ${python_version}? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+
+    # Warn if using older version due to compatibility issues
+    if awk "BEGIN {exit !($python_version < $PYTHON_VERSION)}"; then
+        print_warning "Python ${python_version} is older than recommended (${PYTHON_VERSION})"
+        print_warning "Some packages like pyarrow may not have pre-built wheels and will build from source"
+        print_info "For best compatibility, install Python 3.11:"
+        print_info "  sudo apt install python3.11 python3.11-venv"
+        print_info "Then re-run this script"
+        echo ""
+        read -p "Continue with Python ${python_version}? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
     fi
 
     # Check for pip
-    if ! python3 -m pip --version &> /dev/null; then
+    if ! "$PYTHON_BIN" -m pip --version &> /dev/null; then
         print_error "pip is not installed"
         print_info "Install pip: sudo apt install python3-pip"
         exit 1
@@ -95,7 +146,7 @@ check_python() {
     print_success "pip is available"
 
     # Check for venv module
-    if ! python3 -m venv --help &> /dev/null; then
+    if ! "$PYTHON_BIN" -m venv --help &> /dev/null; then
         print_warning "venv module not found"
         print_info "Installing python3-venv..."
         sudo apt install -y python3-venv || print_error "Failed to install python3-venv"
@@ -127,7 +178,7 @@ setup_virtual_environment() {
     fi
 
     print_info "Creating virtual environment in $VENV_DIR/..."
-    python3 -m venv "$VENV_DIR"
+    "$PYTHON_BIN" -m venv "$VENV_DIR"
 
     print_success "Virtual environment created"
 }
@@ -169,10 +220,19 @@ install_dependencies() {
     fi
 
     # Install in editable mode with development dependencies
-    print_info "Installing from pyproject.toml (editable mode with dev dependencies)..."
-    pip install -e ".[dev]" --quiet
-    print_success "Kosmos installed in editable mode"
-    print_success "Development dependencies installed"
+    print_info "Installing from pyproject.toml (editable mode)..."
+
+    if [ -n "${EXTRAS_ARG}" ]; then
+        print_info "Installing extras: ${EXTRAS_ARG}"
+        # Use the venv python executable to ensure installation goes into the venv
+        python -m pip install -e ".[${EXTRAS_ARG}]" --quiet
+        print_success "Kosmos installed in editable mode with extras: ${EXTRAS_ARG}"
+    else
+        print_info "No extras specified; installing default 'dev' extras"
+        python -m pip install -e ".[dev]" --quiet
+        print_success "Kosmos installed in editable mode"
+        print_success "Development dependencies installed"
+    fi
 }
 
 verify_installation() {
@@ -363,9 +423,20 @@ display_next_steps() {
 main() {
     print_header "$SCRIPT_NAME"
 
+    # Inform user if we deactivated their venv
+    if [ -n "${_DEACTIVATED_VENV:-}" ]; then
+        print_info "Detected active virtual environment: $_DEACTIVATED_VENV"
+        print_info "Temporarily deactivated to use system Python for setup"
+        echo ""
+    fi
+
+    # Show which Python will be used
+    print_info "Using Python: $PYTHON_BIN"
+    echo ""
+
     echo "This script will set up your complete Kosmos development environment."
     echo "It will:"
-    echo "  - Verify Python ${PYTHON_MIN_VERSION}+ installation"
+    echo "  - Verify Python ${PYTHON_VERSION}+ installation"
     echo "  - Create and configure virtual environment"
     echo "  - Install all dependencies"
     echo "  - Set up configuration files"

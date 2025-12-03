@@ -44,7 +44,7 @@ Before validation, ensure:
 3. **Environment:**
    ```bash
    # Activate virtual environment
-   source venv/bin/activate
+   source .venv/bin/activate
 
    # Verify installation
    pip show py2neo neo4j-driver

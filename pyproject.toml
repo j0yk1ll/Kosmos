@@ -133,7 +133,7 @@ test = [
 
 docs = [
     # Sphinx documentation build requirements
-    "sphinx>=7.0.0",
+    "sphinx>=7.0.0,<8.0.0",
     "sphinx-rtd-theme>=2.0.0",
     "sphinx-autodoc-typehints>=1.25.0",
     "myst-parser>=2.0.0",
@@ -157,7 +157,7 @@ monitoring = [
 ]
 
 all = [
-    "kosmos-ai-scientist[dev,science,execution,monitoring]",
+    "kosmos-ai-scientist[dev,test,docs,science,execution,monitoring]",
 ]
 
 router = [

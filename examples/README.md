@@ -322,7 +322,7 @@ viewer.export_to_markdown(results, Path("results.md"))
 ```bash
 # Check Python environment
 which python
-# Should be in venv
+# Should be in .venv
 
 # Reinstall Kosmos
 pip install -e .

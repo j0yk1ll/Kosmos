@@ -85,18 +85,18 @@ Always use a virtual environment to avoid conflicts:
 
 ```bash
 # Create virtual environment
-python3.11 -m venv venv
+python3.11 -m venv .venv
 
 # Activate virtual environment
 # Linux/macOS:
-source venv/bin/activate
+source .venv/bin/activate
 
 # Windows:
-venv\Scripts\activate
+.venv\Scripts\activate
 
-# Verify activation (should show (venv) in prompt)
+# Verify activation (should show (.venv) in prompt)
 which python
-# Should show: /path/to/kosmos-ai-scientist/venv/bin/python
+# Should show: /path/to/kosmos-ai-scientist/.venv/bin/python
 ```
 
 ### Step 4: Install Kosmos

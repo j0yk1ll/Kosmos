@@ -271,7 +271,7 @@ scripts/verify_deployment.sh                        # Deployment verification
 **Test setup_environment.sh:**
 ```bash
 ./scripts/setup_environment.sh
-# Should: Check Python, create venv, install deps, run migrations
+# Should: Check Python, create .venv, install deps, run migrations
 ```
 
 ### Makefile Testing
@@ -300,7 +300,7 @@ pytest tests/integration/test_world_model_persistence.py -v
 **Python:** 3.12.7 ✅
 **Docker:** Not installed ❌
 **Neo4j:** Not running ❌ (requires Docker)
-**Virtual Environment:** Available at venv/
+**Virtual Environment:** Available at .venv/
 **World Model:** Complete and ready (101/101 unit tests passing)
 
 ---

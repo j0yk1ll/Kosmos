@@ -57,8 +57,8 @@ git remote add upstream https://github.com/original-org/kosmos-ai-scientist.git
 
 ```bash
 # Create virtual environment
-python3.11 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+python3.11 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # Install in development mode with all dependencies
 pip install -e ".[dev]"

@@ -1,4 +1,4 @@
-.PHONY: help install setup-docker setup-neo4j setup-env start stop restart status verify clean test lint format
+.PHONY: help install setup-docker setup-neo4j setup-env start stop restart status verify clean test lint format docs docs-serve docs-clean docs-live docs-linkcheck docs-coverage install-all install-dev install-docs install-test
 
 # Default target
 help:
@@ -29,7 +29,7 @@ help:
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean          - Remove caches and temporary files"
-	@echo "  make clean-all      - Remove caches, temp files, and venv"
+	@echo "  make clean-all      - Remove caches, temp files, and .venv"
 	@echo "  make logs           - View logs from all services"
 	@echo "  make logs-neo4j     - View Neo4j logs only"
 	@echo ""
@@ -50,7 +50,19 @@ help:
 
 install:
 	@echo "📦 Setting up Kosmos development environment..."
-	@./scripts/setup_environment.sh
+	@./scripts/setup_environment.sh $(EXTRAS)
+
+install-all:
+	@$(MAKE) install EXTRAS=all
+
+install-dev:
+	@$(MAKE) install EXTRAS=dev
+
+install-docs:
+	@$(MAKE) install EXTRAS=docs
+
+install-test:
+	@$(MAKE) install EXTRAS=test
 
 setup-docker:
 	@echo "🐳 Installing Docker on WSL2..."
@@ -201,9 +213,9 @@ clean:
 	@echo "✓ Cleanup complete"
 
 clean-all: clean
-	@echo "🧹 Deep cleaning (including venv)..."
+	@echo "🧹 Deep cleaning (including .venv)..."
 	@read -p "Remove virtual environment? (y/N): " confirm && [ "$$confirm" = "y" ] || exit 1
-	@rm -rf venv/
+	@rm -rf .venv/
 	@echo "✓ Deep cleanup complete"
 
 #==============================================================================
@@ -247,29 +259,54 @@ build:
 
 graph-stats:
 	@echo "📊 Knowledge graph statistics:"
-	@source venv/bin/activate && kosmos graph --stats || echo "Activate venv first: source venv/bin/activate"
+	@source .venv/bin/activate && kosmos graph --stats || echo "Activate .venv first: source .venv/bin/activate"
 
 graph-export:
 	@echo "💾 Exporting knowledge graph..."
-	@source venv/bin/activate && kosmos graph --export backup_$(shell date +%Y%m%d_%H%M%S).json
+	@source .venv/bin/activate && kosmos graph --export backup_$(shell date +%Y%m%d_%H%M%S).json
 	@echo "✓ Export complete"
 
 graph-reset:
 	@echo "⚠️  WARNING: This will delete all graph data!"
-	@source venv/bin/activate && kosmos graph --reset
+	@source .venv/bin/activate && kosmos graph --reset
+
 
 #==============================================================================
-# Documentation
+# Documentation (Sphinx)
 #==============================================================================
+
+# Sphinx build variables (can be overridden from environment)
+SPHINXOPTS    ?=
+SPHINXBUILD   ?= sphinx-build
+DOCS_SOURCEDIR = docs
+DOCS_BUILDDIR  = docs/_build
 
 docs:
 	@echo "📚 Building documentation..."
-	@cd docs && make html
-	@echo "✓ Documentation built in docs/_build/html/"
+	@$(SPHINXBUILD) -b html "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)/html" $(SPHINXOPTS)
+	@echo "✓ Documentation built in $(DOCS_BUILDDIR)/html/"
+
+docs-clean:
+	@echo "🧹 Cleaning docs build..."
+	@rm -rf $(DOCS_BUILDDIR)/*
+	@echo "✓ Docs cleaned"
+
+docs-live:
+	@echo "📡 Running sphinx-autobuild (live-reload)..."
+	@sphinx-autobuild "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)/html" $(SPHINXOPTS)
+
+docs-linkcheck:
+	@echo "🔗 Running linkcheck..."
+	@$(SPHINXBUILD) -b linkcheck "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)/linkcheck" $(SPHINXOPTS)
+
+docs-coverage:
+	@$(SPHINXBUILD) -b coverage "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)/coverage" $(SPHINXOPTS)
+	@echo
+	@echo "Coverage finished. The results are in $(DOCS_BUILDDIR)/coverage/python.txt"
 
 docs-serve:
 	@echo "📚 Serving documentation..."
-	@python -m http.server -d docs/_build/html 8080
+	@python -m http.server -d $(DOCS_BUILDDIR)/html 8080
 
 #==============================================================================
 # Environment Information
@@ -282,8 +319,8 @@ info:
 	@echo "Docker:       $$(docker --version 2>/dev/null || echo 'Not installed')"
 	@echo "Docker Compose: $$(docker compose version 2>/dev/null || echo 'Not installed')"
 	@echo "Git:          $$(git --version 2>/dev/null || echo 'Not found')"
-	@echo "Kosmos:       $$(source venv/bin/activate 2>/dev/null && kosmos --version 2>/dev/null || echo 'Not installed')"
+	@echo "Kosmos:       $$(source .venv/bin/activate 2>/dev/null && kosmos --version 2>/dev/null || echo 'Not installed')"
 	@echo ""
-	@echo "Virtual Env:  $$([ -d venv ] && echo 'venv/' || echo 'Not created')"
+	@echo "Virtual Env:  $$([ -d .venv ] && echo '.venv/' || echo 'Not created')"
 	@echo "Config:       $$([ -f .env ] && echo '.env exists' || echo '.env not found')"
 	@echo ""
