@@ -2,7 +2,7 @@
 Code generation for experiment execution.
 
 Generates executable Python code from experiment protocols using:
-1. Template-based generation for common patterns (from kosmos-figures)
+1. Template-based generation for common patterns
 2. LLM-based generation for novel experiments
 3. Hybrid approach combining both
 
@@ -48,8 +48,6 @@ class CodeTemplate:
 class TTestComparisonCodeTemplate(CodeTemplate):
     """
     Template for t-test comparison experiments.
-
-    Pattern from: kosmos-figures Figure_2_hypothermia_nucleotide_salvage
     """
 
     def __init__(self):
@@ -123,8 +121,6 @@ class TTestComparisonCodeTemplate(CodeTemplate):
 class CorrelationAnalysisCodeTemplate(CodeTemplate):
     """
     Template for correlation analysis experiments.
-
-    Pattern from: kosmos-figures Figure_3_perovskite_solar_cell
     """
 
     def __init__(self):
@@ -198,8 +194,6 @@ class CorrelationAnalysisCodeTemplate(CodeTemplate):
 class LogLogScalingCodeTemplate(CodeTemplate):
     """
     Template for log-log scaling analysis.
-
-    Pattern from: kosmos-figures Figure_4_neural_network
     """
 
     def __init__(self):

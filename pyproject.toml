@@ -185,7 +185,7 @@ Issues = "https://github.com/jimmc414/Kosmos/issues"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["kosmos*"]
-exclude = ["tests*", "docs*", "kosmos-figures*"]
+exclude = ["tests*", "docs*"]
 
 [tool.setuptools.package-data]
 "*" = [".env.example"]
@@ -247,8 +247,7 @@ extend-exclude = '''
   | venv
   | build
   | dist
-  | kosmos-figures
-)/
+  
 '''
 
 [tool.ruff]
@@ -275,7 +274,6 @@ exclude = [
     "venv",
     "build",
     "dist",
-    "kosmos-figures",
 ]
 
 [tool.ruff.per-file-ignores]
@@ -288,7 +286,6 @@ warn_unused_configs = true
 disallow_untyped_defs = false  # Start permissive, can tighten later
 ignore_missing_imports = true
 exclude = [
-    'kosmos-figures',
     'tests',
     'docs',
 ]

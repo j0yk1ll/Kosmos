@@ -1,7 +1,7 @@
 """
 Tests for publication-quality visualization.
 
-Tests matplotlib-based PublicationVisualizer for kosmos-figures formatting compliance.
+Tests matplotlib-based PublicationVisualizer for visualization formatting compliance.
 """
 
 import pytest
@@ -103,10 +103,10 @@ def sample_experiment_result():
 # Formatting Tests
 
 class TestFormattingStandards:
-    """Tests for kosmos-figures formatting compliance."""
+    """Tests for visualization formatting compliance."""
 
     def test_rcParams_set_correctly(self, visualizer):
-        """Test that matplotlib rcParams match kosmos-figures standards."""
+        """Test that matplotlib rcParams match visualization standards."""
         assert plt.rcParams['font.family'] == ['Arial']
         assert plt.rcParams['font.size'] == 10
         assert plt.rcParams['axes.labelsize'] == 12
@@ -116,7 +116,7 @@ class TestFormattingStandards:
         assert plt.rcParams['ps.fonttype'] == 42
 
     def test_color_scheme_defined(self):
-        """Test kosmos-figures color scheme is defined."""
+        """Test expected color scheme is defined."""
         assert COLORS['red'] == '#d7191c'
         assert COLORS['blue'] == '#0072B2'
         assert COLORS['neutral'] == '#abd9e9'

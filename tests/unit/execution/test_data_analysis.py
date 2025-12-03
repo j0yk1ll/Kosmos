@@ -2,7 +2,7 @@
 Tests for data analysis pipeline.
 
 Tests DataAnalyzer, DataLoader, and DataCleaner classes with methods
-extracted from kosmos-figures analysis patterns.
+extracted from internal analysis patterns.
 """
 
 import pytest
@@ -517,7 +517,7 @@ class TestDataAnalyzerIntegration:
             'Synapses': synapse_count
         })
 
-        # Clean: remove non-positive values (kosmos-figures Figure 4 pattern)
+    # Clean: remove non-positive values (Figure 4 pattern)
         df_clean = DataCleaner.filter_positive(df, ['Length', 'Synapses'])
 
         # Perform log-log scaling analysis

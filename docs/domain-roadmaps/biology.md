@@ -1,6 +1,5 @@
 # Biology Domain Roadmap
 
-**Based on:** kosmos-figures Figure 2, 5, 6
 **Last Updated:** 2025-11-06
 
 ---
@@ -15,7 +14,7 @@ Biology research in Kosmos encompasses:
 
 ---
 
-## Proven Methodologies from kosmos-figures
+## Proven Methodologies
 
 ### 1. Metabolomics Analysis (Figure 2)
 
@@ -305,10 +304,9 @@ class GenomicsAnalyzer:
 # kosmos/experiments/templates/biology/metabolomics_comparison.py
 class MetabolomicsComparisonTemplate:
     def generate_experiment(self, hypothesis: Hypothesis) -> ExperimentCode:
-        """
-        Template for metabolomics group comparison
-        Based on: Figure_2 pattern
-        """
+    """
+    Template for metabolomics group comparison
+    """
         return f'''
 import pandas as pd
 import numpy as np

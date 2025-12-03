@@ -1,6 +1,5 @@
 # Materials Science & Physics Domain Roadmap
 
-**Based on:** kosmos-figures Figure 3
 **Last Updated:** 2025-11-06
 
 ---
@@ -15,7 +14,7 @@ Materials science and physics research in Kosmos encompasses:
 
 ---
 
-## Proven Methodologies from kosmos-figures
+## Proven Methodologies
 
 ### 1. Perovskite Solar Cell Optimization (Figure 3)
 
@@ -258,7 +257,6 @@ class MaterialsOptimizer:
                      features: List[str], target: str) -> Dict:
         """
         SHAP analysis for feature importance
-        Pattern from: Figure_3 SHAP analysis
         """
         import shap
         from sklearn.ensemble import RandomForestRegressor

@@ -1,6 +1,5 @@
 # Neuroscience Domain Roadmap
 
-**Based on:** kosmos-figures Figure 4, 7, 8
 **Last Updated:** 2025-11-06
 
 ---
@@ -14,7 +13,7 @@ Neuroscience research in Kosmos encompasses:
 
 ---
 
-## Proven Methodologies from kosmos-figures
+## Proven Methodologies
 
 ### 1. Connectomics & Scaling Laws (Figure 4)
 
@@ -106,7 +105,6 @@ class ConnectomicsAnalyzer:
     def analyze_scaling_laws(self, connectome_data: pd.DataFrame) -> Dict:
         """
         Analyze power law scaling relationships in connectome
-        Pattern from: Figure_4_neural_network
         """
         # Clean data
         df = connectome_data[['Length', 'Synapses', 'Degree']].dropna()

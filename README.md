@@ -380,7 +380,7 @@ kosmos version
 
 - **Paper**: [Kosmos: An AI Scientist for Autonomous Discovery](https://arxiv.org/abs/2511.02824) (Lu et al., 2024)
 - **K-Dense ecosystem**: Pattern repositories for AI agent systems
-- **kosmos-figures**: [Analysis patterns](https://github.com/EdisonScientific/kosmos-figures)
+-- Analysis examples and figure-generation patterns (external repository no longer included)
 
 ## Contributing
 

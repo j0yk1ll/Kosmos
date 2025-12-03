@@ -178,8 +178,8 @@ class TestFormattingPreservation:
 class TestColorScheme:
     """Tests that color scheme is consistent."""
 
-    def test_color_constants_match_kosmos_figures(self):
-        """Test color constants match kosmos-figures exactly."""
+    def test_color_constants_match_expected(self):
+        """Test color constants match expected palette."""
         assert COLORS['red'] == '#d7191c'
         assert COLORS['blue'] == '#0072B2'
         assert COLORS['blue_dark'] == '#2c7bb6'
