@@ -5,7 +5,6 @@ Implements ScholarEval 8-dimension validation framework to filter
 low-quality discoveries before they enter the State Manager.
 
 Gap addressed: Gap 5 (Discovery Evaluation & Filtering)
-Pattern source: kosmos-claude-scientific-writer (ScholarEval)
 
 Key Insight: Multi-dimensional quality control catches different failure modes.
 

@@ -4,7 +4,7 @@ Orchestration Module for Kosmos.
 Implements strategic research planning and task execution orchestration.
 
 Gap addressed: Gap 2 (Task Generation Strategy)
-Pattern source: kosmos-karpathy (Plan Creator/Reviewer orchestration)
+Pattern source: external orchestration reference patterns (Plan Creator/Reviewer)
 
 Key Components:
 1. PlanCreatorAgent: Generates 10 strategic tasks per cycle

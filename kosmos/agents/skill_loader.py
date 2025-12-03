@@ -1,11 +1,12 @@
 """
 Scientific Skills Loader for Kosmos Agents.
 
-Loads domain-specific scientific skills from kosmos-claude-scientific-skills
-repository and injects them into agent prompts based on task requirements.
+Loads domain-specific scientific skills from an external scientific-skills
+directory or repository and injects them into agent prompts based on task
+requirements.
 
 Gap addressed: Gap 3 (Agent Integration & System Prompts)
-Pattern source: kosmos-claude-scientific-skills (566 skill files)
+Pattern source: external scientific-skills reference (collection of domain skill files)
 
 Key Insight: Instead of generic prompts, inject domain expertise into agent
 prompts based on task requirements.
@@ -139,14 +140,14 @@ class SkillLoader:
         # Get kosmos package directory
         kosmos_package_dir = Path(__file__).parent.parent.parent
 
-        # Try kosmos-claude-scientific-skills in same directory as kosmos repo
-        skills_path = kosmos_package_dir / "kosmos-claude-scientific-skills" / "scientific-skills"
+        # Try a local scientific-skills directory in the repo root (or adjacent)
+        skills_path = kosmos_package_dir / "scientific-skills"
         if skills_path.exists():
             logger.info(f"Found skills directory at {skills_path}")
             return str(skills_path)
 
-        # Try one level up
-        skills_path = kosmos_package_dir.parent / "kosmos-claude-scientific-skills" / "scientific-skills"
+        # Try one level up for a scientific-skills directory
+        skills_path = kosmos_package_dir.parent / "scientific-skills"
         if skills_path.exists():
             logger.info(f"Found skills directory at {skills_path}")
             return str(skills_path)

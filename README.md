@@ -36,8 +36,6 @@ Each gap was addressed using patterns from the K-Dense ecosystem. Detailed analy
 - Tier 2: Cycle-level compression (10 task summaries -> 1 cycle overview)
 - Tier 3: Final synthesis with lazy loading for full content retrieval
 
-**Pattern source**: kosmos-claude-skills-mcp (progressive disclosure)
-
 **Implementation**: [`kosmos/compression/`](kosmos/compression/)
 
 ### Gap 1: State Manager (Complete)
@@ -62,8 +60,6 @@ Each gap was addressed using patterns from the K-Dense ecosystem. Detailed analy
 - Novelty Detector: Prevents redundant analyses across 200 rollouts
 - Delegation Manager: Routes tasks to appropriate agents
 
-**Pattern source**: kosmos-karpathy (orchestration patterns)
-
 **Implementation**: [`kosmos/orchestration/`](kosmos/orchestration/) (1,949 lines across 6 files)
 
 ### Gap 3: Agent Integration (Complete)
@@ -71,8 +67,6 @@ Each gap was addressed using patterns from the K-Dense ecosystem. Detailed analy
 **Problem**: How are domain-specific capabilities injected into agents?
 
 **Solution**: Skill loader with 566 domain-specific scientific prompts auto-loaded by domain matching.
-
-**Pattern source**: kosmos-claude-scientific-skills (566 skills)
 
 **Implementation**: [`kosmos/agents/skill_loader.py`](kosmos/agents/skill_loader.py)
 
@@ -114,22 +108,16 @@ Dimensions evaluated:
 7. Claim calibration
 8. Citation support
 
-**Pattern source**: kosmos-claude-scientific-writer (validation patterns)
-
 **Implementation**: [`kosmos/validation/`](kosmos/validation/)
 
 ## K-Dense Pattern Sources
 
 This implementation draws from the K-Dense ecosystem:
 
-| Repository | Contribution | Gap |
-|------------|--------------|-----|
-| kosmos-claude-skills-mcp | Context compression, progressive disclosure | 0 |
-| kosmos-karpathy | Orchestration, plan creator/reviewer pattern | 2 |
-| kosmos-claude-scientific-skills | 566 domain-specific scientific prompts | 3 |
-| kosmos-claude-scientific-writer | ScholarEval validation framework | 5 |
-
-Reference repositories in [`kosmos-reference/`](kosmos-reference/). Skills integrated as git subtree at project root.
+Pattern sources: External K-Dense reference repositories (context compression, orchestration,
+skill patterns, and validation patterns). These reference repositories are not included in this
+repository; see project documentation for external links and guidance on inspect the
+reference implementations.
 
 ## Project Status
 

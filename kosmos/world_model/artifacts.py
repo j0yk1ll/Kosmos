@@ -8,7 +8,7 @@ Implements hybrid 4-layer architecture for research state management:
 - Layer 4: Citation tracking (evidence chains)
 
 Gap addressed: Gap 1 (State Manager Architecture)
-Pattern source: Hybrid approach combining kosmos-claude-skills-mcp + paper requirements
+Pattern source: Hybrid approach combining external reference patterns and paper requirements
 
 Key Design Decision: JSON artifacts as primary storage, with optional graph layers.
 

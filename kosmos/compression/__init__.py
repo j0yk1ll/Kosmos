@@ -4,7 +4,6 @@ Context Compression Module for Kosmos.
 Implements hierarchical compression pipeline achieving 20:1 reduction
 (100K+ tokens → 5K tokens) to fit within LLM context windows.
 
-Pattern source: kosmos-claude-skills-mcp (progressive disclosure)
 Gap addressed: Gap 0 (Context Compression Architecture)
 
 Key Components:
