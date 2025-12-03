@@ -162,29 +162,17 @@ install_dependencies() {
 
     cd "$PROJECT_ROOT"
 
-    # Check for requirements files
-    if [ ! -f "pyproject.toml" ] && [ ! -f "requirements.txt" ]; then
-        print_error "Neither pyproject.toml nor requirements.txt found"
+    # Check for pyproject.toml
+    if [ ! -f "pyproject.toml" ]; then
+        print_error "pyproject.toml not found in project root, failed to install dependencies"
         exit 1
     fi
 
-    # Install in editable mode if pyproject.toml exists
-    if [ -f "pyproject.toml" ]; then
-        print_info "Installing from pyproject.toml (editable mode)..."
-        pip install -e . --quiet
-        print_success "Kosmos installed in editable mode"
-    elif [ -f "requirements.txt" ]; then
-        print_info "Installing from requirements.txt..."
-        pip install -r requirements.txt --quiet
-        print_success "Dependencies installed"
-    fi
-
-    # Install development dependencies if available
-    if [ -f "requirements-dev.txt" ]; then
-        print_info "Installing development dependencies..."
-        pip install -r requirements-dev.txt --quiet
-        print_success "Development dependencies installed"
-    fi
+    # Install in editable mode with development dependencies
+    print_info "Installing from pyproject.toml (editable mode with dev dependencies)..."
+    pip install -e ".[dev]" --quiet
+    print_success "Kosmos installed in editable mode"
+    print_success "Development dependencies installed"
 }
 
 verify_installation() {
@@ -195,7 +183,6 @@ verify_installation() {
         print_success "Kosmos package is importable"
     else
         print_warning "Could not import kosmos package"
-        print_info "This may be normal if using requirements.txt instead of setup.py"
     fi
 
     # Check for kosmos CLI
