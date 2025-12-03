@@ -145,3 +145,7 @@ req_to_paper_analysis_*.md
 # Literature cache
 .literature_cache/
 .literature_analysis_cache/
+
+# Ignore generated packaging metadata
+*.egg-info/
+*.egg-info
