@@ -1,46 +1,54 @@
-
-# Outputs
+# ------------------------------
+# Output files
+# ------------------------------
 *_output.txt
 output.txt
 
-# Env
+# ------------------------------
+# Environment files
+# ------------------------------
 .env
 .env.backup
 
-# Claude Code settings (keep commands/ directory)
-.claude/settings.local.json
-.claude/*.json
+# ------------------------------
+# Claude Code settings
+# ------------------------------
+.claude/
+!.claude/commands/
 
-# Editors
+# ------------------------------
+# Editor / IDE files
+# ------------------------------
 .project
 .settings
 .springBeans
 **/.favorites.json
-**/.idea
-**/.vscode
+**/.idea/
+**/.vscode/
 **/*.Session.vim
 **/*.sw[a-z]
 **/*.vim
 **/*.zwc
 **/*~
 
-# OS generated files
+# ------------------------------
+# OS-generated files (macOS, Windows, Dropbox)
+# ------------------------------
 **/._*
-**/.AppleDouble
-**/.dccache
-**/.dropbox
-**/.dropbox.attr
-**/.dropbox.cache
 **/.DS_Store
 **/.DS_STORE
+**/.AppleDouble
+**/.apdisk
+**/.AppleDB
+**/.AppleDesktop
+**/.dccache
+**/.dropbox*
 **/.lnk
 **/.LSOverride
 **/$RECYCLE.BIN/
 **/Desktop.ini
 **/ehthumbs.db
 **/Thumbs.db
-
-# Files that might appear in the root of a volume
 **/.com.apple.timemachine.donotpresent
 **/.DocumentRevisions-V100
 **/.fseventsd
@@ -48,20 +56,19 @@ output.txt
 **/.TemporaryItems
 **/.Trashes
 **/.VolumeIcon.icns
-
-# Directories potentially created on remote AFP share
-**/.apdisk
-**/.AppleDB
-**/.AppleDesktop
 **/Network Trash Folder
 **/Temporary Items
 
-# Temp files
+# ------------------------------
+# Temporary files
+# ------------------------------
+tmp/
 **/.temp
 **/.tmp
-tmp/
 
-# Files that commonly contain secrets
+# ------------------------------
+# Secrets (keys, certificates)
+# ------------------------------
 **/*.key
 **/*.pem
 **/*.pfx
@@ -73,59 +80,62 @@ tmp/
 **/*.pkpass
 **/*.secrets
 
+# ------------------------------
 # Logs
+# ------------------------------
 **/*.log
 
-# Build directories
-**/_build/
-**/dist
+# ------------------------------
+# Build artifacts
+# ------------------------------
 build/
 out/
+dist/
 target/
+**/_build/
 
+# ------------------------------
 # Python
+# ------------------------------
 __pycache__/
 __pypackages__/
-.ipynb_checkpoints
-*$py.class
+.ipynb_checkpoints/
 *.pyc
 *.pyo
 *.pyd
-celerybeat-schedule
+*$py.class
 develop-eggs/
-dmypy.json
 eggs/
-ipython_config.py
 local_settings.py
+dmypy.json
+celerybeat-schedule
 pip-delete-this-directory.txt
 pip-log.txt
 pip-wheel-metadata/
-venv
-venv/
+ipython_config.py
+
+# Virtual environments
 env/
 ENV/
+venv/
+.venv/
 
-# Coverage reports
+# ------------------------------
+# Test & coverage
+# ------------------------------
+.pytest_cache/
 .coverage
 coverage.xml
 htmlcov/
 
-# Pytest
-.pytest_cache/
-
+# ------------------------------
 # Local development databases
+# ------------------------------
 *.db
 *.sqlite
 *.sqlite3
 .chroma_db/
 .kosmos_cache/
-
-# Development logs
-logs/
-*.jsonl
-human_review_audit.jsonl
-
-# Local data directories
 postgres_data/
 redis_data/
 neo4j_data/
@@ -134,18 +144,28 @@ neo4j_import/
 neo4j_plugins/
 pgadmin_data/
 
-# Local analysis files
+# ------------------------------
+# Local data & analysis files
+# ------------------------------
+logs/
+*.jsonl
+human_review_audit.jsonl
 req_to_paper_analysis_*.md
 
-# Screenshots (may contain sensitive info)
+# ------------------------------
+# Cache directories
+# ------------------------------
+.literature_cache/
+.literature_analysis_cache/
+
+# ------------------------------
+# Screenshots / images containing sensitive info
+# ------------------------------
 *.png
 *.jpg
 *.jpeg
 
-# Literature cache
-.literature_cache/
-.literature_analysis_cache/
-
-# Ignore generated packaging metadata
+# ------------------------------
+# Packaging metadata
+# ------------------------------
 *.egg-info/
-*.egg-info
