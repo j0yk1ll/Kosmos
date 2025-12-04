@@ -2,12 +2,13 @@
 Tests for kosmos.literature.pubmed_client module.
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import Mock, patch
 from Bio import Entrez
 
-from kosmos.literature.pubmed_client import PubMedClient
 from kosmos.literature.base_client import PaperMetadata, PaperSource
+from kosmos.literature.pubmed_client import PubMedClient
 
 
 @pytest.fixture
@@ -22,7 +23,7 @@ class TestPubMedInit:
 
     def test_init_with_email(self):
         """Test initialization with email."""
-        client = PubMedClient(email="test@example.com")
+        PubMedClient(email="test@example.com")
         # Email is stored in Entrez.email, not on the client
         assert Entrez.email == "test@example.com"
 
@@ -37,8 +38,8 @@ class TestPubMedInit:
 class TestPubMedSearch:
     """Test PubMed search functionality."""
 
-    @patch('Bio.Entrez.esearch')
-    @patch('Bio.Entrez.efetch')
+    @patch("Bio.Entrez.esearch")
+    @patch("Bio.Entrez.efetch")
     def test_search_success(self, mock_efetch, mock_esearch, pubmed_client, pubmed_response_xml):
         """Test successful PubMed search."""
         # Mock esearch response
@@ -55,7 +56,7 @@ class TestPubMedSearch:
         assert len(papers) <= 2
         assert all(isinstance(p, PaperMetadata) for p in papers)
 
-    @patch('Bio.Entrez.esearch')
+    @patch("Bio.Entrez.esearch")
     def test_search_empty_results(self, mock_esearch, pubmed_client):
         """Test search with no results."""
         mock_esearch.return_value.__enter__.return_value.read.return_value = {
@@ -66,7 +67,7 @@ class TestPubMedSearch:
         papers = pubmed_client.search("nonexistent_query_xyz")
         assert papers == []
 
-    @patch('Bio.Entrez.esearch')
+    @patch("Bio.Entrez.esearch")
     def test_search_with_error(self, mock_esearch, pubmed_client):
         """Test search error handling."""
         mock_esearch.side_effect = Exception("API Error")
@@ -90,7 +91,7 @@ class TestPubMedGetPaper:
             pubmed_id="23287718",
         )
 
-        with patch.object(pubmed_client, '_fetch_paper_details', return_value=[mock_paper]):
+        with patch.object(pubmed_client, "_fetch_paper_details", return_value=[mock_paper]):
             paper = pubmed_client.get_paper_by_id("23287718")
 
         assert paper is not None
@@ -98,7 +99,7 @@ class TestPubMedGetPaper:
 
     def test_get_paper_by_id_not_found(self, pubmed_client):
         """Test fetching non-existent paper."""
-        with patch.object(pubmed_client, '_fetch_paper_details', return_value=[]):
+        with patch.object(pubmed_client, "_fetch_paper_details", return_value=[]):
             paper = pubmed_client.get_paper_by_id("99999999")
         assert paper is None
 
@@ -107,8 +108,8 @@ class TestPubMedGetPaper:
 class TestPubMedRateLimiting:
     """Test rate limiting."""
 
-    @patch('time.sleep')
-    @patch('Bio.Entrez.esearch')
+    @patch("time.sleep")
+    @patch("Bio.Entrez.esearch")
     def test_rate_limiting_delay(self, mock_esearch, mock_sleep, pubmed_client):
         """Test that rate limiting adds delays."""
         mock_esearch.return_value.__enter__.return_value.read.return_value = {

@@ -4,18 +4,20 @@ Abstract base class for literature API clients.
 Provides common interface and functionality for arXiv, Semantic Scholar, PubMed, etc.
 """
 
+import logging
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-import logging
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
 
 class PaperSource(str, Enum):
     """Source of the paper."""
+
     ARXIV = "arxiv"
     SEMANTIC_SCHOLAR = "semantic_scholar"
     PUBMED = "pubmed"
@@ -26,10 +28,11 @@ class PaperSource(str, Enum):
 @dataclass
 class Author:
     """Author information."""
+
     name: str
-    affiliation: Optional[str] = None
-    email: Optional[str] = None
-    author_id: Optional[str] = None  # Author ID from source API
+    affiliation: str | None = None
+    email: str | None = None
+    author_id: str | None = None  # Author ID from source API
 
 
 @dataclass
@@ -40,27 +43,28 @@ class PaperMetadata:
     This standardized format ensures consistent handling of papers
     regardless of source API.
     """
+
     # Identifiers
     id: str  # Unique ID from source
     source: PaperSource
-    doi: Optional[str] = None
-    arxiv_id: Optional[str] = None
-    pubmed_id: Optional[str] = None
+    doi: str | None = None
+    arxiv_id: str | None = None
+    pubmed_id: str | None = None
 
     # Core metadata
     title: str = ""
     abstract: str = ""
-    authors: List[Author] = None
+    authors: list[Author] = None
 
     # Publication info
-    publication_date: Optional[datetime] = None
-    journal: Optional[str] = None
-    venue: Optional[str] = None
-    year: Optional[int] = None
+    publication_date: datetime | None = None
+    journal: str | None = None
+    venue: str | None = None
+    year: int | None = None
 
     # Links & Resources
-    url: Optional[str] = None
-    pdf_url: Optional[str] = None
+    url: str | None = None
+    pdf_url: str | None = None
 
     # Citations & Influence
     citation_count: int = 0
@@ -68,14 +72,14 @@ class PaperMetadata:
     influential_citation_count: int = 0
 
     # Fields & Keywords
-    fields: List[str] = None  # Research fields/domains
-    keywords: List[str] = None
+    fields: list[str] = None  # Research fields/domains
+    keywords: list[str] = None
 
     # Full text (if downloaded)
-    full_text: Optional[str] = None
+    full_text: str | None = None
 
     # Raw response from API (for debugging)
-    raw_data: Optional[Dict[str, Any]] = None
+    raw_data: dict[str, Any] | None = None
 
     def __post_init__(self):
         """Initialize default values for mutable fields."""
@@ -92,11 +96,11 @@ class PaperMetadata:
         return self.doi or self.arxiv_id or self.pubmed_id or self.id
 
     @property
-    def author_names(self) -> List[str]:
+    def author_names(self) -> list[str]:
         """Get list of author names."""
         return [author.name for author in self.authors]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for database storage."""
         return {
             "id": self.id,
@@ -107,7 +111,9 @@ class PaperMetadata:
             "title": self.title,
             "abstract": self.abstract,
             "authors": [{"name": a.name, "affiliation": a.affiliation} for a in self.authors],
-            "publication_date": self.publication_date.isoformat() if self.publication_date else None,
+            "publication_date": (
+                self.publication_date.isoformat() if self.publication_date else None
+            ),
             "journal": self.journal,
             "venue": self.venue,
             "year": self.year,
@@ -118,7 +124,7 @@ class PaperMetadata:
             "influential_citation_count": self.influential_citation_count,
             "fields": self.fields,
             "keywords": self.keywords,
-            "full_text": self.full_text
+            "full_text": self.full_text,
         }
 
 
@@ -130,7 +136,7 @@ class BaseLiteratureClient(ABC):
     from this class and implement the required methods.
     """
 
-    def __init__(self, api_key: Optional[str] = None, cache_enabled: bool = True):
+    def __init__(self, api_key: str | None = None, cache_enabled: bool = True):
         """
         Initialize the literature client.
 
@@ -147,11 +153,11 @@ class BaseLiteratureClient(ABC):
         self,
         query: str,
         max_results: int = 10,
-        fields: Optional[List[str]] = None,
-        year_from: Optional[int] = None,
-        year_to: Optional[int] = None,
-        **kwargs
-    ) -> List[PaperMetadata]:
+        fields: list[str] | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        **kwargs,
+    ) -> list[PaperMetadata]:
         """
         Search for papers matching the query.
 
@@ -169,7 +175,7 @@ class BaseLiteratureClient(ABC):
         pass
 
     @abstractmethod
-    def get_paper_by_id(self, paper_id: str) -> Optional[PaperMetadata]:
+    def get_paper_by_id(self, paper_id: str) -> PaperMetadata | None:
         """
         Retrieve a specific paper by its ID.
 
@@ -182,7 +188,7 @@ class BaseLiteratureClient(ABC):
         pass
 
     @abstractmethod
-    def get_paper_references(self, paper_id: str, max_refs: int = 50) -> List[PaperMetadata]:
+    def get_paper_references(self, paper_id: str, max_refs: int = 50) -> list[PaperMetadata]:
         """
         Get papers cited by the given paper.
 
@@ -196,7 +202,7 @@ class BaseLiteratureClient(ABC):
         pass
 
     @abstractmethod
-    def get_paper_citations(self, paper_id: str, max_cites: int = 50) -> List[PaperMetadata]:
+    def get_paper_citations(self, paper_id: str, max_cites: int = 50) -> list[PaperMetadata]:
         """
         Get papers that cite the given paper.
 
@@ -227,8 +233,7 @@ class BaseLiteratureClient(ABC):
             operation: Description of the operation being performed
         """
         self.logger.error(
-            f"Error in {self.get_source_name()} API during {operation}: {str(error)}",
-            exc_info=True
+            f"Error in {self.get_source_name()} API during {operation}: {str(error)}", exc_info=True
         )
         # Could add retry logic, circuit breaker, etc. here
 
@@ -252,7 +257,7 @@ class BaseLiteratureClient(ABC):
 
         return True
 
-    def _normalize_paper_metadata(self, raw_data: Dict[str, Any]) -> PaperMetadata:
+    def _normalize_paper_metadata(self, raw_data: dict[str, Any]) -> PaperMetadata:
         """
         Convert source-specific response to standardized PaperMetadata.
 

@@ -5,22 +5,19 @@ Tests memory storage, querying, experiment deduplication, and pruning.
 """
 
 from datetime import datetime, timedelta
+
 import pytest
 
-from kosmos.core.memory import (
-    MemoryStore,
-    Memory,
-    MemoryCategory,
-    ExperimentSignature,
-)
-from kosmos.models.hypothesis import Hypothesis, HypothesisStatus
-from kosmos.models.result import ExperimentResult, ResultStatus
+from kosmos.core.memory import Memory, MemoryCategory, MemoryStore
 from kosmos.models.experiment import ExperimentProtocol
+from kosmos.models.hypothesis import Hypothesis
+from kosmos.models.result import ExperimentResult, ResultStatus
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def memory_store():
@@ -76,6 +73,7 @@ def sample_protocol():
 # Test Class 1: Initialization
 # ============================================================================
 
+
 class TestMemoryStoreInitialization:
     """Test MemoryStore initialization."""
 
@@ -118,6 +116,7 @@ class TestMemoryStoreInitialization:
 # Test Class 2: Memory Addition
 # ============================================================================
 
+
 class TestMemoryAddition:
     """Test adding memories to all categories."""
 
@@ -142,9 +141,7 @@ class TestMemoryAddition:
         assert memory.importance == 0.7
         assert "test" in memory.tags
 
-    def test_add_success_memory(
-        self, memory_store, sample_result, sample_hypothesis
-    ):
+    def test_add_success_memory(self, memory_store, sample_result, sample_hypothesis):
         """Test adding success pattern memory."""
         memory_id = memory_store.add_success_memory(
             result=sample_result,
@@ -163,9 +160,7 @@ class TestMemoryAddition:
         assert memory.data["effect_size"] == 0.75
         assert memory.importance == 0.8  # Successes are important
 
-    def test_add_failure_memory(
-        self, memory_store, sample_hypothesis
-    ):
+    def test_add_failure_memory(self, memory_store, sample_hypothesis):
         """Test adding failure pattern memory."""
         failed_result = ExperimentResult(
             id="result_fail_001",
@@ -191,9 +186,7 @@ class TestMemoryAddition:
         assert memory.data["failure_reason"] == "Weak effect size"
         assert memory.importance == 0.7
 
-    def test_add_dead_end_memory(
-        self, memory_store, sample_hypothesis
-    ):
+    def test_add_dead_end_memory(self, memory_store, sample_hypothesis):
         """Test adding dead-end memory."""
         memory_id = memory_store.add_dead_end_memory(
             hypothesis=sample_hypothesis,
@@ -246,6 +239,7 @@ class TestMemoryAddition:
 # ============================================================================
 # Test Class 3: Memory Querying
 # ============================================================================
+
 
 class TestMemoryQuerying:
     """Test querying and searching memories."""
@@ -331,7 +325,7 @@ class TestMemoryQuerying:
 
     def test_query_updates_access_count(self, memory_store):
         """Test querying updates memory access count."""
-        memory_id = memory_store.add_memory(
+        memory_store.add_memory(
             category=MemoryCategory.GENERAL,
             content="Test memory",
         )
@@ -343,9 +337,7 @@ class TestMemoryQuerying:
         assert memory.access_count > 0
         assert memory.last_accessed is not None
 
-    def test_search_similar_hypothesis(
-        self, memory_store, sample_hypothesis, sample_result
-    ):
+    def test_search_similar_hypothesis(self, memory_store, sample_hypothesis, sample_result):
         """Test searching for similar hypothesis memories."""
         # Add memory for hypothesis
         memory_store.add_success_memory(
@@ -396,12 +388,11 @@ class TestMemoryQuerying:
 # Test Class 4: Experiment Deduplication
 # ============================================================================
 
+
 class TestExperimentDeduplication:
     """Test experiment deduplication via signatures."""
 
-    def test_record_experiment(
-        self, memory_store, sample_hypothesis, sample_protocol
-    ):
+    def test_record_experiment(self, memory_store, sample_hypothesis, sample_protocol):
         """Test recording experiment signature."""
         signature_hash = memory_store.record_experiment(
             hypothesis=sample_hypothesis,
@@ -416,17 +407,13 @@ class TestExperimentDeduplication:
         assert signature.hypothesis_id == sample_hypothesis.id
         assert signature.protocol_id == sample_protocol.id
 
-    def test_is_duplicate_exact_match(
-        self, memory_store, sample_hypothesis, sample_protocol
-    ):
+    def test_is_duplicate_exact_match(self, memory_store, sample_hypothesis, sample_protocol):
         """Test detecting exact duplicate experiments."""
         # Record first experiment
         memory_store.record_experiment(sample_hypothesis, sample_protocol)
 
         # Check for duplicate (same hypothesis + protocol)
-        is_dup, reason = memory_store.is_duplicate_experiment(
-            sample_hypothesis, sample_protocol
-        )
+        is_dup, reason = memory_store.is_duplicate_experiment(sample_hypothesis, sample_protocol)
 
         assert is_dup is True
         assert "Exact duplicate" in reason
@@ -448,16 +435,12 @@ class TestExperimentDeduplication:
         )
 
         # Check for duplicate (same hypothesis, different protocol)
-        is_dup, reason = memory_store.is_duplicate_experiment(
-            sample_hypothesis, different_protocol
-        )
+        is_dup, reason = memory_store.is_duplicate_experiment(sample_hypothesis, different_protocol)
 
         assert is_dup is True
         assert "Similar hypothesis tested" in reason
 
-    def test_is_duplicate_new_experiment(
-        self, memory_store, sample_hypothesis, sample_protocol
-    ):
+    def test_is_duplicate_new_experiment(self, memory_store, sample_hypothesis, sample_protocol):
         """Test non-duplicate experiment."""
         # Record first experiment
         memory_store.record_experiment(sample_hypothesis, sample_protocol)
@@ -472,16 +455,12 @@ class TestExperimentDeduplication:
         )
 
         # Check for duplicate (different hypothesis)
-        is_dup, reason = memory_store.is_duplicate_experiment(
-            different_hypothesis, sample_protocol
-        )
+        is_dup, reason = memory_store.is_duplicate_experiment(different_hypothesis, sample_protocol)
 
         assert is_dup is False
         assert reason is None
 
-    def test_record_experiment_without_protocol(
-        self, memory_store, sample_hypothesis
-    ):
+    def test_record_experiment_without_protocol(self, memory_store, sample_hypothesis):
         """Test recording experiment without protocol."""
         signature_hash = memory_store.record_experiment(
             hypothesis=sample_hypothesis,
@@ -492,9 +471,7 @@ class TestExperimentDeduplication:
         signature = memory_store.experiment_signatures[signature_hash]
         assert signature.protocol_hash == "none"
 
-    def test_duplicate_detection_without_protocol(
-        self, memory_store, sample_hypothesis
-    ):
+    def test_duplicate_detection_without_protocol(self, memory_store, sample_hypothesis):
         """Test duplicate detection works without protocol."""
         # Record experiment without protocol
         memory_store.record_experiment(sample_hypothesis, None)
@@ -508,6 +485,7 @@ class TestExperimentDeduplication:
 # ============================================================================
 # Test Class 5: Memory Pruning
 # ============================================================================
+
 
 class TestMemoryPruning:
     """Test memory pruning logic."""
@@ -606,12 +584,11 @@ class TestMemoryPruning:
 # Test Class 6: Memory Statistics
 # ============================================================================
 
+
 class TestMemoryStatistics:
     """Test memory statistics and reporting."""
 
-    def test_get_memory_statistics(
-        self, memory_store, sample_hypothesis, sample_result
-    ):
+    def test_get_memory_statistics(self, memory_store, sample_hypothesis, sample_result):
         """Test getting comprehensive memory statistics."""
         # Add various memories
         memory_store.add_success_memory(sample_result, sample_hypothesis)
@@ -626,17 +603,15 @@ class TestMemoryStatistics:
         assert stats["total_memories"] >= 2
         assert stats["experiment_signatures"] >= 1
 
-    def test_get_most_accessed_memory(
-        self, memory_store
-    ):
+    def test_get_most_accessed_memory(self, memory_store):
         """Test identifying most accessed memory."""
         # Add memories with different access counts
-        mem1_id = memory_store.add_memory(
+        memory_store.add_memory(
             category=MemoryCategory.GENERAL,
             content="Memory 1",
         )
 
-        mem2_id = memory_store.add_memory(
+        memory_store.add_memory(
             category=MemoryCategory.GENERAL,
             content="Memory 2",
         )
@@ -650,9 +625,7 @@ class TestMemoryStatistics:
         assert most_accessed is not None
         assert "Memory 2" in most_accessed
 
-    def test_get_highest_importance_memory(
-        self, memory_store
-    ):
+    def test_get_highest_importance_memory(self, memory_store):
         """Test identifying highest importance memory."""
         memory_store.add_memory(
             category=MemoryCategory.GENERAL,
@@ -671,9 +644,7 @@ class TestMemoryStatistics:
         assert highest is not None
         assert "High importance" in highest
 
-    def test_export_memories_all_categories(
-        self, memory_store, sample_hypothesis, sample_result
-    ):
+    def test_export_memories_all_categories(self, memory_store, sample_hypothesis, sample_result):
         """Test exporting all memories."""
         memory_store.add_success_memory(sample_result, sample_hypothesis)
         memory_store.add_insight_memory("Test insight", "Source")
@@ -708,7 +679,7 @@ class TestMemoryStatistics:
 
     def test_memory_access_method(self, memory_store):
         """Test memory access method updates correctly."""
-        memory_id = memory_store.add_memory(
+        memory_store.add_memory(
             category=MemoryCategory.GENERAL,
             content="Test memory",
         )

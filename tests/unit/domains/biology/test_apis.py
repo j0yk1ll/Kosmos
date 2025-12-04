@@ -5,13 +5,22 @@ Tests 10 API clients with mocked HTTP responses.
 Coverage target: 50 tests (10 clients × 5 tests each)
 """
 
-import pytest
-import httpx
 from unittest.mock import Mock, patch
+
+import httpx
+import pytest
+
 from kosmos.domains.biology.apis import (
-    KEGGClient, GWASCatalogClient, GTExClient, ENCODEClient,
-    dbSNPClient, EnsemblClient, HMDBClient, MetaboLightsClient,
-    UniProtClient, PDBClient
+    ENCODEClient,
+    EnsemblClient,
+    GTExClient,
+    GWASCatalogClient,
+    HMDBClient,
+    KEGGClient,
+    MetaboLightsClient,
+    PDBClient,
+    UniProtClient,
+    dbSNPClient,
 )
 
 
@@ -43,7 +52,7 @@ class TestKEGGClient:
         """Test successful compound retrieval."""
         mock_httpx_client.text = "ENTRY       C00385\nNAME        Xanthine\n"
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = KEGGClient()
             result = client.get_compound("C00385")
 
@@ -55,7 +64,7 @@ class TestKEGGClient:
         """Test successful pathway retrieval."""
         mock_httpx_client.text = "ENTRY       map00230\nNAME        Purine metabolism\n"
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = KEGGClient()
             result = client.get_pathway("map00230")
 
@@ -66,7 +75,7 @@ class TestKEGGClient:
         """Test error handling for failed requests."""
         mock_httpx_client.get.side_effect = Exception("Network error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = KEGGClient()
             result = client.get_compound("C00385")
 
@@ -74,12 +83,12 @@ class TestKEGGClient:
 
     def test_close_method(self, mock_httpx_client):
         """Test client close method."""
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = KEGGClient()
             _ = client.get_compound("C00385")  # Initialize client
             client.close()
 
-            if hasattr(mock_httpx_client, 'close'):
+            if hasattr(mock_httpx_client, "close"):
                 mock_httpx_client.close.assert_called()
 
 
@@ -100,11 +109,9 @@ class TestGWASCatalogClient:
         snp_response.status_code = 200
         snp_response.json.return_value = {
             "_embedded": {
-                "singleNucleotidePolymorphisms": [{
-                    "rsId": "rs7903146",
-                    "chromosomeName": "10",
-                    "chromosomePosition": 114758349
-                }]
+                "singleNucleotidePolymorphisms": [
+                    {"rsId": "rs7903146", "chromosomeName": "10", "chromosomePosition": 114758349}
+                ]
             }
         }
         snp_response.raise_for_status = Mock()
@@ -113,30 +120,32 @@ class TestGWASCatalogClient:
         assoc_response.status_code = 200
         assoc_response.json.return_value = {
             "_embedded": {
-                "associations": [{
-                    "pvalue": 1.2e-10,
-                    "betaNum": 0.34,
-                    "traitName": "Type 2 diabetes",
-                    "sampleSize": 150000
-                }]
+                "associations": [
+                    {
+                        "pvalue": 1.2e-10,
+                        "betaNum": 0.34,
+                        "traitName": "Type 2 diabetes",
+                        "sampleSize": 150000,
+                    }
+                ]
             }
         }
 
         mock_httpx_client.get.side_effect = [snp_response, assoc_response]
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GWASCatalogClient()
             result = client.get_variant("rs7903146")
 
             assert result is not None
-            assert hasattr(result, 'snp_id')
+            assert hasattr(result, "snp_id")
             assert result.snp_id == "rs7903146"
 
     def test_search_by_gene(self, mock_httpx_client):
         """Test searching variants by gene."""
         mock_httpx_client.json.return_value = {"_embedded": {"associations": []}}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GWASCatalogClient()
             result = client.search_by_gene("TCF7L2")
 
@@ -146,7 +155,7 @@ class TestGWASCatalogClient:
         """Test handling empty API response."""
         mock_httpx_client.json.return_value = {}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GWASCatalogClient()
             result = client.get_variant("rs000000")
 
@@ -156,7 +165,7 @@ class TestGWASCatalogClient:
         """Test error handling."""
         mock_httpx_client.get.side_effect = Exception("API error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GWASCatalogClient()
             result = client.get_variant("rs7903146")
 
@@ -179,17 +188,19 @@ class TestGTExClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "data": [{
-                "variantId": "chr10_114758349_C_T_b38",
-                "geneSymbol": "TCF7L2",
-                "pValue": 1.5e-8,
-                "slope": 0.5,
-                "effectSize": 0.3
-            }]
+            "data": [
+                {
+                    "variantId": "chr10_114758349_C_T_b38",
+                    "geneSymbol": "TCF7L2",
+                    "pValue": 1.5e-8,
+                    "slope": 0.5,
+                    "effectSize": 0.3,
+                }
+            ]
         }
         mock_httpx_client.get.return_value = mock_response
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GTExClient()
             result = client.get_eqtl("chr10_114758349_C_T_b38", gene_id="ENSG00000148737")
 
@@ -202,9 +213,11 @@ class TestGTExClient:
         mock_response.json.return_value = {"data": []}
         mock_httpx_client.get.return_value = mock_response
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GTExClient()
-            result = client.get_eqtl("chr10_114758349_C_T_b38", gene_id="ENSG00000148737", tissue="Pancreas")
+            result = client.get_eqtl(
+                "chr10_114758349_C_T_b38", gene_id="ENSG00000148737", tissue="Pancreas"
+            )
 
             # Empty data should return None
             assert result is None
@@ -213,7 +226,7 @@ class TestGTExClient:
         """Test gene expression queries."""
         mock_httpx_client.json.return_value = {"geneExpression": []}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GTExClient()
             result = client.get_gene_expression("TCF7L2")
 
@@ -223,7 +236,7 @@ class TestGTExClient:
         """Test error handling."""
         mock_httpx_client.get.side_effect = Exception("Network error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GTExClient()
             result = client.get_eqtl("chr10_114758349_C_T_b38", gene_id="ENSG00000148737")
 
@@ -245,16 +258,18 @@ class TestENCODEClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "@graph": [{
-                "accession": "ENCSR000AAA",
-                "assay_title": "ATAC-seq",
-                "biosample_summary": "pancreas"
-            }]
+            "@graph": [
+                {
+                    "accession": "ENCSR000AAA",
+                    "assay_title": "ATAC-seq",
+                    "biosample_summary": "pancreas",
+                }
+            ]
         }
         mock_response.raise_for_status = Mock()
         mock_httpx_client.get.return_value = mock_response
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = ENCODEClient()
             result = client.search_experiments(assay_type="ATAC-seq", biosample="pancreas")
 
@@ -265,7 +280,7 @@ class TestENCODEClient:
         """Test assay type filtering."""
         mock_httpx_client.json.return_value = {"@graph": []}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = ENCODEClient()
             result = client.search_experiments(assay_type="ChIP-seq", biosample="liver")
 
@@ -275,7 +290,7 @@ class TestENCODEClient:
         """Test biosample filtering."""
         mock_httpx_client.json.return_value = {"@graph": []}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = ENCODEClient()
             result = client.search_experiments(assay_type="ATAC-seq", biosample="liver")
 
@@ -285,7 +300,7 @@ class TestENCODEClient:
         """Test error handling."""
         mock_httpx_client.get.side_effect = Exception("API error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = ENCODEClient()
             result = client.search_experiments(assay_type="ATAC-seq", biosample="liver")
 
@@ -306,12 +321,10 @@ class TestdbSNPClient:
         """Test successful SNP retrieval."""
         mock_httpx_client.json.return_value = {
             "refsnp_id": "7903146",
-            "primary_snapshot_data": {
-                "allele_annotations": []
-            }
+            "primary_snapshot_data": {"allele_annotations": []},
         }
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = dbSNPClient()
             result = client.get_snp("rs7903146")
 
@@ -321,7 +334,7 @@ class TestdbSNPClient:
         """Test API key parameter."""
         mock_httpx_client.json.return_value = {"refsnp_id": "7903146"}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = dbSNPClient(api_key="test_key")
             result = client.get_snp("rs7903146")
 
@@ -331,7 +344,7 @@ class TestdbSNPClient:
         """Test different rsID formats."""
         mock_httpx_client.json.return_value = {"refsnp_id": "7903146"}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = dbSNPClient()
             # Should handle both rs7903146 and 7903146
             result = client.get_snp("7903146")
@@ -342,7 +355,7 @@ class TestdbSNPClient:
         """Test error handling."""
         mock_httpx_client.get.side_effect = Exception("API error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = dbSNPClient()
             result = client.get_snp("rs7903146")
 
@@ -361,12 +374,11 @@ class TestEnsemblClient:
 
     def test_get_variant_consequences_success(self, mock_httpx_client):
         """Test successful variant consequence prediction."""
-        mock_httpx_client.json.return_value = [{
-            "most_severe_consequence": "missense_variant",
-            "transcript_consequences": []
-        }]
+        mock_httpx_client.json.return_value = [
+            {"most_severe_consequence": "missense_variant", "transcript_consequences": []}
+        ]
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = EnsemblClient()
             result = client.get_variant_consequences("rs699")
 
@@ -376,7 +388,7 @@ class TestEnsemblClient:
         """Test VEP annotation retrieval."""
         mock_httpx_client.json.return_value = [{"input": "10 114758349 . C T"}]
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = EnsemblClient()
             result = client.get_vep_annotation("10:114758349:C:T")
 
@@ -384,12 +396,9 @@ class TestEnsemblClient:
 
     def test_gene_lookup(self, mock_httpx_client):
         """Test gene lookup by symbol."""
-        mock_httpx_client.json.return_value = {
-            "display_name": "TCF7L2",
-            "id": "ENSG00000148737"
-        }
+        mock_httpx_client.json.return_value = {"display_name": "TCF7L2", "id": "ENSG00000148737"}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = EnsemblClient()
             result = client.get_gene("TCF7L2")
 
@@ -399,7 +408,7 @@ class TestEnsemblClient:
         """Test error handling."""
         mock_httpx_client.get.side_effect = Exception("API error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = EnsemblClient()
             result = client.get_variant_consequences("rs699")
 
@@ -457,13 +466,10 @@ class TestMetaboLightsClient:
     def test_get_study_success(self, mock_httpx_client):
         """Test successful study retrieval."""
         mock_httpx_client.json.return_value = {
-            "content": {
-                "studyIdentifier": "MTBLS1",
-                "title": "Test Study"
-            }
+            "content": {"studyIdentifier": "MTBLS1", "title": "Test Study"}
         }
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = MetaboLightsClient()
             result = client.get_study("MTBLS1")
 
@@ -473,7 +479,7 @@ class TestMetaboLightsClient:
         """Test different study ID formats."""
         mock_httpx_client.json.return_value = {"content": {"studyIdentifier": "MTBLS1"}}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = MetaboLightsClient()
             result = client.get_study("MTBLS1")
 
@@ -483,7 +489,7 @@ class TestMetaboLightsClient:
         """Test handling empty response."""
         mock_httpx_client.json.return_value = {}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = MetaboLightsClient()
             result = client.get_study("MTBLS99999")
 
@@ -493,7 +499,7 @@ class TestMetaboLightsClient:
         """Test error handling."""
         mock_httpx_client.get.side_effect = Exception("API error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = MetaboLightsClient()
             result = client.get_study("MTBLS1")
 
@@ -515,10 +521,10 @@ class TestUniProtClient:
         mock_httpx_client.json.return_value = {
             "primaryAccession": "P21802",
             "uniProtkbId": "FGFR2_HUMAN",
-            "proteinDescription": {"recommendedName": {"fullName": {"value": "FGFR2"}}}
+            "proteinDescription": {"recommendedName": {"fullName": {"value": "FGFR2"}}},
         }
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = UniProtClient()
             result = client.get_protein("P21802")
 
@@ -527,13 +533,10 @@ class TestUniProtClient:
     def test_search_by_gene(self, mock_httpx_client):
         """Test protein search by gene name."""
         mock_httpx_client.json.return_value = {
-            "results": [{
-                "primaryAccession": "P21802",
-                "genes": [{"geneName": {"value": "FGFR2"}}]
-            }]
+            "results": [{"primaryAccession": "P21802", "genes": [{"geneName": {"value": "FGFR2"}}]}]
         }
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = UniProtClient()
             result = client.search_by_gene("FGFR2")
 
@@ -543,7 +546,7 @@ class TestUniProtClient:
         """Test different UniProt accession formats."""
         mock_httpx_client.json.return_value = {"primaryAccession": "P21802"}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = UniProtClient()
             result = client.get_protein("P21802")
 
@@ -553,7 +556,7 @@ class TestUniProtClient:
         """Test error handling."""
         mock_httpx_client.get.side_effect = Exception("API error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = UniProtClient()
             result = client.get_protein("P21802")
 
@@ -572,14 +575,9 @@ class TestPDBClient:
 
     def test_get_structure_success(self, mock_httpx_client):
         """Test successful structure retrieval."""
-        mock_httpx_client.json.return_value = {
-            "entry": {
-                "id": "1FGK",
-                "polymer_entity_count": 2
-            }
-        }
+        mock_httpx_client.json.return_value = {"entry": {"id": "1FGK", "polymer_entity_count": 2}}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = PDBClient()
             result = client.get_structure("1FGK")
 
@@ -589,7 +587,7 @@ class TestPDBClient:
         """Test different PDB ID formats."""
         mock_httpx_client.json.return_value = {"entry": {"id": "1FGK"}}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = PDBClient()
             # Should handle both uppercase and lowercase
             result = client.get_structure("1fgk")
@@ -598,14 +596,9 @@ class TestPDBClient:
 
     def test_structure_search(self, mock_httpx_client):
         """Test structure search functionality."""
-        mock_httpx_client.json.return_value = {
-            "result_set": [{
-                "identifier": "1FGK",
-                "score": 1.0
-            }]
-        }
+        mock_httpx_client.json.return_value = {"result_set": [{"identifier": "1FGK", "score": 1.0}]}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = PDBClient()
             result = client.search_structures("FGFR2")
 
@@ -615,7 +608,7 @@ class TestPDBClient:
         """Test error handling."""
         mock_httpx_client.get.side_effect = Exception("API error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = PDBClient()
             result = client.get_structure("1FGK")
 

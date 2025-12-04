@@ -4,10 +4,11 @@ Agent registry for discovering and managing agents.
 Provides centralized management of all active agents in the system.
 """
 
-from typing import Dict, List, Optional, Type, Any
-from kosmos.agents.base import BaseAgent, AgentMessage, AgentStatus
 import logging
 from datetime import datetime
+from typing import Any
+
+from kosmos.agents.base import AgentMessage, BaseAgent
 
 
 logger = logging.getLogger(__name__)
@@ -48,9 +49,9 @@ class AgentRegistry:
 
     def __init__(self):
         """Initialize agent registry."""
-        self._agents: Dict[str, BaseAgent] = {}
-        self._agent_types: Dict[str, List[str]] = {}  # type -> [agent_ids]
-        self._message_history: List[AgentMessage] = []
+        self._agents: dict[str, BaseAgent] = {}
+        self._agent_types: dict[str, list[str]] = {}  # type -> [agent_ids]
+        self._message_history: list[AgentMessage] = []
         self._max_history_size = 1000
 
         logger.info("Agent registry initialized")
@@ -114,7 +115,7 @@ class AgentRegistry:
         del self._agents[agent_id]
         logger.info(f"Unregistered agent {agent_id}")
 
-    def get_agent(self, agent_id: str) -> Optional[BaseAgent]:
+    def get_agent(self, agent_id: str) -> BaseAgent | None:
         """
         Get agent by ID.
 
@@ -126,7 +127,7 @@ class AgentRegistry:
         """
         return self._agents.get(agent_id)
 
-    def get_agents_by_type(self, agent_type: str) -> List[BaseAgent]:
+    def get_agents_by_type(self, agent_type: str) -> list[BaseAgent]:
         """
         Get all agents of a specific type.
 
@@ -139,7 +140,7 @@ class AgentRegistry:
         agent_ids = self._agent_types.get(agent_type, [])
         return [self._agents[aid] for aid in agent_ids]
 
-    def list_agents(self) -> List[Dict[str, Any]]:
+    def list_agents(self) -> list[dict[str, Any]]:
         """
         List all registered agents.
 
@@ -148,7 +149,7 @@ class AgentRegistry:
         """
         return [agent.get_status() for agent in self._agents.values()]
 
-    def list_agent_types(self) -> List[str]:
+    def list_agent_types(self) -> list[str]:
         """
         List all registered agent types.
 
@@ -249,9 +250,9 @@ class AgentRegistry:
         self,
         from_agent_id: str,
         to_agent_id: str,
-        content: Dict[str, Any],
+        content: dict[str, Any],
         message_type: str = "request",
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None,
     ) -> AgentMessage:
         """
         Route message from one agent to another.
@@ -276,11 +277,12 @@ class AgentRegistry:
 
         # Create and send message
         from kosmos.agents.base import MessageType
+
         message = from_agent.send_message(
             to_agent=to_agent_id,
             content=content,
             message_type=MessageType(message_type),
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
         )
 
         # Deliver to recipient
@@ -294,11 +296,8 @@ class AgentRegistry:
         return message
 
     def broadcast_message(
-        self,
-        from_agent_id: str,
-        content: Dict[str, Any],
-        target_types: Optional[List[str]] = None
-    ) -> List[AgentMessage]:
+        self, from_agent_id: str, content: dict[str, Any], target_types: list[str] | None = None
+    ) -> list[AgentMessage]:
         """
         Broadcast message to multiple agents.
 
@@ -330,7 +329,7 @@ class AgentRegistry:
                 from_agent_id=from_agent_id,
                 to_agent_id=target.agent_id,
                 content=content,
-                message_type="notification"
+                message_type="notification",
             )
             messages.append(message)
 
@@ -338,10 +337,8 @@ class AgentRegistry:
         return messages
 
     def get_message_history(
-        self,
-        agent_id: Optional[str] = None,
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
+        self, agent_id: str | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
         """
         Get message history.
 
@@ -355,10 +352,7 @@ class AgentRegistry:
         messages = self._message_history
 
         if agent_id:
-            messages = [
-                m for m in messages
-                if m.from_agent == agent_id or m.to_agent == agent_id
-            ]
+            messages = [m for m in messages if m.from_agent == agent_id or m.to_agent == agent_id]
 
         # Return most recent messages
         messages = messages[-limit:]
@@ -368,7 +362,7 @@ class AgentRegistry:
     # HEALTH MONITORING
     # ========================================================================
 
-    def get_system_health(self) -> Dict[str, Any]:
+    def get_system_health(self) -> dict[str, Any]:
         """
         Get overall system health.
 
@@ -384,7 +378,7 @@ class AgentRegistry:
                 "status": agent.status,
                 "is_healthy": agent.is_healthy(),
                 "message_queue_length": len(agent.message_queue),
-                "errors": agent.errors_encountered
+                "errors": agent.errors_encountered,
             }
             for agent_id, agent in self._agents.items()
         }
@@ -397,10 +391,10 @@ class AgentRegistry:
             "unhealthy_agents": total_agents - healthy_agents,
             "agent_health": agent_health,
             "message_history_size": len(self._message_history),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
-    def get_agent_statistics(self) -> Dict[str, Any]:
+    def get_agent_statistics(self) -> dict[str, Any]:
         """
         Get statistics for all agents.
 
@@ -410,8 +404,7 @@ class AgentRegistry:
         return {
             "total_agents": len(self._agents),
             "agents_by_type": {
-                agent_type: len(agent_ids)
-                for agent_type, agent_ids in self._agent_types.items()
+                agent_type: len(agent_ids) for agent_type, agent_ids in self._agent_types.items()
             },
             "total_messages_sent": sum(a.messages_sent for a in self._agents.values()),
             "total_messages_received": sum(a.messages_received for a in self._agents.values()),
@@ -441,7 +434,7 @@ class AgentRegistry:
 
 
 # Singleton registry instance
-_registry: Optional[AgentRegistry] = None
+_registry: AgentRegistry | None = None
 
 
 def get_registry(reset: bool = False) -> AgentRegistry:

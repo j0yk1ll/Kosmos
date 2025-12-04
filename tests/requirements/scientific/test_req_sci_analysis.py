@@ -6,14 +6,13 @@ effect size reporting, and analysis integrity as specified in
 REQUIREMENTS.md Section 10.2.
 """
 
-import pytest
+from datetime import datetime
+from typing import Any
+
 import numpy as np
-import pandas as pd
-from typing import Dict, Any, List, Tuple
-from unittest.mock import Mock, patch, MagicMock
+import pytest
 from scipy import stats as scipy_stats
 
-from kosmos.analysis.statistics import DescriptiveStats, DistributionAnalysis
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -37,10 +36,8 @@ def test_req_sci_ana_001_appropriate_statistical_methods():
     """
 
     def select_appropriate_test(
-        data: np.ndarray,
-        data_type: str = "continuous",
-        paired: bool = False
-    ) -> Dict[str, Any]:
+        data: np.ndarray, data_type: str = "continuous", paired: bool = False
+    ) -> dict[str, Any]:
         """
         Select appropriate statistical test based on data characteristics.
 
@@ -57,7 +54,7 @@ def test_req_sci_ana_001_appropriate_statistical_methods():
             "sample_size": len(data) if data.ndim == 1 else len(data[0]),
             "is_paired": paired,
             "recommended_tests": [],
-            "rationale": []
+            "rationale": [],
         }
 
         # For continuous data
@@ -75,13 +72,17 @@ def test_req_sci_ana_001_appropriate_statistical_methods():
                     recommendations["recommended_tests"].append("t-test (parametric)")
                     recommendations["rationale"].append("Data appears normally distributed")
                 else:
-                    recommendations["recommended_tests"].append("Mann-Whitney U or Wilcoxon (non-parametric)")
+                    recommendations["recommended_tests"].append(
+                        "Mann-Whitney U or Wilcoxon (non-parametric)"
+                    )
                     recommendations["rationale"].append("Data is not normally distributed")
 
             # Sample size consideration
             if recommendations["sample_size"] < 30:
                 recommendations["recommended_tests"].append("Non-parametric test (small sample)")
-                recommendations["rationale"].append("Small sample size suggests non-parametric approach")
+                recommendations["rationale"].append(
+                    "Small sample size suggests non-parametric approach"
+                )
 
         # For ordinal data
         elif data_type == "ordinal":
@@ -103,9 +104,10 @@ def test_req_sci_ana_001_appropriate_statistical_methods():
     # Assert: Should recommend parametric test for normal data
     assert "data_type" in result, "Should assess data type"
     assert result["data_type"] == "continuous", "Should identify continuous data"
-    assert any("parametric" in test.lower() or "t-test" in test.lower()
-               for test in result["recommended_tests"]), \
-        "Should recommend parametric test for normal data"
+    assert any(
+        "parametric" in test.lower() or "t-test" in test.lower()
+        for test in result["recommended_tests"]
+    ), "Should recommend parametric test for normal data"
 
     # Test Case 2: Non-normal continuous data -> non-parametric test
     skewed_data = np.random.exponential(scale=2.0, size=50)
@@ -113,25 +115,30 @@ def test_req_sci_ana_001_appropriate_statistical_methods():
     result2 = select_appropriate_test(skewed_data, data_type="continuous")
 
     # Assert: Should recommend non-parametric test for skewed data
-    assert any("non-parametric" in test.lower() or "mann-whitney" in test.lower() or "wilcoxon" in test.lower()
-               for test in result2["recommended_tests"]), \
-        "Should recommend non-parametric test for non-normal data"
+    assert any(
+        "non-parametric" in test.lower()
+        or "mann-whitney" in test.lower()
+        or "wilcoxon" in test.lower()
+        for test in result2["recommended_tests"]
+    ), "Should recommend non-parametric test for non-normal data"
 
     # Test Case 3: Ordinal data -> rank-based test
     result3 = select_appropriate_test(np.array([1, 2, 3, 2, 1, 3]), data_type="ordinal")
 
     # Assert: Should recommend rank-based test
-    assert any("mann-whitney" in test.lower() or "kruskal" in test.lower()
-               for test in result3["recommended_tests"]), \
-        "Should recommend rank-based test for ordinal data"
+    assert any(
+        "mann-whitney" in test.lower() or "kruskal" in test.lower()
+        for test in result3["recommended_tests"]
+    ), "Should recommend rank-based test for ordinal data"
 
     # Test Case 4: Categorical data -> frequency test
     result4 = select_appropriate_test(np.array([0, 1, 1, 0, 1]), data_type="categorical")
 
     # Assert: Should recommend chi-square or Fisher's exact
-    assert any("chi-square" in test.lower() or "fisher" in test.lower()
-               for test in result4["recommended_tests"]), \
-        "Should recommend frequency-based test for categorical data"
+    assert any(
+        "chi-square" in test.lower() or "fisher" in test.lower()
+        for test in result4["recommended_tests"]
+    ), "Should recommend frequency-based test for categorical data"
 
 
 @pytest.mark.requirement("REQ-SCI-ANA-002")
@@ -152,14 +159,14 @@ def test_req_sci_ana_002_check_statistical_assumptions():
         """Check statistical assumptions for parametric tests."""
 
         @staticmethod
-        def check_normality(data: np.ndarray, alpha: float = 0.05) -> Dict[str, Any]:
+        def check_normality(data: np.ndarray, alpha: float = 0.05) -> dict[str, Any]:
             """Test normality assumption."""
             if len(data) < 3:
                 return {
                     "test": "shapiro-wilk",
                     "passed": False,
                     "reason": "Insufficient data for normality test",
-                    "p_value": None
+                    "p_value": None,
                 }
 
             statistic, p_value = scipy_stats.shapiro(data)
@@ -173,22 +180,20 @@ def test_req_sci_ana_002_check_statistical_assumptions():
                 "interpretation": (
                     f"Data {'appears' if p_value > alpha else 'does not appear'} "
                     f"normally distributed (p={p_value:.4f})"
-                )
+                ),
             }
 
         @staticmethod
         def check_homoscedasticity(
-            group1: np.ndarray,
-            group2: np.ndarray,
-            alpha: float = 0.05
-        ) -> Dict[str, Any]:
+            group1: np.ndarray, group2: np.ndarray, alpha: float = 0.05
+        ) -> dict[str, Any]:
             """Test homoscedasticity (equal variances)."""
             if len(group1) < 2 or len(group2) < 2:
                 return {
                     "test": "levene",
                     "passed": False,
                     "reason": "Insufficient data",
-                    "p_value": None
+                    "p_value": None,
                 }
 
             statistic, p_value = scipy_stats.levene(group1, group2)
@@ -202,20 +207,17 @@ def test_req_sci_ana_002_check_statistical_assumptions():
                 "interpretation": (
                     f"Variances {'appear' if p_value > alpha else 'do not appear'} "
                     f"equal (p={p_value:.4f})"
-                )
+                ),
             }
 
         @staticmethod
-        def check_all_assumptions(
-            data1: np.ndarray,
-            data2: np.ndarray = None
-        ) -> Dict[str, Any]:
+        def check_all_assumptions(data1: np.ndarray, data2: np.ndarray = None) -> dict[str, Any]:
             """Check all assumptions for parametric test."""
             results = {
                 "all_assumptions_met": True,
                 "checks": {},
                 "violations": [],
-                "recommendations": []
+                "recommendations": [],
             }
 
             # Check normality for first group
@@ -276,12 +278,11 @@ def test_req_sci_ana_002_check_statistical_assumptions():
     result2 = AssumptionChecker.check_all_assumptions(skewed_data, normal_data)
 
     # Assert: Should detect violation
-    assert not result2["all_assumptions_met"], \
-        "Should detect assumption violations"
-    assert len(result2["violations"]) > 0, \
-        "Should list specific violations"
-    assert len(result2["recommendations"]) > 0, \
-        "Should provide recommendations for violated assumptions"
+    assert not result2["all_assumptions_met"], "Should detect assumption violations"
+    assert len(result2["violations"]) > 0, "Should list specific violations"
+    assert (
+        len(result2["recommendations"]) > 0
+    ), "Should provide recommendations for violated assumptions"
 
     # Test Case 3: Unequal variances
     low_var = np.random.normal(100, 5, 40)
@@ -291,8 +292,9 @@ def test_req_sci_ana_002_check_statistical_assumptions():
 
     # Assert: Should detect heteroscedasticity
     if not result3["checks"]["homoscedasticity"]["passed"]:
-        assert any("welch" in rec.lower() for rec in result3["recommendations"]), \
-            "Should recommend Welch's t-test for unequal variances"
+        assert any(
+            "welch" in rec.lower() for rec in result3["recommendations"]
+        ), "Should recommend Welch's t-test for unequal variances"
 
 
 @pytest.mark.requirement("REQ-SCI-ANA-003")
@@ -309,10 +311,8 @@ def test_req_sci_ana_003_report_effect_sizes():
     """
 
     def compute_effect_size(
-        group1: np.ndarray,
-        group2: np.ndarray,
-        effect_type: str = "cohen_d"
-    ) -> Dict[str, Any]:
+        group1: np.ndarray, group2: np.ndarray, effect_type: str = "cohen_d"
+    ) -> dict[str, Any]:
         """
         Compute effect size for two groups.
 
@@ -366,13 +366,10 @@ def test_req_sci_ana_003_report_effect_sizes():
             "group1_mean": float(mean1),
             "group2_mean": float(mean2),
             "group1_std": float(std1),
-            "group2_std": float(std2)
+            "group2_std": float(std2),
         }
 
-    def perform_test_with_effect_size(
-        group1: np.ndarray,
-        group2: np.ndarray
-    ) -> Dict[str, Any]:
+    def perform_test_with_effect_size(group1: np.ndarray, group2: np.ndarray) -> dict[str, Any]:
         """Perform statistical test and compute effect size."""
         # Perform t-test
         t_stat, p_value = scipy_stats.ttest_ind(group1, group2)
@@ -392,7 +389,7 @@ def test_req_sci_ana_003_report_effect_sizes():
                 f"{'Significant' if p_value < 0.05 else 'Non-significant'} difference "
                 f"(p={p_value:.4f}) with {effect['magnitude']} effect size "
                 f"(d={effect['effect_size']:.3f})"
-            )
+            ),
         }
 
     # Test Case 1: Large effect size (should be reported)
@@ -405,12 +402,17 @@ def test_req_sci_ana_003_report_effect_sizes():
     # Assert: Should report effect size
     assert "effect_size" in result, "Should compute effect size"
     assert "effect_magnitude" in result, "Should provide effect size interpretation"
-    assert result["effect_magnitude"] in ["small", "medium", "large"], \
-        "Should categorize effect size"
-    assert "interpretation" in result, \
-        "Should provide interpretation including both p-value and effect size"
-    assert abs(result["effect_size"]) > 0.8, \
-        "Should detect large effect size for groups with large mean difference"
+    assert result["effect_magnitude"] in [
+        "small",
+        "medium",
+        "large",
+    ], "Should categorize effect size"
+    assert (
+        "interpretation" in result
+    ), "Should provide interpretation including both p-value and effect size"
+    assert (
+        abs(result["effect_size"]) > 0.8
+    ), "Should detect large effect size for groups with large mean difference"
 
     # Test Case 2: Small effect size (should still be reported)
     group_c = np.random.normal(100, 15, 50)
@@ -419,10 +421,11 @@ def test_req_sci_ana_003_report_effect_sizes():
     result2 = perform_test_with_effect_size(group_c, group_d)
 
     # Assert: Should report small effect size
-    assert result2["effect_magnitude"] in ["negligible", "small"], \
-        "Should detect small effect size for groups with small mean difference"
-    assert "effect_size" in result2, \
-        "Should report effect size even when small"
+    assert result2["effect_magnitude"] in [
+        "negligible",
+        "small",
+    ], "Should detect small effect size for groups with small mean difference"
+    assert "effect_size" in result2, "Should report effect size even when small"
 
     # Test Case 3: Effect size interpretation
     effect_details = compute_effect_size(group_a, group_b)
@@ -449,11 +452,7 @@ def test_req_sci_ana_004_flag_assumption_violations():
         """Validate analysis and suggest alternatives."""
 
         @staticmethod
-        def validate_analysis(
-            data: np.ndarray,
-            analysis_type: str,
-            **kwargs
-        ) -> Dict[str, Any]:
+        def validate_analysis(data: np.ndarray, analysis_type: str, **kwargs) -> dict[str, Any]:
             """
             Validate if analysis is appropriate for data.
 
@@ -470,7 +469,7 @@ def test_req_sci_ana_004_flag_assumption_violations():
                 "is_appropriate": True,
                 "violations": [],
                 "warnings": [],
-                "alternative_suggestions": []
+                "alternative_suggestions": [],
             }
 
             # Check normality
@@ -479,35 +478,47 @@ def test_req_sci_ana_004_flag_assumption_violations():
 
                 if p_norm < 0.05:
                     result["is_appropriate"] = False
-                    result["violations"].append({
-                        "assumption": "normality",
-                        "p_value": float(p_norm),
-                        "severity": "critical" if analysis_type in ["t_test", "anova"] else "warning"
-                    })
+                    result["violations"].append(
+                        {
+                            "assumption": "normality",
+                            "p_value": float(p_norm),
+                            "severity": (
+                                "critical" if analysis_type in ["t_test", "anova"] else "warning"
+                            ),
+                        }
+                    )
 
                     if analysis_type == "t_test":
-                        result["alternative_suggestions"].append({
-                            "method": "Mann-Whitney U test",
-                            "rationale": "Non-parametric alternative for non-normal data"
-                        })
+                        result["alternative_suggestions"].append(
+                            {
+                                "method": "Mann-Whitney U test",
+                                "rationale": "Non-parametric alternative for non-normal data",
+                            }
+                        )
                     elif analysis_type == "anova":
-                        result["alternative_suggestions"].append({
-                            "method": "Kruskal-Wallis test",
-                            "rationale": "Non-parametric alternative to ANOVA"
-                        })
+                        result["alternative_suggestions"].append(
+                            {
+                                "method": "Kruskal-Wallis test",
+                                "rationale": "Non-parametric alternative to ANOVA",
+                            }
+                        )
 
             # Check sample size
             if len(data) < 30:
-                result["warnings"].append({
-                    "issue": "small_sample_size",
-                    "sample_size": len(data),
-                    "recommendation": "Consider non-parametric tests for small samples"
-                })
+                result["warnings"].append(
+                    {
+                        "issue": "small_sample_size",
+                        "sample_size": len(data),
+                        "recommendation": "Consider non-parametric tests for small samples",
+                    }
+                )
 
-                result["alternative_suggestions"].append({
-                    "method": "Bootstrap or permutation test",
-                    "rationale": "More robust for small sample sizes"
-                })
+                result["alternative_suggestions"].append(
+                    {
+                        "method": "Bootstrap or permutation test",
+                        "rationale": "More robust for small sample sizes",
+                    }
+                )
 
             # Check for outliers
             if len(data) > 0:
@@ -518,17 +529,19 @@ def test_req_sci_ana_004_flag_assumption_violations():
                 outliers = np.sum((data < lower_bound) | (data > upper_bound))
 
                 if outliers > 0:
-                    result["warnings"].append({
-                        "issue": "outliers_detected",
-                        "count": int(outliers),
-                        "percentage": float(outliers / len(data) * 100),
-                        "recommendation": "Consider robust statistics or outlier removal"
-                    })
+                    result["warnings"].append(
+                        {
+                            "issue": "outliers_detected",
+                            "count": int(outliers),
+                            "percentage": float(outliers / len(data) * 100),
+                            "recommendation": "Consider robust statistics or outlier removal",
+                        }
+                    )
 
             return result
 
         @staticmethod
-        def generate_warning_message(validation_result: Dict[str, Any]) -> str:
+        def generate_warning_message(validation_result: dict[str, Any]) -> str:
             """Generate human-readable warning message."""
             if validation_result["is_appropriate"] and not validation_result["warnings"]:
                 return "Analysis appears appropriate for the data"
@@ -573,26 +586,24 @@ def test_req_sci_ana_004_flag_assumption_violations():
     result2 = AnalysisValidator.validate_analysis(skewed_data, "t_test")
 
     # Assert: Should flag violation
-    assert not result2["is_appropriate"], \
-        "Should flag inappropriate analysis for non-normal data"
-    assert len(result2["violations"]) > 0, \
-        "Should list specific violations"
-    assert any(v["assumption"] == "normality" for v in result2["violations"]), \
-        "Should identify normality violation"
-    assert len(result2["alternative_suggestions"]) > 0, \
-        "Should suggest alternative methods"
-    assert any("mann-whitney" in alt["method"].lower()
-               for alt in result2["alternative_suggestions"]), \
-        "Should suggest non-parametric alternative"
+    assert not result2["is_appropriate"], "Should flag inappropriate analysis for non-normal data"
+    assert len(result2["violations"]) > 0, "Should list specific violations"
+    assert any(
+        v["assumption"] == "normality" for v in result2["violations"]
+    ), "Should identify normality violation"
+    assert len(result2["alternative_suggestions"]) > 0, "Should suggest alternative methods"
+    assert any(
+        "mann-whitney" in alt["method"].lower() for alt in result2["alternative_suggestions"]
+    ), "Should suggest non-parametric alternative"
 
     # Test Case 3: Warning message generation
     warning_msg = AnalysisValidator.generate_warning_message(result2)
 
     # Assert: Should generate informative warning
-    assert "CRITICAL" in warning_msg or "WARNING" in warning_msg, \
-        "Should include severity indicator"
-    assert "ALTERNATIVE" in warning_msg, \
-        "Should include alternative suggestions"
+    assert (
+        "CRITICAL" in warning_msg or "WARNING" in warning_msg
+    ), "Should include severity indicator"
+    assert "ALTERNATIVE" in warning_msg, "Should include alternative suggestions"
 
 
 @pytest.mark.requirement("REQ-SCI-ANA-005")
@@ -614,10 +625,8 @@ def test_req_sci_ana_005_no_grossly_violating_assumptions():
 
         @staticmethod
         def safe_t_test(
-            group1: np.ndarray,
-            group2: np.ndarray,
-            force: bool = False
-        ) -> Dict[str, Any]:
+            group1: np.ndarray, group2: np.ndarray, force: bool = False
+        ) -> dict[str, Any]:
             """
             Perform t-test with safety checks.
 
@@ -634,17 +643,19 @@ def test_req_sci_ana_005_no_grossly_violating_assumptions():
                 "executed": False,
                 "blocked": False,
                 "violations": [],
-                "result": None
+                "result": None,
             }
 
             # Check sample sizes
             if len(group1) < 3 or len(group2) < 3:
                 result["blocked"] = True
-                result["violations"].append({
-                    "type": "insufficient_data",
-                    "severity": "critical",
-                    "message": "Sample size too small for t-test (n < 3)"
-                })
+                result["violations"].append(
+                    {
+                        "type": "insufficient_data",
+                        "severity": "critical",
+                        "message": "Sample size too small for t-test (n < 3)",
+                    }
+                )
                 return result
 
             # Check normality (stricter for small samples)
@@ -665,25 +676,29 @@ def test_req_sci_ana_005_no_grossly_violating_assumptions():
                     # Gross violation: heavily skewed + small sample
                     if (skew1 > 2 or skew2 > 2) and small_sample:
                         result["blocked"] = True
-                        result["violations"].append({
-                            "type": "gross_normality_violation",
-                            "severity": "critical",
-                            "message": (
-                                f"Data is heavily skewed (skew1={skew1:.2f}, skew2={skew2:.2f}) "
-                                f"with small sample size (n1={len(group1)}, n2={len(group2)}). "
-                                "T-test is inappropriate. Use Mann-Whitney U test instead."
-                            ),
-                            "alternative": "Mann-Whitney U test"
-                        })
+                        result["violations"].append(
+                            {
+                                "type": "gross_normality_violation",
+                                "severity": "critical",
+                                "message": (
+                                    f"Data is heavily skewed (skew1={skew1:.2f}, skew2={skew2:.2f}) "
+                                    f"with small sample size (n1={len(group1)}, n2={len(group2)}). "
+                                    "T-test is inappropriate. Use Mann-Whitney U test instead."
+                                ),
+                                "alternative": "Mann-Whitney U test",
+                            }
+                        )
 
                         if not force:
                             return result
 
             except Exception as e:
-                result["violations"].append({
-                    "type": "assumption_check_failed",
-                    "message": f"Could not check assumptions: {e}"
-                })
+                result["violations"].append(
+                    {
+                        "type": "assumption_check_failed",
+                        "message": f"Could not check assumptions: {e}",
+                    }
+                )
 
             # If not blocked, perform test
             if not result["blocked"] or force:
@@ -695,8 +710,9 @@ def test_req_sci_ana_005_no_grossly_violating_assumptions():
                         "p_value": float(p_value),
                         "warning": (
                             "Test performed despite violations"
-                            if result["violations"] and force else None
-                        )
+                            if result["violations"] and force
+                            else None
+                        ),
                     }
                 except Exception as e:
                     result["error"] = str(e)
@@ -722,15 +738,15 @@ def test_req_sci_ana_005_no_grossly_violating_assumptions():
     result2 = SafeStatisticalTest.safe_t_test(skewed1, skewed2)
 
     # Assert: Should block test
-    assert result2["blocked"], \
-        "Should block t-test on heavily skewed data with small sample"
+    assert result2["blocked"], "Should block t-test on heavily skewed data with small sample"
     assert not result2["executed"], "Should not execute blocked test"
     assert len(result2["violations"]) > 0, "Should report violations"
-    assert any(v["severity"] == "critical" for v in result2["violations"]), \
-        "Should mark gross violations as critical"
-    assert any("mann-whitney" in v.get("alternative", "").lower()
-               for v in result2["violations"]), \
-        "Should suggest appropriate alternative"
+    assert any(
+        v["severity"] == "critical" for v in result2["violations"]
+    ), "Should mark gross violations as critical"
+    assert any(
+        "mann-whitney" in v.get("alternative", "").lower() for v in result2["violations"]
+    ), "Should suggest appropriate alternative"
 
     # Test Case 3: Very small sample (should block)
     tiny1 = np.array([1.0, 2.0])
@@ -740,8 +756,9 @@ def test_req_sci_ana_005_no_grossly_violating_assumptions():
 
     # Assert: Should block due to insufficient data
     assert result3["blocked"], "Should block t-test on very small samples"
-    assert any(v["type"] == "insufficient_data" for v in result3["violations"]), \
-        "Should identify insufficient data violation"
+    assert any(
+        v["type"] == "insufficient_data" for v in result3["violations"]
+    ), "Should identify insufficient data violation"
 
 
 @pytest.mark.requirement("REQ-SCI-ANA-006")
@@ -758,10 +775,8 @@ def test_req_sci_ana_006_report_effect_sizes_with_pvalues():
     """
 
     def complete_statistical_report(
-        group1: np.ndarray,
-        group2: np.ndarray,
-        alpha: float = 0.05
-    ) -> Dict[str, Any]:
+        group1: np.ndarray, group2: np.ndarray, alpha: float = 0.05
+    ) -> dict[str, Any]:
         """
         Generate complete statistical report with all required metrics.
 
@@ -788,7 +803,7 @@ def test_req_sci_ana_006_report_effect_sizes_with_pvalues():
         mean_diff = mean1 - mean2
         se_diff = np.sqrt(std1**2 / n1 + std2**2 / n2)
         df = n1 + n2 - 2
-        t_critical = scipy_stats.t.ppf(1 - alpha/2, df)
+        t_critical = scipy_stats.t.ppf(1 - alpha / 2, df)
         ci_lower = mean_diff - t_critical * se_diff
         ci_upper = mean_diff + t_critical * se_diff
 
@@ -800,45 +815,43 @@ def test_req_sci_ana_006_report_effect_sizes_with_pvalues():
 
         return {
             "test_type": "independent_t_test",
-
             # MUST have: p-value
             "p_value": float(p_value),
             "significant": p_value < alpha,
-
             # MUST have: effect size
             "effect_size": {
                 "cohens_d": float(cohens_d),
                 "magnitude": (
-                    "large" if abs(cohens_d) >= 0.8 else
-                    "medium" if abs(cohens_d) >= 0.5 else
-                    "small" if abs(cohens_d) >= 0.2 else
-                    "negligible"
-                )
+                    "large"
+                    if abs(cohens_d) >= 0.8
+                    else (
+                        "medium"
+                        if abs(cohens_d) >= 0.5
+                        else "small" if abs(cohens_d) >= 0.2 else "negligible"
+                    )
+                ),
             },
-
             # SHOULD have: confidence intervals
             "confidence_intervals": {
                 "mean_difference": {
                     "estimate": float(mean_diff),
                     "ci_lower": float(ci_lower),
                     "ci_upper": float(ci_upper),
-                    "confidence_level": 1 - alpha
+                    "confidence_level": 1 - alpha,
                 },
                 "effect_size": {
                     "ci_lower": float(d_ci_lower),
                     "ci_upper": float(d_ci_upper),
-                    "confidence_level": 0.95
-                }
+                    "confidence_level": 0.95,
+                },
             },
-
             # Additional statistics
             "descriptive": {
                 "group1": {"mean": float(mean1), "sd": float(std1), "n": n1},
-                "group2": {"mean": float(mean2), "sd": float(std2), "n": n2}
+                "group2": {"mean": float(mean2), "sd": float(std2), "n": n2},
             },
-
             "test_statistic": float(t_stat),
-            "degrees_of_freedom": df
+            "degrees_of_freedom": df,
         }
 
     # Test Case 1: Complete report includes all required elements
@@ -858,28 +871,28 @@ def test_req_sci_ana_006_report_effect_sizes_with_pvalues():
     assert "magnitude" in report["effect_size"], "Must interpret effect size magnitude"
 
     # Assert: SHOULD have confidence intervals
-    assert "confidence_intervals" in report, \
-        "Report SHOULD include confidence intervals"
-    assert "mean_difference" in report["confidence_intervals"], \
-        "Should include CI for mean difference"
-    assert "effect_size" in report["confidence_intervals"], \
-        "Should include CI for effect size"
+    assert "confidence_intervals" in report, "Report SHOULD include confidence intervals"
+    assert (
+        "mean_difference" in report["confidence_intervals"]
+    ), "Should include CI for mean difference"
+    assert "effect_size" in report["confidence_intervals"], "Should include CI for effect size"
 
     # Test Case 2: Verify completeness check function
-    def check_report_completeness(report: Dict[str, Any]) -> Dict[str, bool]:
+    def check_report_completeness(report: dict[str, Any]) -> dict[str, bool]:
         """Check if report meets completeness requirements."""
         return {
             "has_p_value": "p_value" in report,
-            "has_effect_size": "effect_size" in report and "cohens_d" in report.get("effect_size", {}),
+            "has_effect_size": "effect_size" in report
+            and "cohens_d" in report.get("effect_size", {}),
             "has_ci_mean_diff": (
-                "confidence_intervals" in report and
-                "mean_difference" in report.get("confidence_intervals", {})
+                "confidence_intervals" in report
+                and "mean_difference" in report.get("confidence_intervals", {})
             ),
             "has_ci_effect_size": (
-                "confidence_intervals" in report and
-                "effect_size" in report.get("confidence_intervals", {})
+                "confidence_intervals" in report
+                and "effect_size" in report.get("confidence_intervals", {})
             ),
-            "has_descriptive_stats": "descriptive" in report
+            "has_descriptive_stats": "descriptive" in report,
         }
 
     completeness = check_report_completeness(report)
@@ -913,11 +926,7 @@ def test_req_sci_ana_007_no_cherry_picking():
             self.reported = []
 
         def register_analysis(
-            self,
-            analysis_id: str,
-            analysis_type: str,
-            data_description: str,
-            **kwargs
+            self, analysis_id: str, analysis_type: str, data_description: str, **kwargs
         ) -> str:
             """Register an analysis before performing it."""
             analysis_record = {
@@ -927,16 +936,12 @@ def test_req_sci_ana_007_no_cherry_picking():
                 "timestamp": datetime.now(),
                 "status": "registered",
                 "result": None,
-                "metadata": kwargs
+                "metadata": kwargs,
             }
             self.analyses.append(analysis_record)
             return analysis_id
 
-        def record_result(
-            self,
-            analysis_id: str,
-            result: Dict[str, Any]
-        ):
+        def record_result(self, analysis_id: str, result: dict[str, Any]):
             """Record result of analysis."""
             for analysis in self.analyses:
                 if analysis["id"] == analysis_id:
@@ -954,7 +959,7 @@ def test_req_sci_ana_007_no_cherry_picking():
                     return True
             return False
 
-        def check_reporting_integrity(self) -> Dict[str, Any]:
+        def check_reporting_integrity(self) -> dict[str, Any]:
             """
             Check if all analyses are reported (no cherry-picking).
 
@@ -968,14 +973,15 @@ def test_req_sci_ana_007_no_cherry_picking():
             unreported = completed_ids - reported_ids
 
             significant_count = sum(
-                1 for a in completed
-                if a["result"] and a["result"].get("p_value", 1.0) < 0.05
+                1 for a in completed if a["result"] and a["result"].get("p_value", 1.0) < 0.05
             )
 
             reported_significant_count = sum(
-                1 for a in completed
-                if a["id"] in reported_ids and
-                a["result"] and a["result"].get("p_value", 1.0) < 0.05
+                1
+                for a in completed
+                if a["id"] in reported_ids
+                and a["result"]
+                and a["result"].get("p_value", 1.0) < 0.05
             )
 
             return {
@@ -988,11 +994,11 @@ def test_req_sci_ana_007_no_cherry_picking():
                 "reported_significant": reported_significant_count,
                 "all_reported": len(unreported) == 0,
                 "potential_cherry_picking": (
-                    len(unreported) > 0 and
-                    reported_significant_count > 0 and
-                    reported_significant_count == len(reported_ids)
+                    len(unreported) > 0
+                    and reported_significant_count > 0
+                    and reported_significant_count == len(reported_ids)
                 ),
-                "reporting_rate": len(reported_ids) / len(completed) if completed else 0
+                "reporting_rate": len(reported_ids) / len(completed) if completed else 0,
             }
 
     # Test Case 1: All analyses reported (good practice)
@@ -1001,11 +1007,7 @@ def test_req_sci_ana_007_no_cherry_picking():
     # Perform and report multiple analyses
     np.random.seed(42)
     for i in range(5):
-        aid = registry1.register_analysis(
-            f"analysis_{i}",
-            "t_test",
-            f"Comparison {i}"
-        )
+        aid = registry1.register_analysis(f"analysis_{i}", "t_test", f"Comparison {i}")
 
         # Simulate results (some significant, some not)
         p_value = 0.03 if i % 2 == 0 else 0.15
@@ -1015,23 +1017,18 @@ def test_req_sci_ana_007_no_cherry_picking():
     integrity1 = registry1.check_reporting_integrity()
 
     # Assert: Should show good reporting practices
-    assert integrity1["all_reported"], \
-        "All completed analyses should be reported"
-    assert not integrity1["potential_cherry_picking"], \
-        "Should not detect cherry-picking when all results reported"
-    assert integrity1["reporting_rate"] == 1.0, \
-        "Reporting rate should be 100%"
+    assert integrity1["all_reported"], "All completed analyses should be reported"
+    assert not integrity1[
+        "potential_cherry_picking"
+    ], "Should not detect cherry-picking when all results reported"
+    assert integrity1["reporting_rate"] == 1.0, "Reporting rate should be 100%"
 
     # Test Case 2: Cherry-picking detected (bad practice)
     registry2 = AnalysisRegistry()
 
     # Perform analyses but only report significant ones
     for i in range(5):
-        aid = registry2.register_analysis(
-            f"analysis_{i}",
-            "t_test",
-            f"Comparison {i}"
-        )
+        aid = registry2.register_analysis(f"analysis_{i}", "t_test", f"Comparison {i}")
 
         p_value = 0.03 if i % 2 == 0 else 0.15
         registry2.record_result(aid, {"p_value": p_value, "significant": p_value < 0.05})
@@ -1043,14 +1040,12 @@ def test_req_sci_ana_007_no_cherry_picking():
     integrity2 = registry2.check_reporting_integrity()
 
     # Assert: Should detect potential cherry-picking
-    assert not integrity2["all_reported"], \
-        "Should detect unreported analyses"
-    assert integrity2["unreported_analyses"] > 0, \
-        "Should count unreported analyses"
-    assert integrity2["potential_cherry_picking"], \
-        "Should flag potential cherry-picking when only significant results reported"
-    assert integrity2["reporting_rate"] < 1.0, \
-        "Reporting rate should be less than 100%"
+    assert not integrity2["all_reported"], "Should detect unreported analyses"
+    assert integrity2["unreported_analyses"] > 0, "Should count unreported analyses"
+    assert integrity2[
+        "potential_cherry_picking"
+    ], "Should flag potential cherry-picking when only significant results reported"
+    assert integrity2["reporting_rate"] < 1.0, "Reporting rate should be less than 100%"
 
     # Test Case 3: Documentation completeness
     def generate_analysis_documentation(registry: AnalysisRegistry) -> str:
@@ -1064,7 +1059,7 @@ def test_req_sci_ana_007_no_cherry_picking():
             doc += f"- Description: {analysis['description']}\n"
             doc += f"- Status: {analysis['status']}\n"
 
-            if analysis['result']:
+            if analysis["result"]:
                 doc += f"- P-value: {analysis['result'].get('p_value', 'N/A')}\n"
                 doc += f"- Significant: {analysis['result'].get('significant', 'N/A')}\n"
 
@@ -1075,7 +1070,5 @@ def test_req_sci_ana_007_no_cherry_picking():
     doc = generate_analysis_documentation(registry2)
 
     # Assert: Documentation should include all analyses
-    assert "Total analyses performed: 5" in doc, \
-        "Documentation should include all analyses"
-    assert "Reported: No" in doc, \
-        "Documentation should show unreported analyses"
+    assert "Total analyses performed: 5" in doc, "Documentation should include all analyses"
+    assert "Reported: No" in doc, "Documentation should show unreported analyses"

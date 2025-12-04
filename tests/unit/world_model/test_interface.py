@@ -1,13 +1,10 @@
 """Tests for world model abstract interfaces."""
 
-import pytest
 from abc import ABC
 
-from kosmos.world_model.interface import (
-    EntityManager,
-    ProvenanceTracker,
-    WorldModelStorage,
-)
+import pytest
+
+from kosmos.world_model.interface import EntityManager, ProvenanceTracker, WorldModelStorage
 from kosmos.world_model.models import Annotation, Entity, Relationship
 
 
@@ -173,7 +170,9 @@ class MockWorldModel(WorldModelStorage, EntityManager):
     def get_relationship(self, relationship_id: str):
         return self.relationships.get(relationship_id)
 
-    def query_related_entities(self, entity_id, relationship_type=None, direction="outgoing", max_depth=1):
+    def query_related_entities(
+        self, entity_id, relationship_type=None, direction="outgoing", max_depth=1
+    ):
         return []
 
     def export_graph(self, filepath: str, project=None):
@@ -254,7 +253,7 @@ class TestMockImplementation:
         mock = MockWorldModel()
 
         # Add some entities
-        for i in range(5):
+        for _i in range(5):
             mock.add_entity(Entity(type="Paper", properties={}))
 
         stats = mock.get_statistics()

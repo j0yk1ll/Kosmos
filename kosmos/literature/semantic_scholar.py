@@ -5,19 +5,14 @@ Uses the official semanticscholar Python package with enhanced caching and
 citation support.
 """
 
-from semanticscholar import SemanticScholar
-from semanticscholar.Paper import Paper as S2Paper
-from typing import List, Optional
 from datetime import datetime
 
-from kosmos.literature.base_client import (
-    BaseLiteratureClient,
-    PaperMetadata,
-    PaperSource,
-    Author
-)
-from kosmos.literature.cache import get_cache
+from semanticscholar import SemanticScholar
+from semanticscholar.Paper import Paper as S2Paper
+
 from kosmos.config import get_config
+from kosmos.literature.base_client import Author, BaseLiteratureClient, PaperMetadata, PaperSource
+from kosmos.literature.cache import get_cache
 
 
 class SemanticScholarClient(BaseLiteratureClient):
@@ -30,7 +25,7 @@ class SemanticScholarClient(BaseLiteratureClient):
     API Docs: https://api.semanticscholar.org/
     """
 
-    def __init__(self, api_key: Optional[str] = None, cache_enabled: bool = True):
+    def __init__(self, api_key: str | None = None, cache_enabled: bool = True):
         """
         Initialize the Semantic Scholar client.
 
@@ -53,10 +48,21 @@ class SemanticScholarClient(BaseLiteratureClient):
 
         # Paper fields to request
         self.paper_fields = [
-            'paperId', 'externalIds', 'title', 'abstract', 'authors',
-            'year', 'publicationDate', 'venue', 'journal', 'url',
-            'citationCount', 'referenceCount', 'influentialCitationCount',
-            'fieldsOfStudy', 'openAccessPdf'
+            "paperId",
+            "externalIds",
+            "title",
+            "abstract",
+            "authors",
+            "year",
+            "publicationDate",
+            "venue",
+            "journal",
+            "url",
+            "citationCount",
+            "referenceCount",
+            "influentialCitationCount",
+            "fieldsOfStudy",
+            "openAccessPdf",
         ]
 
         self.logger.info(
@@ -67,11 +73,11 @@ class SemanticScholarClient(BaseLiteratureClient):
         self,
         query: str,
         max_results: int = 10,
-        fields: Optional[List[str]] = None,
-        year_from: Optional[int] = None,
-        year_to: Optional[int] = None,
-        **kwargs
-    ) -> List[PaperMetadata]:
+        fields: list[str] | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        **kwargs,
+    ) -> list[PaperMetadata]:
         """
         Search for papers on Semantic Scholar.
 
@@ -115,7 +121,7 @@ class SemanticScholarClient(BaseLiteratureClient):
             "fields": fields,
             "year_from": year_from,
             "year_to": year_to,
-            **kwargs
+            **kwargs,
         }
 
         if self.cache:
@@ -130,7 +136,7 @@ class SemanticScholarClient(BaseLiteratureClient):
                 limit=min(max_results, self.max_results),
                 fields=self.paper_fields,
                 year=f"{year_from}-{year_to}" if year_from and year_to else None,
-                fields_of_study=fields
+                fields_of_study=fields,
             )
 
             # Convert to PaperMetadata
@@ -157,7 +163,7 @@ class SemanticScholarClient(BaseLiteratureClient):
             self._handle_api_error(e, f"search query='{query}'")
             return []
 
-    def get_paper_by_id(self, paper_id: str) -> Optional[PaperMetadata]:
+    def get_paper_by_id(self, paper_id: str) -> PaperMetadata | None:
         """
         Retrieve a specific paper by Semantic Scholar ID or external ID.
 
@@ -192,10 +198,7 @@ class SemanticScholarClient(BaseLiteratureClient):
                 return cached_result
 
         try:
-            result = self.client.get_paper(
-                paper_id=paper_id,
-                fields=self.paper_fields
-            )
+            result = self.client.get_paper(paper_id=paper_id, fields=self.paper_fields)
 
             if not result:
                 self.logger.warning(f"Paper not found: {paper_id}")
@@ -213,7 +216,7 @@ class SemanticScholarClient(BaseLiteratureClient):
             self._handle_api_error(e, f"get_paper_by_id id={paper_id}")
             return None
 
-    def get_paper_references(self, paper_id: str, max_refs: int = 50) -> List[PaperMetadata]:
+    def get_paper_references(self, paper_id: str, max_refs: int = 50) -> list[PaperMetadata]:
         """
         Get papers cited by the given paper.
 
@@ -239,9 +242,7 @@ class SemanticScholarClient(BaseLiteratureClient):
 
         try:
             result = self.client.get_paper_references(
-                paper_id=paper_id,
-                limit=max_refs,
-                fields=self.paper_fields
+                paper_id=paper_id, limit=max_refs, fields=self.paper_fields
             )
 
             # Extract and convert papers
@@ -258,7 +259,7 @@ class SemanticScholarClient(BaseLiteratureClient):
             self._handle_api_error(e, f"get_paper_references id={paper_id}")
             return []
 
-    def get_paper_citations(self, paper_id: str, max_cites: int = 50) -> List[PaperMetadata]:
+    def get_paper_citations(self, paper_id: str, max_cites: int = 50) -> list[PaperMetadata]:
         """
         Get papers that cite the given paper.
 
@@ -284,9 +285,7 @@ class SemanticScholarClient(BaseLiteratureClient):
 
         try:
             result = self.client.get_paper_citations(
-                paper_id=paper_id,
-                limit=max_cites,
-                fields=self.paper_fields
+                paper_id=paper_id, limit=max_cites, fields=self.paper_fields
             )
 
             # Extract and convert papers
@@ -323,10 +322,12 @@ class SemanticScholarClient(BaseLiteratureClient):
         authors = []
         if result.authors:
             for author in result.authors:
-                authors.append(Author(
-                    name=author.name,
-                    author_id=author.authorId if hasattr(author, 'authorId') else None
-                ))
+                authors.append(
+                    Author(
+                        name=author.name,
+                        author_id=author.authorId if hasattr(author, "authorId") else None,
+                    )
+                )
 
         # Parse publication date
         pub_date = None
@@ -342,7 +343,7 @@ class SemanticScholarClient(BaseLiteratureClient):
 
         # Get PDF URL from open access
         pdf_url = None
-        if result.openAccessPdf and hasattr(result.openAccessPdf, 'url'):
+        if result.openAccessPdf and hasattr(result.openAccessPdf, "url"):
             pdf_url = result.openAccessPdf.url
 
         # Extract fields of study
@@ -358,8 +359,11 @@ class SemanticScholarClient(BaseLiteratureClient):
             abstract=result.abstract or "",
             authors=authors,
             publication_date=pub_date,
-            journal=(result.journal.get("name") if isinstance(result.journal, dict)
-                    else result.journal) if result.journal else None,
+            journal=(
+                (result.journal.get("name") if isinstance(result.journal, dict) else result.journal)
+                if result.journal
+                else None
+            ),
             venue=result.venue,
             year=result.year,
             url=result.url,
@@ -368,8 +372,5 @@ class SemanticScholarClient(BaseLiteratureClient):
             reference_count=result.referenceCount or 0,
             influential_citation_count=result.influentialCitationCount or 0,
             fields=[f.lower() for f in fields],
-            raw_data={
-                "paperId": result.paperId,
-                "externalIds": external_ids
-            }
+            raw_data={"paperId": result.paperId, "externalIds": external_ids},
         )

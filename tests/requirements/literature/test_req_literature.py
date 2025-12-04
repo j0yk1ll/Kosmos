@@ -6,12 +6,13 @@ requirements for search, retrieval, parsing, synthesis, and citation management
 as defined in REQUIREMENTS.md.
 """
 
-import pytest
 import time
-from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from typing import List, Dict, Any
+from datetime import datetime
+from typing import Any
+from unittest.mock import patch
+
+import pytest
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -54,7 +55,16 @@ def test_req_lsa_001_translate_search_queries():
 
             # Verify key terms from original question are preserved
             # Remove common stop words and check substantive terms
-            question_terms = set(question.lower().split()) - {'the', 'of', 'on', 'in', 'are', 'what', 'how', 'does'}
+            question_terms = set(question.lower().split()) - {
+                "the",
+                "of",
+                "on",
+                "in",
+                "are",
+                "what",
+                "how",
+                "does",
+            }
             query_lower = search_query.lower()
 
             # At least some key terms should appear in the query
@@ -95,7 +105,7 @@ def test_req_lsa_002_database_connectivity():
         # Verify result structure
         if len(results) > 0:
             paper = results[0]
-            assert hasattr(paper, 'title') or 'title' in paper, "Results should have title"
+            assert hasattr(paper, "title") or "title" in paper, "Results should have title"
 
     except (ImportError, AttributeError, ConnectionError) as e:
         pytest.skip(f"PubMed client not fully implemented or unavailable: {e}")
@@ -114,7 +124,7 @@ def test_req_lsa_002_database_connectivity():
         # Verify result structure
         if len(results) > 0:
             paper = results[0]
-            assert hasattr(paper, 'title') or 'title' in paper, "Results should have title"
+            assert hasattr(paper, "title") or "title" in paper, "Results should have title"
 
     except (ImportError, AttributeError, ConnectionError) as e:
         pytest.skip(f"Semantic Scholar client not fully implemented or unavailable: {e}")
@@ -122,9 +132,7 @@ def test_req_lsa_002_database_connectivity():
     # Test unified search (both databases)
     try:
         unified = UnifiedLiteratureSearch(
-            arxiv_enabled=True,
-            semantic_scholar_enabled=True,
-            pubmed_enabled=True
+            arxiv_enabled=True, semantic_scholar_enabled=True, pubmed_enabled=True
         )
 
         # Act: Execute unified search
@@ -148,8 +156,8 @@ def test_req_lsa_003_full_text_retrieval():
 
     Tests bulk retrieval capabilities and throughput.
     """
-    from kosmos.literature.unified_search import UnifiedLiteratureSearch
     from kosmos.literature.pdf_extractor import get_pdf_extractor
+    from kosmos.literature.unified_search import UnifiedLiteratureSearch
 
     try:
         unified = UnifiedLiteratureSearch()
@@ -171,7 +179,7 @@ def test_req_lsa_003_full_text_retrieval():
 
         for paper in papers[:10]:  # Limit to 10 for test speed
             # Count papers with PDF URLs
-            if hasattr(paper, 'pdf_url') and paper.pdf_url:
+            if hasattr(paper, "pdf_url") and paper.pdf_url:
                 papers_with_pdf += 1
 
                 # Attempt to extract full text
@@ -179,18 +187,21 @@ def test_req_lsa_003_full_text_retrieval():
                     full_text = pdf_extractor.extract_text(paper.pdf_url)
                     if full_text and len(full_text) > 100:  # Meaningful content
                         successful_retrievals += 1
-                except Exception as e:
+                except Exception:
                     pass  # PDF extraction may fail for various reasons
 
         # Assert: Should have reasonable success rate
         # In production, should handle 1,500+ papers
         if papers_with_pdf > 0:
             success_rate = successful_retrievals / papers_with_pdf
-            assert success_rate > 0.3, f"Should successfully retrieve text from >30% of PDFs (got {success_rate:.1%})"
+            assert (
+                success_rate > 0.3
+            ), f"Should successfully retrieve text from >30% of PDFs (got {success_rate:.1%})"
 
         # Verify system can handle the scale
-        assert len(papers) >= min(target_papers, 5), \
-            "System should handle retrieval of multiple papers"
+        assert len(papers) >= min(
+            target_papers, 5
+        ), "System should handle retrieval of multiple papers"
 
     except (ImportError, AttributeError) as e:
         pytest.skip(f"Full-text retrieval not fully implemented: {e}")
@@ -208,18 +219,34 @@ def test_req_lsa_004_document_parsing_accuracy():
     from kosmos.literature.pdf_extractor import get_pdf_extractor
 
     try:
-        pdf_extractor = get_pdf_extractor()
+        get_pdf_extractor()
 
         # Arrange: Sample text with known content
         # In production, this would use real PDFs and compare against known ground truth
         test_cases = [
             {
                 "input": "Introduction\n\nThis paper presents novel findings on machine learning.\n\nMethods\n\nWe used deep neural networks.",
-                "expected_terms": ["introduction", "paper", "novel", "findings", "machine learning", "methods", "deep neural networks"],
+                "expected_terms": [
+                    "introduction",
+                    "paper",
+                    "novel",
+                    "findings",
+                    "machine learning",
+                    "methods",
+                    "deep neural networks",
+                ],
             },
             {
                 "input": "Abstract: Research on cancer treatment has shown promising results.\n\nResults: Patient outcomes improved by 25%.",
-                "expected_terms": ["abstract", "research", "cancer treatment", "promising", "results", "patient outcomes", "25%"],
+                "expected_terms": [
+                    "abstract",
+                    "research",
+                    "cancer treatment",
+                    "promising",
+                    "results",
+                    "patient outcomes",
+                    "25%",
+                ],
             },
         ]
 
@@ -235,8 +262,9 @@ def test_req_lsa_004_document_parsing_accuracy():
             preserved_terms = sum(1 for term in expected_terms if term.lower() in processed_text)
             preservation_rate = preserved_terms / len(expected_terms)
 
-            assert preservation_rate > 0.9, \
-                f"Content preservation should be >90% (got {preservation_rate:.1%})"
+            assert (
+                preservation_rate > 0.9
+            ), f"Content preservation should be >90% (got {preservation_rate:.1%})"
 
         # Test with actual PDF parsing if available
         # This would require test PDFs with known content
@@ -251,7 +279,7 @@ def test_req_lsa_004_document_parsing_accuracy():
             source=PaperSource.ARXIV,
             title="Machine Learning in Healthcare",
             abstract="This study examines the application of machine learning algorithms in clinical decision support systems. We analyze performance metrics and patient outcomes.",
-            authors=[]
+            authors=[],
         )
 
         # Verify content is preserved in data structure
@@ -270,7 +298,7 @@ def test_req_lsa_005_knowledge_synthesis():
     Tests corpus-level analysis and synthesis capabilities.
     """
     from kosmos.agents.literature_analyzer import LiteratureAnalyzerAgent
-    from kosmos.literature.base_client import PaperMetadata, PaperSource, Author
+    from kosmos.literature.base_client import Author, PaperMetadata, PaperSource
 
     try:
         agent = LiteratureAnalyzerAgent(config={"use_knowledge_graph": False})
@@ -284,7 +312,7 @@ def test_req_lsa_005_knowledge_synthesis():
                 title="Deep Learning for Image Classification",
                 abstract="We propose a novel CNN architecture that achieves 95% accuracy on ImageNet. The model uses residual connections and attention mechanisms.",
                 authors=[Author(name="Smith, J.")],
-                year=2023
+                year=2023,
             ),
             PaperMetadata(
                 id="paper2",
@@ -292,7 +320,7 @@ def test_req_lsa_005_knowledge_synthesis():
                 title="Attention Mechanisms in Neural Networks",
                 abstract="Attention mechanisms improve model performance by focusing on relevant features. We demonstrate 20% improvement over baseline methods.",
                 authors=[Author(name="Johnson, A.")],
-                year=2023
+                year=2023,
             ),
             PaperMetadata(
                 id="paper3",
@@ -300,7 +328,7 @@ def test_req_lsa_005_knowledge_synthesis():
                 title="Limitations of Deep Learning in Medical Imaging",
                 abstract="While deep learning shows promise, we identify significant limitations including data bias, interpretability issues, and generalization problems.",
                 authors=[Author(name="Lee, K.")],
-                year=2024
+                year=2024,
             ),
         ]
 
@@ -318,8 +346,11 @@ def test_req_lsa_005_knowledge_synthesis():
             assert isinstance(themes, list), "Themes should be a list"
             # Should identify "deep learning" or "neural networks" as theme
             themes_str = " ".join(str(t).lower() for t in themes)
-            assert "deep learning" in themes_str or "neural network" in themes_str or "attention" in themes_str, \
-                "Should identify common themes across papers"
+            assert (
+                "deep learning" in themes_str
+                or "neural network" in themes_str
+                or "attention" in themes_str
+            ), "Should identify common themes across papers"
 
         # Should identify research gaps or limitations
         if "research_gaps" in insights:
@@ -342,7 +373,6 @@ def test_req_lsa_006_citation_with_identifiers():
     Tests citation tracking and identifier management.
     """
     from kosmos.literature.base_client import PaperMetadata, PaperSource
-    from kosmos.literature.citations import CitationManager
     from kosmos.literature.reference_manager import ReferenceManager
 
     # Test PaperMetadata identifier properties
@@ -354,7 +384,7 @@ def test_req_lsa_006_citation_with_identifiers():
             abstract="Test abstract",
             doi="10.1234/example.doi",
             arxiv_id="2301.00001",
-            authors=[]
+            authors=[],
         ),
         PaperMetadata(
             id="test2",
@@ -363,7 +393,7 @@ def test_req_lsa_006_citation_with_identifiers():
             abstract="Test abstract",
             pubmed_id="12345678",
             doi="10.5678/example.doi2",
-            authors=[]
+            authors=[],
         ),
         PaperMetadata(
             id="test3",
@@ -371,15 +401,14 @@ def test_req_lsa_006_citation_with_identifiers():
             title="Test Paper 3",
             abstract="Test abstract",
             arxiv_id="2302.00001",
-            authors=[]
+            authors=[],
         ),
     ]
 
     # Assert: Each paper should have at least one identifier
     for paper in papers:
         has_identifier = bool(paper.doi or paper.arxiv_id or paper.pubmed_id)
-        assert has_identifier, \
-            f"Paper '{paper.title}' must have at least one standard identifier"
+        assert has_identifier, f"Paper '{paper.title}' must have at least one standard identifier"
 
         # Test primary_identifier property
         primary_id = paper.primary_identifier
@@ -397,13 +426,14 @@ def test_req_lsa_006_citation_with_identifiers():
             # Assert: Citation should include identifier
             citation_lower = citation.lower()
             has_id_in_citation = (
-                (paper.doi and "doi" in citation_lower) or
-                (paper.arxiv_id and "arxiv" in citation_lower) or
-                (paper.pubmed_id and "pmid" in citation_lower)
+                (paper.doi and "doi" in citation_lower)
+                or (paper.arxiv_id and "arxiv" in citation_lower)
+                or (paper.pubmed_id and "pmid" in citation_lower)
             )
 
-            assert has_id_in_citation or paper.primary_identifier in citation, \
-                f"Citation should include identifier: {citation}"
+            assert (
+                has_id_in_citation or paper.primary_identifier in citation
+            ), f"Citation should include identifier: {citation}"
 
     except (ImportError, AttributeError):
         # Fallback: Just verify identifier exists
@@ -415,12 +445,13 @@ def test_req_lsa_006_citation_with_identifiers():
         source=PaperSource.UNKNOWN,
         title="Paper Without Identifier",
         abstract="Test",
-        authors=[]
+        authors=[],
     )
 
-    has_any_id = bool(paper_no_id.doi or paper_no_id.arxiv_id or paper_no_id.pubmed_id or paper_no_id.id)
-    assert not has_any_id or paper_no_id.id == "", \
-        "Paper without identifier should be detectable"
+    has_any_id = bool(
+        paper_no_id.doi or paper_no_id.arxiv_id or paper_no_id.pubmed_id or paper_no_id.id
+    )
+    assert not has_any_id or paper_no_id.id == "", "Paper without identifier should be detectable"
 
 
 @pytest.mark.requirement("REQ-LSA-007")
@@ -433,7 +464,7 @@ def test_req_lsa_007_recency_validation():
     Tests recency scoring and filtering.
     """
     from kosmos.agents.literature_analyzer import LiteratureAnalyzerAgent
-    from kosmos.literature.base_client import PaperMetadata, PaperSource, Author
+    from kosmos.literature.base_client import Author, PaperMetadata, PaperSource
 
     try:
         agent = LiteratureAnalyzerAgent(config={"use_knowledge_graph": False})
@@ -449,7 +480,7 @@ def test_req_lsa_007_recency_validation():
                 abstract="Recent developments in ML",
                 year=current_year,
                 authors=[Author(name="Smith, J.")],
-                citation_count=10
+                citation_count=10,
             ),
             PaperMetadata(
                 id="somewhat_recent",
@@ -458,7 +489,7 @@ def test_req_lsa_007_recency_validation():
                 abstract="Progress in ML",
                 year=current_year - 2,
                 authors=[Author(name="Jones, A.")],
-                citation_count=50
+                citation_count=50,
             ),
             PaperMetadata(
                 id="older",
@@ -467,7 +498,7 @@ def test_req_lsa_007_recency_validation():
                 abstract="Early ML work",
                 year=current_year - 7,
                 authors=[Author(name="Brown, K.")],
-                citation_count=100
+                citation_count=100,
             ),
         ]
 
@@ -491,7 +522,7 @@ def test_req_lsa_007_recency_validation():
 
         agent.stop()
 
-    except (ImportError, AttributeError) as e:
+    except (ImportError, AttributeError):
         # Fallback: Test recency calculation directly
         current_year = datetime.now().year
 
@@ -520,8 +551,8 @@ def test_req_lsa_008_local_caching():
 
     Tests caching functionality and cache hit/miss behavior.
     """
-    from kosmos.literature.cache import LiteratureCache
     from kosmos.literature.base_client import PaperMetadata, PaperSource
+    from kosmos.literature.cache import LiteratureCache
 
     try:
         # Arrange
@@ -533,7 +564,7 @@ def test_req_lsa_008_local_caching():
             title="Test Paper for Caching",
             abstract="This paper tests caching functionality",
             arxiv_id="2301.00001",
-            authors=[]
+            authors=[],
         )
 
         cache_key = test_paper.primary_identifier
@@ -547,15 +578,15 @@ def test_req_lsa_008_local_caching():
         assert cached_paper.title == test_paper.title, "Cached data should match"
 
         # Test cache invalidation/expiry if supported
-        if hasattr(cache, 'invalidate'):
+        if hasattr(cache, "invalidate"):
             cache.invalidate(cache_key)
             invalidated = cache.get(cache_key)
             assert invalidated is None, "Invalidated cache should return None"
 
         # Test cache statistics if available
-        if hasattr(cache, 'stats'):
+        if hasattr(cache, "stats"):
             stats = cache.stats()
-            assert 'hits' in stats or 'misses' in stats, "Cache should track statistics"
+            assert "hits" in stats or "misses" in stats, "Cache should track statistics"
 
     except (ImportError, AttributeError):
         pytest.skip("Caching not implemented (MAY requirement)")
@@ -570,15 +601,17 @@ def test_req_lsa_009_graceful_api_failures():
 
     Tests error handling and resilience.
     """
-    from kosmos.literature.unified_search import UnifiedLiteratureSearch
     from kosmos.literature.semantic_scholar import SemanticScholarClient
+    from kosmos.literature.unified_search import UnifiedLiteratureSearch
 
     # Test timeout handling
     try:
         unified = UnifiedLiteratureSearch()
 
         # Mock a slow/failing API call
-        with patch('kosmos.literature.semantic_scholar.SemanticScholarClient.search') as mock_search:
+        with patch(
+            "kosmos.literature.semantic_scholar.SemanticScholarClient.search"
+        ) as mock_search:
             # Simulate timeout
             mock_search.side_effect = TimeoutError("API timeout")
 
@@ -599,7 +632,7 @@ def test_req_lsa_009_graceful_api_failures():
 
         # Test that client has retry logic or rate limit handling
         # This would typically involve checking for retry decorators or backoff logic
-        assert hasattr(client, 'search'), "Client should have search method"
+        assert hasattr(client, "search"), "Client should have search method"
 
         # In real implementation, would test actual retry behavior
         # by simulating rate limit responses (429 status code)
@@ -619,7 +652,7 @@ def test_req_lsa_009_graceful_api_failures():
             except ConnectionError:
                 if attempt == max_retries - 1:
                     return {"status": "failed", "error": "Max retries exceeded"}
-                time.sleep(0.1 * (2 ** attempt))  # Exponential backoff
+                time.sleep(0.1 * (2**attempt))  # Exponential backoff
         return {"status": "failed"}
 
     # Test retry logic
@@ -646,14 +679,14 @@ def test_req_lsa_010_no_retracted_papers():
             source=PaperSource.ARXIV,
             title="Normal Research Paper",
             abstract="Valid research findings",
-            authors=[]
+            authors=[],
         ),
         PaperMetadata(
             id="retracted-paper",
             source=PaperSource.PUBMED,
             title="RETRACTED: Fraudulent Research",
             abstract="This paper has been retracted due to data fabrication",
-            authors=[]
+            authors=[],
         ),
     ]
 
@@ -670,8 +703,10 @@ def test_req_lsa_010_no_retracted_papers():
             "retracted article",
         ]
 
-        return any(indicator in title_lower or indicator in abstract_lower
-                  for indicator in retraction_indicators)
+        return any(
+            indicator in title_lower or indicator in abstract_lower
+            for indicator in retraction_indicators
+        )
 
     # Assert: Should detect retracted papers
     assert not is_retracted(papers[0]), "Normal paper should not be flagged"
@@ -693,8 +728,9 @@ def test_req_lsa_010_no_retracted_papers():
         # Check that no results are obviously retracted
         for paper in results[:20]:  # Check first 20
             title_lower = paper.title.lower()
-            assert "retracted:" not in title_lower, \
-                f"Search results should not include retracted papers: {paper.title}"
+            assert (
+                "retracted:" not in title_lower
+            ), f"Search results should not include retracted papers: {paper.title}"
 
     except (ImportError, AttributeError):
         pass
@@ -710,7 +746,7 @@ def test_req_lsa_011_no_sole_preprint_reliance():
     Tests publication status tracking and prioritization.
     """
     from kosmos.agents.literature_analyzer import LiteratureAnalyzerAgent
-    from kosmos.literature.base_client import PaperMetadata, PaperSource, Author
+    from kosmos.literature.base_client import Author, PaperMetadata, PaperSource
 
     try:
         agent = LiteratureAnalyzerAgent(config={"use_knowledge_graph": False})
@@ -727,7 +763,7 @@ def test_req_lsa_011_no_sole_preprint_reliance():
                 authors=[Author(name="Smith, J.")],
                 year=2024,
                 journal=None,  # No journal = likely preprint
-                citation_count=5
+                citation_count=5,
             ),
             PaperMetadata(
                 id="peer-reviewed",
@@ -739,7 +775,7 @@ def test_req_lsa_011_no_sole_preprint_reliance():
                 authors=[Author(name="Jones, A.")],
                 year=2024,
                 journal="Nature Medicine",  # Published in journal
-                citation_count=50
+                citation_count=50,
             ),
         ]
 
@@ -773,7 +809,7 @@ def test_req_lsa_011_no_sole_preprint_reliance():
         source=PaperSource.ARXIV,
         title="Test Preprint",
         abstract="Test",
-        authors=[]
+        authors=[],
     )
 
     published = PaperMetadata(
@@ -782,7 +818,7 @@ def test_req_lsa_011_no_sole_preprint_reliance():
         title="Test Published",
         abstract="Test",
         journal="Science",
-        authors=[]
+        authors=[],
     )
 
     assert is_preprint(preprint), "Should identify preprint"
@@ -808,9 +844,9 @@ def test_req_lsa_012_no_unacknowledged_conflicts():
                 source=PaperSource.PUBMED,
                 title="Independent Research Study",
                 abstract="Conflict of Interest: The authors declare no conflicts of interest.",
-                authors=[]
+                authors=[],
             ),
-            "expected_conflict": False
+            "expected_conflict": False,
         },
         {
             "paper": PaperMetadata(
@@ -818,9 +854,9 @@ def test_req_lsa_012_no_unacknowledged_conflicts():
                 source=PaperSource.PUBMED,
                 title="Industry-Funded Study",
                 abstract="Conflict of Interest: This study was funded by PharmaCorp.",
-                authors=[]
+                authors=[],
             ),
-            "expected_conflict": True  # Declared, so should be flagged but not excluded
+            "expected_conflict": True,  # Declared, so should be flagged but not excluded
         },
         {
             "paper": PaperMetadata(
@@ -829,41 +865,34 @@ def test_req_lsa_012_no_unacknowledged_conflicts():
                 title="Drug Effectiveness Study",
                 abstract="Our study shows excellent results for DrugX.",
                 # No COI statement - suspicious for clinical/commercial research
-                authors=[]
+                authors=[],
             ),
-            "expected_conflict": None  # No declaration, should be noted
+            "expected_conflict": None,  # No declaration, should be noted
         },
     ]
 
-    def check_coi_declaration(paper: PaperMetadata) -> Dict[str, Any]:
+    def check_coi_declaration(paper: PaperMetadata) -> dict[str, Any]:
         """Check for conflict of interest declaration."""
         abstract_lower = (paper.abstract or "").lower()
 
         # Check for COI statement
         has_coi_statement = (
-            "conflict of interest" in abstract_lower or
-            "conflicts of interest" in abstract_lower or
-            "competing interest" in abstract_lower or
-            "coi:" in abstract_lower
+            "conflict of interest" in abstract_lower
+            or "conflicts of interest" in abstract_lower
+            or "competing interest" in abstract_lower
+            or "coi:" in abstract_lower
         )
 
         # Check for declared conflicts
-        has_declared_conflict = (
-            has_coi_statement and
-            (
-                "funded by" in abstract_lower or
-                "supported by" in abstract_lower or
-                "employed by" in abstract_lower
-            )
+        has_declared_conflict = has_coi_statement and (
+            "funded by" in abstract_lower
+            or "supported by" in abstract_lower
+            or "employed by" in abstract_lower
         )
 
         # Check for no conflicts declared
-        no_conflicts = (
-            has_coi_statement and
-            (
-                "no conflict" in abstract_lower or
-                "declare no" in abstract_lower
-            )
+        no_conflicts = has_coi_statement and (
+            "no conflict" in abstract_lower or "declare no" in abstract_lower
         )
 
         return {
@@ -896,14 +925,10 @@ def test_req_lsa_012_no_unacknowledged_conflicts():
 
         # Flag if no COI statement at all (suspicious)
         # Or if has declared conflicts (for transparency)
-        return (
-            not coi_info["has_statement"] or
-            coi_info["has_declared_conflict"]
-        )
+        return not coi_info["has_statement"] or coi_info["has_declared_conflict"]
 
     flagged_papers = [
-        item["paper"] for item in papers_with_metadata
-        if should_flag_for_coi_review(item["paper"])
+        item["paper"] for item in papers_with_metadata if should_flag_for_coi_review(item["paper"])
     ]
 
     # At least papers without statements should be flagged
@@ -921,17 +946,16 @@ def test_req_lsa_013_throughput_requirement():
     Tests system throughput and performance.
     """
     from kosmos.agents.literature_analyzer import LiteratureAnalyzerAgent
+    from kosmos.literature.base_client import Author, PaperMetadata, PaperSource
     from kosmos.literature.unified_search import UnifiedLiteratureSearch
-    from kosmos.literature.base_client import PaperMetadata, PaperSource, Author
 
     # Target: 125 papers/hour = ~2 papers/minute = ~30 seconds per paper
     # For testing, we'll use smaller batches and scale
 
     try:
-        agent = LiteratureAnalyzerAgent(config={
-            "use_knowledge_graph": False,
-            "extract_concepts": False  # Disable for speed
-        })
+        agent = LiteratureAnalyzerAgent(
+            config={"use_knowledge_graph": False, "extract_concepts": False}  # Disable for speed
+        )
         agent.start()
 
         unified = UnifiedLiteratureSearch()
@@ -955,7 +979,7 @@ def test_req_lsa_013_throughput_requirement():
                     # Basic processing
                     _ = agent.score_relevance([paper], query)
                     processed_count += 1
-            except Exception as e:
+            except Exception:
                 # Continue with other papers even if one fails
                 pass
 
@@ -971,8 +995,9 @@ def test_req_lsa_013_throughput_requirement():
             # Target is 125 papers/hour, we'll accept >100 for the test
             min_required_throughput = 100  # papers/hour
 
-            assert papers_per_hour >= min_required_throughput or processed_count < 5, \
-                f"Throughput should be ≥{min_required_throughput} papers/hour (got {papers_per_hour:.1f})"
+            assert (
+                papers_per_hour >= min_required_throughput or processed_count < 5
+            ), f"Throughput should be ≥{min_required_throughput} papers/hour (got {papers_per_hour:.1f})"
 
             # Log performance info
             print(f"\nProcessed {processed_count} papers in {elapsed_seconds:.2f}s")
@@ -1003,7 +1028,7 @@ def test_req_lsa_013_throughput_requirement():
             title="Performance Test Paper",
             abstract="This is a test abstract for performance measurement. " * 10,
             authors=[Author(name="Test Author")],
-            year=2024
+            year=2024,
         )
         # Extract key information
         _ = paper.primary_identifier
@@ -1013,11 +1038,13 @@ def test_req_lsa_013_throughput_requirement():
     avg_time = measure_operation_time(simple_parse, iterations=100)
 
     # Basic operations should be very fast (< 1ms)
-    assert avg_time < 0.001, \
-        f"Basic operations should be fast (got {avg_time*1000:.2f}ms per operation)"
+    assert (
+        avg_time < 0.001
+    ), f"Basic operations should be fast (got {avg_time*1000:.2f}ms per operation)"
 
 
 # Additional helper tests for common functionality
+
 
 @pytest.mark.requirement("REQ-LSA")
 @pytest.mark.priority("MUST")
@@ -1040,7 +1067,7 @@ def test_literature_search_agent_integration():
             max_results_per_source=5,
             total_max_results=10,
             year_from=2020,
-            deduplicate=True
+            deduplicate=True,
         )
 
         # Assert: Results should be valid and structured
@@ -1048,17 +1075,20 @@ def test_literature_search_agent_integration():
 
         for paper in results:
             # Each paper should have essential metadata
-            assert hasattr(paper, 'title'), "Paper should have title"
-            assert hasattr(paper, 'source'), "Paper should have source"
-            assert hasattr(paper, 'authors'), "Paper should have authors"
+            assert hasattr(paper, "title"), "Paper should have title"
+            assert hasattr(paper, "source"), "Paper should have source"
+            assert hasattr(paper, "authors"), "Paper should have authors"
 
             # Should have at least title
             assert paper.title, "Title should not be empty"
 
             # Should have some identifier
             has_id = bool(
-                paper.doi or paper.arxiv_id or paper.pubmed_id or
-                paper.id or getattr(paper, 'source_id', None)
+                paper.doi
+                or paper.arxiv_id
+                or paper.pubmed_id
+                or paper.id
+                or getattr(paper, "source_id", None)
             )
             assert has_id, f"Paper should have identifier: {paper.title}"
 
@@ -1072,7 +1102,7 @@ def test_paper_metadata_completeness():
     Verify that PaperMetadata structure supports all required fields
     for literature search requirements.
     """
-    from kosmos.literature.base_client import PaperMetadata, PaperSource, Author
+    from kosmos.literature.base_client import Author, PaperMetadata, PaperSource
 
     # Create comprehensive paper metadata
     paper = PaperMetadata(

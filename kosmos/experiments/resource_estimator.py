@@ -5,20 +5,19 @@ Estimates compute, time, and cost requirements for experimental protocols.
 """
 
 import logging
-from typing import Dict, Any, Optional
 from enum import Enum
+from typing import Any
 
-from kosmos.models.hypothesis import Hypothesis, ExperimentType
-from kosmos.models.experiment import (
-    ExperimentProtocol,
-    ResourceRequirements,
-)
+from kosmos.models.experiment import ExperimentProtocol, ResourceRequirements
+from kosmos.models.hypothesis import ExperimentType, Hypothesis
+
 
 logger = logging.getLogger(__name__)
 
 
 class ComplexityLevel(str, Enum):
     """Complexity level for resource estimation."""
+
     SIMPLE = "simple"
     MODERATE = "moderate"
     COMPLEX = "complex"
@@ -78,11 +77,11 @@ class ResourceEstimator:
     def estimate(
         self,
         experiment_type: ExperimentType,
-        hypothesis: Optional[Hypothesis] = None,
-        protocol: Optional[ExperimentProtocol] = None,
+        hypothesis: Hypothesis | None = None,
+        protocol: ExperimentProtocol | None = None,
         num_steps: int = 5,
-        sample_size: Optional[int] = None,
-        complexity: ComplexityLevel = ComplexityLevel.MODERATE
+        sample_size: int | None = None,
+        complexity: ComplexityLevel = ComplexityLevel.MODERATE,
     ) -> ResourceRequirements:
         """
         Estimate resource requirements.
@@ -98,7 +97,9 @@ class ResourceEstimator:
         Returns:
             ResourceRequirements with estimates
         """
-        logger.info(f"Estimating resources for {experiment_type.value} experiment (complexity: {complexity.value})")
+        logger.info(
+            f"Estimating resources for {experiment_type.value} experiment (complexity: {complexity.value})"
+        )
 
         # Get base estimates
         base_cost = self.base_costs.get(experiment_type, 5.0)
@@ -172,11 +173,7 @@ class ResourceEstimator:
 
         return resources
 
-    def _estimate_memory(
-        self,
-        experiment_type: ExperimentType,
-        sample_size: Optional[int]
-    ) -> float:
+    def _estimate_memory(self, experiment_type: ExperimentType, sample_size: int | None) -> float:
         """Estimate memory requirements (GB)."""
         base_memory = {
             ExperimentType.DATA_ANALYSIS: 4.0,
@@ -195,11 +192,7 @@ class ResourceEstimator:
 
         return round(memory, 1)
 
-    def _requires_gpu(
-        self,
-        experiment_type: ExperimentType,
-        hypothesis: Optional[Hypothesis]
-    ) -> bool:
+    def _requires_gpu(self, experiment_type: ExperimentType, hypothesis: Hypothesis | None) -> bool:
         """Determine if GPU is required."""
         if experiment_type != ExperimentType.COMPUTATIONAL:
             return False
@@ -210,9 +203,16 @@ class ResourceEstimator:
         # Check for deep learning keywords
         statement = hypothesis.statement.lower()
         ml_keywords = [
-            "neural network", "deep learning", "transformer",
-            "cnn", "rnn", "lstm", "bert", "gpt",
-            "training", "fine-tuning"
+            "neural network",
+            "deep learning",
+            "transformer",
+            "cnn",
+            "rnn",
+            "lstm",
+            "bert",
+            "gpt",
+            "training",
+            "fine-tuning",
         ]
 
         return any(kw in statement for kw in ml_keywords)
@@ -229,11 +229,7 @@ class ResourceEstimator:
 
         return common + type_specific.get(experiment_type, [])
 
-    def _estimate_api_calls(
-        self,
-        num_steps: int,
-        sample_size: Optional[int]
-    ) -> int:
+    def _estimate_api_calls(self, num_steps: int, sample_size: int | None) -> int:
         """Estimate number of API calls for literature synthesis."""
         # Base calls for analysis
         base_calls = num_steps * 10
@@ -248,9 +244,9 @@ class ResourceEstimator:
     def check_availability(
         self,
         requirements: ResourceRequirements,
-        available_budget: Optional[float] = None,
-        available_time: Optional[float] = None
-    ) -> Dict[str, Any]:
+        available_budget: float | None = None,
+        available_time: float | None = None,
+    ) -> dict[str, Any]:
         """
         Check if resources are available within constraints.
 
@@ -262,12 +258,7 @@ class ResourceEstimator:
         Returns:
             Dict with availability status and recommendations
         """
-        result = {
-            "available": True,
-            "warnings": [],
-            "blockers": [],
-            "recommendations": []
-        }
+        result = {"available": True, "warnings": [], "blockers": [], "recommendations": []}
 
         # Check budget
         if available_budget and requirements.estimated_cost_usd:
@@ -305,9 +296,7 @@ class ResourceEstimator:
             )
 
         if requirements.gpu_required:
-            result["recommendations"].append(
-                "GPU required - ensure GPU resources are available"
-            )
+            result["recommendations"].append("GPU required - ensure GPU resources are available")
 
         if requirements.api_calls_estimated and requirements.api_calls_estimated > 100:
             cost_per_call = 0.01  # Rough estimate
@@ -322,9 +311,9 @@ class ResourceEstimator:
     def optimize_resources(
         self,
         requirements: ResourceRequirements,
-        max_cost: Optional[float] = None,
-        max_duration: Optional[float] = None
-    ) -> Dict[str, Any]:
+        max_cost: float | None = None,
+        max_duration: float | None = None,
+    ) -> dict[str, Any]:
         """
         Suggest optimizations to meet constraints.
 
@@ -339,22 +328,32 @@ class ResourceEstimator:
         suggestions = []
 
         # Cost optimizations
-        if max_cost and requirements.estimated_cost_usd and requirements.estimated_cost_usd > max_cost:
+        if (
+            max_cost
+            and requirements.estimated_cost_usd
+            and requirements.estimated_cost_usd > max_cost
+        ):
             reduction_needed = requirements.estimated_cost_usd - max_cost
 
-            suggestions.append({
-                "type": "cost_reduction",
-                "issue": f"Need to reduce cost by ${reduction_needed:.2f}",
-                "options": [
-                    "Reduce sample size to lower computational cost",
-                    "Use simpler statistical methods",
-                    "Reduce number of experimental conditions",
-                    "Cache and reuse intermediate results"
-                ]
-            })
+            suggestions.append(
+                {
+                    "type": "cost_reduction",
+                    "issue": f"Need to reduce cost by ${reduction_needed:.2f}",
+                    "options": [
+                        "Reduce sample size to lower computational cost",
+                        "Use simpler statistical methods",
+                        "Reduce number of experimental conditions",
+                        "Cache and reuse intermediate results",
+                    ],
+                }
+            )
 
         # Duration optimizations
-        if max_duration and requirements.estimated_duration_days and requirements.estimated_duration_days > max_duration:
+        if (
+            max_duration
+            and requirements.estimated_duration_days
+            and requirements.estimated_duration_days > max_duration
+        ):
             reduction_needed = requirements.estimated_duration_days - max_duration
 
             options = []
@@ -366,18 +365,19 @@ class ResourceEstimator:
             else:
                 options.append("Simplify protocol to fewer steps")
 
-            options.extend([
-                "Use pre-computed datasets instead of generating new data",
-                "Reduce number of replications",
-            ])
+            options.extend(
+                [
+                    "Use pre-computed datasets instead of generating new data",
+                    "Reduce number of replications",
+                ]
+            )
 
-            suggestions.append({
-                "type": "duration_reduction",
-                "issue": f"Need to reduce duration by {reduction_needed:.1f} days",
-                "options": options
-            })
+            suggestions.append(
+                {
+                    "type": "duration_reduction",
+                    "issue": f"Need to reduce duration by {reduction_needed:.1f} days",
+                    "options": options,
+                }
+            )
 
-        return {
-            "optimizations_needed": len(suggestions) > 0,
-            "suggestions": suggestions
-        }
+        return {"optimizations_needed": len(suggestions) > 0, "suggestions": suggestions}

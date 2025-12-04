@@ -14,8 +14,9 @@ __author__ = "Kosmos Development Team"
 __license__ = "MIT"
 
 # Expose key components at package level
-from kosmos.config import get_config
 from kosmos.agents.research_director import ResearchDirectorAgent
+from kosmos.config import get_config
+
 
 __all__ = [
     "__version__",

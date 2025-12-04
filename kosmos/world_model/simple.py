@@ -26,17 +26,13 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from kosmos.knowledge import get_knowledge_graph, KnowledgeGraph
+from kosmos.knowledge import get_knowledge_graph
 from kosmos.literature.base_client import PaperMetadata, PaperSource
 from kosmos.world_model.interface import EntityManager, WorldModelStorage
-from kosmos.world_model.models import (
-    EXPORT_FORMAT_VERSION,
-    Annotation,
-    Entity,
-    Relationship,
-)
+from kosmos.world_model.models import EXPORT_FORMAT_VERSION, Annotation, Entity, Relationship
+
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +139,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
         )
 
         # Use existing create_paper method (handles merge logic)
-        node = self.graph.create_paper(paper=paper, merge=merge)
+        self.graph.create_paper(paper=paper, merge=merge)
 
         return entity.id
 
@@ -154,12 +150,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
         domain = entity.properties.get("domain")
 
         # Use existing create_concept method (no metadata parameter)
-        node = self.graph.create_concept(
-            name=name,
-            description=description,
-            domain=domain,
-            merge=merge
-        )
+        self.graph.create_concept(name=name, description=description, domain=domain, merge=merge)
 
         return entity.id
 
@@ -176,12 +167,8 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             "entity_id": entity.id,
         }
 
-        node = self.graph.create_author(
-            name=name,
-            affiliation=affiliation,
-            email=email,
-            metadata=metadata,
-            merge=merge
+        self.graph.create_author(
+            name=name, affiliation=affiliation, email=email, metadata=metadata, merge=merge
         )
 
         return entity.id
@@ -199,12 +186,8 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             "entity_id": entity.id,
         }
 
-        node = self.graph.create_method(
-            name=name,
-            description=description,
-            category=category,
-            metadata=metadata,
-            merge=merge
+        self.graph.create_method(
+            name=name, description=description, category=category, metadata=metadata, merge=merge
         )
 
         return entity.id
@@ -254,7 +237,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             created_by=entity.created_by,
             verified=entity.verified,
             created_at=entity.created_at.isoformat() if entity.created_at else None,
-            updated_at=entity.updated_at.isoformat() if entity.updated_at else None
+            updated_at=entity.updated_at.isoformat() if entity.updated_at else None,
         ).data()
 
         if result:
@@ -262,7 +245,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
         else:
             return entity.id
 
-    def get_entity(self, entity_id: str, project: Optional[str] = None) -> Optional[Entity]:
+    def get_entity(self, entity_id: str, project: str | None = None) -> Entity | None:
         """
         Retrieve entity by ID.
 
@@ -306,7 +289,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
 
         return None
 
-    def _node_to_entity(self, node: Dict[str, Any], entity_type: str) -> Entity:
+    def _node_to_entity(self, node: dict[str, Any], entity_type: str) -> Entity:
         """Convert Neo4j node to Entity model."""
         # Extract properties
         properties_str = node.get("properties", "{}")
@@ -353,7 +336,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             annotations=[],  # TODO: Phase 2 - load annotations
         )
 
-    def update_entity(self, entity_id: str, updates: Dict[str, Any]) -> None:
+    def update_entity(self, entity_id: str, updates: dict[str, Any]) -> None:
         """
         Update entity properties.
 
@@ -374,10 +357,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
         """
 
         result = self.graph.graph.run(
-            cypher,
-            entity_id=entity_id,
-            updates=updates,
-            updated_at=datetime.now().isoformat()
+            cypher, entity_id=entity_id, updates=updates, updated_at=datetime.now().isoformat()
         ).data()
 
         if not result or result[0]["count"] == 0:
@@ -433,14 +413,13 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
                 paper_id=relationship.source_id,
                 cited_paper_id=relationship.target_id,
                 context=relationship.properties.get("context"),
-                section=relationship.properties.get("section")
+                section=relationship.properties.get("section"),
             )
             return relationship.id
 
         elif relationship.type == "AUTHOR_OF":
             self.graph.create_authored(
-                author_name=relationship.source_id,
-                paper_id=relationship.target_id
+                author_name=relationship.source_id, paper_id=relationship.target_id
             )
             return relationship.id
 
@@ -471,7 +450,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             properties=json.dumps(relationship.properties),
             confidence=relationship.confidence,
             created_at=relationship.created_at.isoformat() if relationship.created_at else None,
-            created_by=relationship.created_by
+            created_by=relationship.created_by,
         ).data()
 
         if not result:
@@ -482,7 +461,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
 
         return result[0]["relationship_id"]
 
-    def get_relationship(self, relationship_id: str) -> Optional[Relationship]:
+    def get_relationship(self, relationship_id: str) -> Relationship | None:
         """
         Retrieve relationship by ID.
 
@@ -531,16 +510,16 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             properties=properties,
             confidence=rel.get("confidence", 1.0),
             created_at=created_at,
-            created_by=rel.get("created_by")
+            created_by=rel.get("created_by"),
         )
 
     def query_related_entities(
         self,
         entity_id: str,
-        relationship_type: Optional[str] = None,
+        relationship_type: str | None = None,
         direction: str = "outgoing",
         max_depth: int = 1,
-    ) -> List[Entity]:
+    ) -> list[Entity]:
         """
         Query entities related to a given entity.
 
@@ -583,7 +562,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
 
         return entities
 
-    def export_graph(self, filepath: str, project: Optional[str] = None) -> None:
+    def export_graph(self, filepath: str, project: str | None = None) -> None:
         """
         Export knowledge graph to JSON file.
 
@@ -649,16 +628,18 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             else:
                 properties = properties_str
 
-            relationships.append({
-                "id": rel.get("relationship_id", str(id(rel))),
-                "source_id": row.get("source_id") or row.get("source_paper_id"),
-                "target_id": row.get("target_id") or row.get("target_paper_id"),
-                "type": row["rel_type"],
-                "properties": properties,
-                "confidence": rel.get("confidence", 1.0),
-                "created_at": rel.get("created_at"),
-                "created_by": rel.get("created_by")
-            })
+            relationships.append(
+                {
+                    "id": rel.get("relationship_id", str(id(rel))),
+                    "source_id": row.get("source_id") or row.get("source_paper_id"),
+                    "target_id": row.get("target_id") or row.get("target_paper_id"),
+                    "type": row["rel_type"],
+                    "properties": properties,
+                    "confidence": rel.get("confidence", 1.0),
+                    "created_at": rel.get("created_at"),
+                    "created_by": rel.get("created_by"),
+                }
+            )
 
         # Create export data
         export_data = {
@@ -669,7 +650,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             "project": project,
             "statistics": stats,
             "entities": entities,
-            "relationships": relationships
+            "relationships": relationships,
         }
 
         # Write to file
@@ -679,11 +660,9 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
         with open(filepath, "w") as f:
             json.dump(export_data, f, indent=2)
 
-        logger.info(
-            f"Exported {len(entities)} entities and {len(relationships)} relationships"
-        )
+        logger.info(f"Exported {len(entities)} entities and {len(relationships)} relationships")
 
-    def import_graph(self, filepath: str, clear: bool = False, project: Optional[str] = None) -> None:
+    def import_graph(self, filepath: str, clear: bool = False, project: str | None = None) -> None:
         """
         Import knowledge graph from JSON file.
 
@@ -702,7 +681,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
         logger.info(f"Importing graph from {filepath}")
 
         # Load file
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
 
         # Validate format version
@@ -749,7 +728,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
 
         logger.info("Import complete")
 
-    def get_statistics(self, project: Optional[str] = None) -> Dict[str, Any]:
+    def get_statistics(self, project: str | None = None) -> dict[str, Any]:
         """
         Get knowledge graph statistics.
 
@@ -797,7 +776,9 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             relationship_types[row["rel_type"]] = row["count"]
 
         # Get projects list
-        cypher_projects = "MATCH (n) WHERE n.project IS NOT NULL RETURN DISTINCT n.project as project"
+        cypher_projects = (
+            "MATCH (n) WHERE n.project IS NOT NULL RETURN DISTINCT n.project as project"
+        )
         project_results = self.graph.graph.run(cypher_projects).data()
         projects = [row["project"] for row in project_results]
 
@@ -810,7 +791,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             "storage_size_mb": 0,  # TODO: Query Neo4j database size
         }
 
-    def reset(self, project: Optional[str] = None) -> None:
+    def reset(self, project: str | None = None) -> None:
         """
         Clear all knowledge graph data.
 
@@ -857,7 +838,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
             cypher,
             entity_id=entity_id,
             verified_by=verified_by,
-            verified_at=datetime.now().isoformat()
+            verified_at=datetime.now().isoformat(),
         ).data()
 
         if not result or result[0]["count"] == 0:
@@ -880,7 +861,7 @@ class Neo4jWorldModel(WorldModelStorage, EntityManager):
         # For now, log the annotation
         logger.info(f"Annotation added to {entity_id}: {annotation.text}")
 
-    def get_annotations(self, entity_id: str) -> List[Annotation]:
+    def get_annotations(self, entity_id: str) -> list[Annotation]:
         """
         Get all annotations for an entity.
 

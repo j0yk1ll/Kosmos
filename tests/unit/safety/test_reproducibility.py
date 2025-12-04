@@ -4,16 +4,14 @@ Tests for reproducibility manager.
 Tests seed management, environment capture, consistency validation, and determinism.
 """
 
-import pytest
+import platform
 import random
 import sys
-import platform
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
-from kosmos.safety.reproducibility import (
-    ReproducibilityManager, ReproducibilityReport,
-    EnvironmentSnapshot
-)
+import pytest
+
+from kosmos.safety.reproducibility import ReproducibilityManager, ReproducibilityReport
 
 
 class TestReproducibilityManagerInitialization:
@@ -32,10 +30,7 @@ class TestReproducibilityManagerInitialization:
     def test_init_custom_settings(self):
         """Test initialization with custom settings."""
         manager = ReproducibilityManager(
-            default_seed=12345,
-            capture_environment=False,
-            capture_packages=False,
-            strict_mode=True
+            default_seed=12345, capture_environment=False, capture_packages=False, strict_mode=True
         )
 
         assert manager.default_seed == 12345
@@ -136,12 +131,11 @@ class TestEnvironmentCapture:
         assert snapshot.platform is not None
         assert snapshot.platform_version is not None
 
-    @patch('kosmos.safety.reproducibility.subprocess.run')
+    @patch("kosmos.safety.reproducibility.subprocess.run")
     def test_capture_packages_when_enabled(self, mock_run):
         """Test that packages are captured when enabled."""
         mock_run.return_value = Mock(
-            returncode=0,
-            stdout='[{"name": "numpy", "version": "1.24.0"}]'
+            returncode=0, stdout='[{"name": "numpy", "version": "1.24.0"}]'
         )
 
         manager = ReproducibilityManager(capture_packages=True)
@@ -188,9 +182,7 @@ class TestConsistencyValidation:
         manager = ReproducibilityManager()
 
         report = manager.validate_consistency(
-            "exp_test",
-            original_result=42.0,
-            replication_result=42.0
+            "exp_test", original_result=42.0, replication_result=42.0
         )
 
         assert report.is_reproducible
@@ -201,9 +193,7 @@ class TestConsistencyValidation:
         manager = ReproducibilityManager()
 
         report = manager.validate_consistency(
-            "exp_test",
-            original_result=42.0,
-            replication_result=43.0
+            "exp_test", original_result=42.0, replication_result=43.0
         )
 
         assert not report.is_reproducible
@@ -214,10 +204,7 @@ class TestConsistencyValidation:
         manager = ReproducibilityManager()
 
         report = manager.validate_consistency(
-            "exp_test",
-            original_result=42.0,
-            replication_result=42.0000001,
-            tolerance=1e-6
+            "exp_test", original_result=42.0, replication_result=42.0000001, tolerance=1e-6
         )
 
         assert report.is_reproducible
@@ -227,9 +214,7 @@ class TestConsistencyValidation:
         manager = ReproducibilityManager()
 
         report = manager.validate_consistency(
-            "exp_test",
-            original_result="test_output",
-            replication_result="test_output"
+            "exp_test", original_result="test_output", replication_result="test_output"
         )
 
         assert report.is_reproducible
@@ -239,9 +224,7 @@ class TestConsistencyValidation:
         manager = ReproducibilityManager()
 
         report = manager.validate_consistency(
-            "exp_test",
-            original_result="output_1",
-            replication_result="output_2"
+            "exp_test", original_result="output_1", replication_result="output_2"
         )
 
         assert not report.is_reproducible
@@ -254,9 +237,7 @@ class TestConsistencyValidation:
         replication = {"a": 1, "b": 2}
 
         report = manager.validate_consistency(
-            "exp_test",
-            original_result=original,
-            replication_result=replication
+            "exp_test", original_result=original, replication_result=replication
         )
 
         # Dict keys should match
@@ -270,9 +251,7 @@ class TestConsistencyValidation:
         replication = {"a": 1, "c": 3}
 
         report = manager.validate_consistency(
-            "exp_test",
-            original_result=original,
-            replication_result=replication
+            "exp_test", original_result=original, replication_result=replication
         )
 
         assert not report.is_reproducible
@@ -283,9 +262,7 @@ class TestConsistencyValidation:
         manager = ReproducibilityManager()
 
         report = manager.validate_consistency(
-            "exp_test",
-            original_result=42,
-            replication_result="42"
+            "exp_test", original_result=42, replication_result="42"
         )
 
         assert not report.is_reproducible
@@ -302,12 +279,7 @@ class TestDeterminismTesting:
         def deterministic_func(x):
             return x * 2
 
-        is_deterministic = manager.test_determinism(
-            deterministic_func,
-            seed=42,
-            n_runs=3,
-            x=5
-        )
+        is_deterministic = manager.test_determinism(deterministic_func, seed=42, n_runs=3, x=5)
 
         assert is_deterministic
 
@@ -318,11 +290,7 @@ class TestDeterminismTesting:
         def seeded_random_func():
             return random.random()
 
-        is_deterministic = manager.test_determinism(
-            seeded_random_func,
-            seed=42,
-            n_runs=3
-        )
+        is_deterministic = manager.test_determinism(seeded_random_func, seed=42, n_runs=3)
 
         assert is_deterministic
 
@@ -333,11 +301,7 @@ class TestDeterminismTesting:
         def failing_func():
             raise ValueError("Test error")
 
-        is_deterministic = manager.test_determinism(
-            failing_func,
-            seed=42,
-            n_runs=2
-        )
+        is_deterministic = manager.test_determinism(failing_func, seed=42, n_runs=2)
 
         assert not is_deterministic
 
@@ -377,10 +341,7 @@ class TestEnvironmentExport:
         manager.capture_environment_snapshot("exp_123")
 
         output_path = tmp_path / "requirements.txt"
-        result_path = manager.export_environment(
-            "exp_123",
-            output_path=str(output_path)
-        )
+        manager.export_environment("exp_123", output_path=str(output_path))
 
         assert output_path.exists()
         content = output_path.read_text()
@@ -441,11 +402,7 @@ class TestReproducibilityReport:
 
     def test_report_summary_reproducible(self):
         """Test summary for reproducible report."""
-        report = ReproducibilityReport(
-            experiment_id="test",
-            is_reproducible=True,
-            seed_used=42
-        )
+        report = ReproducibilityReport(experiment_id="test", is_reproducible=True, seed_used=42)
 
         summary = report.summary()
 
@@ -455,9 +412,7 @@ class TestReproducibilityReport:
     def test_report_summary_not_reproducible(self):
         """Test summary for non-reproducible report."""
         report = ReproducibilityReport(
-            experiment_id="test",
-            is_reproducible=False,
-            issues=["Issue 1", "Issue 2"]
+            experiment_id="test", is_reproducible=False, issues=["Issue 1", "Issue 2"]
         )
 
         summary = report.summary()

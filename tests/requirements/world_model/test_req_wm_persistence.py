@@ -5,17 +5,17 @@ These tests validate data persistence, export/import operations, backup/restore,
 versioning, and data integrity across sessions.
 """
 
-import pytest
-import uuid
 import json
 import tempfile
-from pathlib import Path
+import uuid
 from datetime import datetime
-from typing import Dict, Any, List
-from unittest.mock import Mock, patch
+from pathlib import Path
 
-from kosmos.world_model.models import Entity, Relationship, Annotation, EXPORT_FORMAT_VERSION
+import pytest
+
 from kosmos.world_model import get_world_model, reset_world_model
+from kosmos.world_model.models import EXPORT_FORMAT_VERSION, Annotation, Entity, Relationship
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -27,6 +27,7 @@ pytestmark = [
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def world_model():
@@ -67,7 +68,7 @@ def sample_knowledge_graph(world_model):
             "authors": ["Smith, J.", "Doe, A.", "Johnson, K."],
             "year": 2024,
             "doi": "10.1234/example.doi",
-            "abstract": "This paper reviews neural network architectures."
+            "abstract": "This paper reviews neural network architectures.",
         },
         confidence=0.95,
         project=project,
@@ -75,7 +76,7 @@ def sample_knowledge_graph(world_model):
         verified=True,
         annotations=[
             Annotation(text="Seminal work in the field", created_by="reviewer1@example.com")
-        ]
+        ],
     )
     entities.append(paper)
 
@@ -84,11 +85,11 @@ def sample_knowledge_graph(world_model):
         properties={
             "name": "Deep Learning",
             "description": "Machine learning using deep neural networks",
-            "domain": "artificial_intelligence"
+            "domain": "artificial_intelligence",
         },
         confidence=0.9,
         project=project,
-        created_by="concept_extractor"
+        created_by="concept_extractor",
     )
     entities.append(concept)
 
@@ -98,11 +99,11 @@ def sample_knowledge_graph(world_model):
             "statement": "Increased network depth improves performance",
             "rationale": "Based on empirical observations",
             "testability_score": 0.85,
-            "novelty_score": 0.7
+            "novelty_score": 0.7,
         },
         confidence=0.8,
         project=project,
-        created_by="hypothesis_generator"
+        created_by="hypothesis_generator",
     )
     entities.append(hypothesis)
 
@@ -120,7 +121,7 @@ def sample_knowledge_graph(world_model):
             source_id=entity_ids[0],  # Paper
             target_id=entity_ids[1],  # Concept
             type="MENTIONS",
-            properties={"section": "introduction", "context": "primary topic"}
+            properties={"section": "introduction", "context": "primary topic"},
         )
         relationships.append(rel1)
 
@@ -129,7 +130,7 @@ def sample_knowledge_graph(world_model):
             source_id=entity_ids[2],  # Hypothesis
             target_id=entity_ids[0],  # Paper
             type="DERIVED_FROM",
-            properties={"confidence": 0.8}
+            properties={"confidence": 0.8},
         )
         relationships.append(rel2)
 
@@ -143,13 +144,14 @@ def sample_knowledge_graph(world_model):
         "entity_ids": entity_ids,
         "relationship_ids": rel_ids,
         "entities": entities,
-        "relationships": relationships
+        "relationships": relationships,
     }
 
 
 # ============================================================================
 # REQ-WM-PERSIST-001: Export Graph (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-PERSIST-001")
 @pytest.mark.priority("MUST")
@@ -171,7 +173,9 @@ class TestREQ_WM_PERSIST_001_ExportGraph:
         assert export_path.is_file()
         assert export_path.stat().st_size > 0
 
-    def test_export_graph_contains_version(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_export_graph_contains_version(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify exported file contains version information."""
         export_path = temp_export_dir / "export_version.json"
 
@@ -184,7 +188,9 @@ class TestREQ_WM_PERSIST_001_ExportGraph:
         assert "version" in data
         assert data["version"] == EXPORT_FORMAT_VERSION
 
-    def test_export_graph_includes_entities(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_export_graph_includes_entities(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify exported file includes all entities."""
         export_path = temp_export_dir / "export_entities.json"
 
@@ -197,7 +203,9 @@ class TestREQ_WM_PERSIST_001_ExportGraph:
         assert isinstance(data["entities"], list)
         assert len(data["entities"]) >= len(sample_knowledge_graph["entity_ids"])
 
-    def test_export_graph_includes_relationships(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_export_graph_includes_relationships(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify exported file includes all relationships."""
         export_path = temp_export_dir / "export_relationships.json"
 
@@ -209,7 +217,9 @@ class TestREQ_WM_PERSIST_001_ExportGraph:
         assert "relationships" in data
         assert isinstance(data["relationships"], list)
 
-    def test_export_graph_includes_metadata(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_export_graph_includes_metadata(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify exported file includes metadata."""
         export_path = temp_export_dir / "export_metadata.json"
 
@@ -223,7 +233,9 @@ class TestREQ_WM_PERSIST_001_ExportGraph:
         assert "source" in data
         assert data["source"] == "kosmos"
 
-    def test_export_graph_preserves_all_properties(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_export_graph_preserves_all_properties(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify all entity properties are preserved in export."""
         export_path = temp_export_dir / "export_properties.json"
 
@@ -241,7 +253,9 @@ class TestREQ_WM_PERSIST_001_ExportGraph:
         assert "authors" in paper["properties"]
         assert "confidence" in paper
 
-    def test_export_graph_includes_annotations(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_export_graph_includes_annotations(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify entity annotations are included in export."""
         export_path = temp_export_dir / "export_annotations.json"
 
@@ -251,7 +265,9 @@ class TestREQ_WM_PERSIST_001_ExportGraph:
             data = json.load(f)
 
         # Find entity with annotations
-        entities_with_annotations = [e for e in data["entities"] if len(e.get("annotations", [])) > 0]
+        entities_with_annotations = [
+            e for e in data["entities"] if len(e.get("annotations", [])) > 0
+        ]
         assert len(entities_with_annotations) >= 1
 
         # Verify annotation structure
@@ -262,16 +278,8 @@ class TestREQ_WM_PERSIST_001_ExportGraph:
     def test_export_graph_with_project_filter(self, world_model, temp_export_dir):
         """Verify export can be filtered by project."""
         # Create entities in different projects
-        entity_a = Entity(
-            type="Paper",
-            properties={"title": "Project A"},
-            project="project_a"
-        )
-        entity_b = Entity(
-            type="Paper",
-            properties={"title": "Project B"},
-            project="project_b"
-        )
+        entity_a = Entity(type="Paper", properties={"title": "Project A"}, project="project_a")
+        entity_b = Entity(type="Paper", properties={"title": "Project B"}, project="project_b")
 
         world_model.add_entity(entity_a)
         world_model.add_entity(entity_b)
@@ -291,6 +299,7 @@ class TestREQ_WM_PERSIST_001_ExportGraph:
 # REQ-WM-PERSIST-002: Import Graph (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-PERSIST-002")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_PERSIST_002_ImportGraph:
@@ -299,7 +308,9 @@ class TestREQ_WM_PERSIST_002_ImportGraph:
     from exported files, restoring all entities, relationships, and metadata.
     """
 
-    def test_import_graph_restores_entities(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_import_graph_restores_entities(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify import restores all entities."""
         export_path = temp_export_dir / "export_for_import.json"
 
@@ -315,13 +326,15 @@ class TestREQ_WM_PERSIST_002_ImportGraph:
         restored_stats = world_model.get_statistics(project="test_persistence")
         assert restored_stats["entity_count"] >= original_stats["entity_count"]
 
-    def test_import_graph_restores_relationships(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_import_graph_restores_relationships(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify import restores all relationships."""
         export_path = temp_export_dir / "export_relationships.json"
 
         # Export
         world_model.export_graph(str(export_path), project="test_persistence")
-        original_stats = world_model.get_statistics(project="test_persistence")
+        world_model.get_statistics(project="test_persistence")
 
         # Clear and import
         world_model.reset(project="test_persistence")
@@ -331,7 +344,9 @@ class TestREQ_WM_PERSIST_002_ImportGraph:
         restored_stats = world_model.get_statistics(project="test_persistence")
         assert "relationship_count" in restored_stats
 
-    def test_import_graph_preserves_entity_ids(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_import_graph_preserves_entity_ids(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify entity IDs are preserved during import."""
         export_path = temp_export_dir / "export_ids.json"
         original_entity_id = sample_knowledge_graph["entity_ids"][0]
@@ -352,9 +367,7 @@ class TestREQ_WM_PERSIST_002_ImportGraph:
         """Verify import with clear option removes existing data."""
         # Create initial entity
         initial_entity = Entity(
-            type="Paper",
-            properties={"title": "Initial Paper"},
-            project="test_persistence"
+            type="Paper", properties={"title": "Initial Paper"}, project="test_persistence"
         )
         world_model.add_entity(initial_entity)
 
@@ -370,10 +383,10 @@ class TestREQ_WM_PERSIST_002_ImportGraph:
                     "type": "Concept",
                     "properties": {"name": "New Concept"},
                     "confidence": 1.0,
-                    "project": "test_persistence"
+                    "project": "test_persistence",
                 }
             ],
-            "relationships": []
+            "relationships": [],
         }
 
         with open(export_path, "w") as f:
@@ -394,7 +407,7 @@ class TestREQ_WM_PERSIST_002_ImportGraph:
         invalid_data = {
             "version": "999.0",  # Invalid future version
             "entities": [],
-            "relationships": []
+            "relationships": [],
         }
 
         with open(export_path, "w") as f:
@@ -412,13 +425,14 @@ class TestREQ_WM_PERSIST_002_ImportGraph:
         """Verify import handles missing file gracefully."""
         nonexistent_path = "/tmp/nonexistent_export.json"
 
-        with pytest.raises(Exception):
+        with pytest.raises((FileNotFoundError, IOError, ValueError)):
             world_model.import_graph(nonexistent_path, project="test_persistence")
 
 
 # ============================================================================
 # REQ-WM-PERSIST-003: Data Integrity (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-PERSIST-003")
 @pytest.mark.priority("MUST")
@@ -428,7 +442,9 @@ class TestREQ_WM_PERSIST_003_DataIntegrity:
     export/import operations, ensuring no data loss or corruption.
     """
 
-    def test_round_trip_preserves_all_data(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_round_trip_preserves_all_data(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify complete round-trip preserves all data."""
         export_path = temp_export_dir / "roundtrip.json"
 
@@ -453,7 +469,7 @@ class TestREQ_WM_PERSIST_003_DataIntegrity:
             type="Hypothesis",
             properties={"statement": "Test hypothesis"},
             confidence=0.73,
-            project="test_persistence"
+            project="test_persistence",
         )
         entity_id = world_model.add_entity(entity)
 
@@ -469,13 +485,10 @@ class TestREQ_WM_PERSIST_003_DataIntegrity:
     def test_export_import_preserves_timestamps(self, world_model, temp_export_dir):
         """Verify timestamps are preserved."""
         entity = Entity(
-            type="Paper",
-            properties={"title": "Timestamp Test"},
-            project="test_persistence"
+            type="Paper", properties={"title": "Timestamp Test"}, project="test_persistence"
         )
         entity_id = world_model.add_entity(entity)
-        original = world_model.get_entity(entity_id)
-        original_created_at = original.created_at if original else None
+        world_model.get_entity(entity_id)
 
         export_path = temp_export_dir / "timestamps.json"
         world_model.export_graph(str(export_path), project="test_persistence")
@@ -494,8 +507,8 @@ class TestREQ_WM_PERSIST_003_DataIntegrity:
             project="test_persistence",
             annotations=[
                 Annotation(text="Important", created_by="reviewer1"),
-                Annotation(text="Needs verification", created_by="reviewer2")
-            ]
+                Annotation(text="Needs verification", created_by="reviewer2"),
+            ],
         )
         entity_id = world_model.add_entity(entity)
 
@@ -521,7 +534,7 @@ class TestREQ_WM_PERSIST_003_DataIntegrity:
             target_id=id2,
             type="CITES",
             properties={"section": "introduction", "page": 5, "importance": "high"},
-            confidence=0.95
+            confidence=0.95,
         )
         rel_id = world_model.add_relationship(rel)
 
@@ -538,6 +551,7 @@ class TestREQ_WM_PERSIST_003_DataIntegrity:
 # REQ-WM-PERSIST-004: Backup and Restore (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-PERSIST-004")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_PERSIST_004_BackupAndRestore:
@@ -546,7 +560,9 @@ class TestREQ_WM_PERSIST_004_BackupAndRestore:
     operations allowing recovery from data loss or corruption.
     """
 
-    def test_backup_creates_valid_export(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_backup_creates_valid_export(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify backup operation creates valid export file."""
         backup_path = temp_export_dir / "backup.json"
 
@@ -621,7 +637,9 @@ class TestREQ_WM_PERSIST_004_BackupAndRestore:
         world_model.export_graph(str(backup1), project="test_persistence")
 
         # State 2: Add more entities
-        entity2 = Entity(type="Paper", properties={"title": "Additional"}, project="test_persistence")
+        entity2 = Entity(
+            type="Paper", properties={"title": "Additional"}, project="test_persistence"
+        )
         world_model.add_entity(entity2)
 
         # Restore to state 1
@@ -637,6 +655,7 @@ class TestREQ_WM_PERSIST_004_BackupAndRestore:
 # REQ-WM-PERSIST-005: Incremental Updates (SHOULD)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-PERSIST-005")
 @pytest.mark.priority("SHOULD")
 class TestREQ_WM_PERSIST_005_IncrementalUpdates:
@@ -650,7 +669,7 @@ class TestREQ_WM_PERSIST_005_IncrementalUpdates:
         entity = Entity(
             type="Paper",
             properties={"title": "Immediate Persistence Test"},
-            project="test_persistence"
+            project="test_persistence",
         )
         entity_id = world_model.add_entity(entity)
 
@@ -662,9 +681,7 @@ class TestREQ_WM_PERSIST_005_IncrementalUpdates:
     def test_update_entity_persists_immediately(self, world_model):
         """Verify entity updates are persisted immediately."""
         entity = Entity(
-            type="Paper",
-            properties={"title": "Original Title"},
-            project="test_persistence"
+            type="Paper", properties={"title": "Original Title"}, project="test_persistence"
         )
         entity_id = world_model.add_entity(entity)
 
@@ -678,9 +695,7 @@ class TestREQ_WM_PERSIST_005_IncrementalUpdates:
     def test_delete_entity_removes_immediately(self, world_model):
         """Verify entity deletion is persisted immediately."""
         entity = Entity(
-            type="Paper",
-            properties={"title": "To Be Deleted"},
-            project="test_persistence"
+            type="Paper", properties={"title": "To Be Deleted"}, project="test_persistence"
         )
         entity_id = world_model.add_entity(entity)
 
@@ -698,6 +713,7 @@ class TestREQ_WM_PERSIST_005_IncrementalUpdates:
 # REQ-WM-PERSIST-006: Data Versioning (SHOULD)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-PERSIST-006")
 @pytest.mark.priority("SHOULD")
 class TestREQ_WM_PERSIST_006_DataVersioning:
@@ -710,9 +726,7 @@ class TestREQ_WM_PERSIST_006_DataVersioning:
         """Verify entity creation timestamp is recorded."""
         before = datetime.now()
         entity = Entity(
-            type="Paper",
-            properties={"title": "Versioning Test"},
-            project="test_persistence"
+            type="Paper", properties={"title": "Versioning Test"}, project="test_persistence"
         )
         entity_id = world_model.add_entity(entity)
         after = datetime.now()
@@ -725,25 +739,25 @@ class TestREQ_WM_PERSIST_006_DataVersioning:
     def test_entity_timestamps_track_updates(self, world_model):
         """Verify entity update timestamp is modified."""
         entity = Entity(
-            type="Paper",
-            properties={"title": "Update Test"},
-            project="test_persistence"
+            type="Paper", properties={"title": "Update Test"}, project="test_persistence"
         )
         entity_id = world_model.add_entity(entity)
 
-        original = world_model.get_entity(entity_id)
-        original_updated_at = original.updated_at if original else None
+        world_model.get_entity(entity_id)
 
         # Wait briefly and update
         import time
+
         time.sleep(0.1)
 
         world_model.update_entity(entity_id, {"verified": True})
 
-        updated = world_model.get_entity(entity_id)
+        world_model.get_entity(entity_id)
         # Note: Timestamp update behavior depends on implementation
 
-    def test_export_includes_version_metadata(self, world_model, sample_knowledge_graph, temp_export_dir):
+    def test_export_includes_version_metadata(
+        self, world_model, sample_knowledge_graph, temp_export_dir
+    ):
         """Verify exports include version metadata."""
         export_path = temp_export_dir / "versioned_export.json"
 
@@ -766,7 +780,7 @@ class TestREQ_WM_PERSIST_006_DataVersioning:
             type="Hypothesis",
             properties={"statement": "Test hypothesis"},
             project="test_persistence",
-            created_by="hypothesis_generator_v2"
+            created_by="hypothesis_generator_v2",
         )
         entity_id = world_model.add_entity(entity)
 
@@ -777,7 +791,9 @@ class TestREQ_WM_PERSIST_006_DataVersioning:
     def test_relationship_provenance_tracked(self, world_model):
         """Verify relationship provenance is tracked."""
         entity1 = Entity(type="Paper", properties={"title": "P1"}, project="test_persistence")
-        entity2 = Entity(type="Hypothesis", properties={"statement": "H1"}, project="test_persistence")
+        entity2 = Entity(
+            type="Hypothesis", properties={"statement": "H1"}, project="test_persistence"
+        )
 
         id1 = world_model.add_entity(entity1)
         id2 = world_model.add_entity(entity2)
@@ -790,7 +806,7 @@ class TestREQ_WM_PERSIST_006_DataVersioning:
             agent="hypothesis_generator",
             confidence=0.85,
             iteration=3,
-            model="claude-3.5"
+            model="claude-3.5",
         )
         rel_id = world_model.add_relationship(rel)
 

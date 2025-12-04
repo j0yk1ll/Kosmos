@@ -6,9 +6,9 @@ These are component-level sanity tests designed to touch every major part
 of the system and validate basic functionality.
 """
 
-import pytest
 import os
-from pathlib import Path
+
+import pytest
 
 
 @pytest.mark.e2e
@@ -17,7 +17,7 @@ class TestComponentSanity:
 
     @pytest.mark.skipif(
         not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"),
-        reason="API key required"
+        reason="API key required",
     )
     def test_llm_provider_integration(self):
         """Test LLM provider can generate text."""
@@ -28,23 +28,19 @@ class TestComponentSanity:
         client = get_client()
 
         # Simple generation test
-        response = client.generate(
-            "Say 'hello' in one word",
-            max_tokens=10,
-            temperature=0.0
-        )
+        response = client.generate("Say 'hello' in one word", max_tokens=10, temperature=0.0)
 
         assert response is not None
-        assert hasattr(response, 'content')
+        assert hasattr(response, "content")
         assert len(response.content) > 0
         assert "hello" in response.content.lower()
 
-        print(f"✅ LLM provider operational")
+        print("✅ LLM provider operational")
         print(f"   Response: {response.content}")
 
     @pytest.mark.skipif(
         not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"),
-        reason="API key required"
+        reason="API key required",
     )
     def test_hypothesis_generator(self):
         """Test hypothesis generator creates valid hypotheses."""
@@ -56,12 +52,11 @@ class TestComponentSanity:
 
         # Generate hypotheses
         response = generator.generate_hypotheses(
-            research_question="How does temperature affect enzyme activity?",
-            domain="biology"
+            research_question="How does temperature affect enzyme activity?", domain="biology"
         )
 
         assert response is not None
-        assert hasattr(response, 'hypotheses')
+        assert hasattr(response, "hypotheses")
         assert len(response.hypotheses) >= 1, "No hypotheses generated"
 
         # Verify first hypothesis structure
@@ -73,20 +68,21 @@ class TestComponentSanity:
         print(f"✅ Generated {len(response.hypotheses)} hypothesis(es)")
         print(f"   First: {hyp.statement[:80]}...")
 
-        if hasattr(hyp, 'novelty_score'):
+        if hasattr(hyp, "novelty_score"):
             print(f"   Novelty: {hyp.novelty_score}")
-        if hasattr(hyp, 'testability_score'):
+        if hasattr(hyp, "testability_score"):
             print(f"   Testability: {hyp.testability_score}")
 
     @pytest.mark.skipif(
         not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"),
-        reason="API key required"
+        reason="API key required",
     )
     def test_experiment_designer(self):
         """Test experiment designer creates protocols."""
+        import uuid
+
         from kosmos.agents.experiment_designer import ExperimentDesignerAgent
         from kosmos.models.hypothesis import Hypothesis
-        import uuid
 
         print("\n🔬 Testing experiment designer...")
 
@@ -97,7 +93,7 @@ class TestComponentSanity:
             rationale="According to kinetic molecular theory, higher temperatures result in faster molecular motion and more frequent collisions with sufficient activation energy",
             domain="chemistry",
             testability_score=0.8,
-            novelty_score=0.6
+            novelty_score=0.6,
         )
 
         designer = ExperimentDesignerAgent()
@@ -109,7 +105,7 @@ class TestComponentSanity:
         assert response.protocol.experiment_type is not None, "Protocol has no experiment_type"
         assert len(response.protocol.steps) > 0, "Protocol has no steps"
 
-        print(f"✅ Experiment designer operational")
+        print("✅ Experiment designer operational")
         print(f"   Protocol: {response.protocol.name}")
         print(f"   Type: {response.protocol.experiment_type.value}")
         print(f"   Steps: {len(response.protocol.steps)}")
@@ -118,8 +114,13 @@ class TestComponentSanity:
         """Test code generator creates valid Python code."""
         from kosmos.execution.code_generator import ExperimentCodeGenerator
         from kosmos.models.experiment import (
-            ExperimentProtocol, ProtocolStep, Variable, VariableType,
-            ResourceRequirements, StatisticalTestSpec, StatisticalTest
+            ExperimentProtocol,
+            ProtocolStep,
+            ResourceRequirements,
+            StatisticalTest,
+            StatisticalTestSpec,
+            Variable,
+            VariableType,
         )
         from kosmos.models.hypothesis import ExperimentType
 
@@ -141,33 +142,33 @@ class TestComponentSanity:
                     step_number=1,
                     title="Load Data",
                     description="Load experimental data from CSV source file",
-                    action="df = pd.read_csv('data.csv')"
+                    action="df = pd.read_csv('data.csv')",
                 ),
                 ProtocolStep(
                     step_number=2,
                     title="Perform T-Test",
                     description="Run independent samples t-test comparing groups",
-                    action="result = stats.ttest_ind(group1, group2)"
-                )
+                    action="result = stats.ttest_ind(group1, group2)",
+                ),
             ],
             variables={
                 "group": Variable(
                     name="group",
                     type=VariableType.INDEPENDENT,
-                    description="Treatment group assignment variable"
+                    description="Treatment group assignment variable",
                 ),
                 "measurement": Variable(
                     name="measurement",
                     type=VariableType.DEPENDENT,
-                    description="Primary outcome measurement variable"
-                )
+                    description="Primary outcome measurement variable",
+                ),
             },
             control_groups=[
                 ControlGroup(
                     name="control",
                     description="Untreated baseline control group",
                     variables={"treatment": False},
-                    rationale="Baseline for comparison against treatment group"
+                    rationale="Baseline for comparison against treatment group",
                 )
             ],
             statistical_tests=[
@@ -175,13 +176,12 @@ class TestComponentSanity:
                     test_type=StatisticalTest.T_TEST,
                     description="Independent samples t-test for group comparison",
                     null_hypothesis="No difference between group means",
-                    variables=["measurement"]
+                    variables=["measurement"],
                 )
             ],
             resource_requirements=ResourceRequirements(
-                estimated_duration_days=1.0,
-                estimated_cost_usd=0.0
-            )
+                estimated_duration_days=1.0, estimated_cost_usd=0.0
+            ),
         )
 
         # Test code generation without LLM (template-only)
@@ -194,6 +194,7 @@ class TestComponentSanity:
 
         # Verify it's valid Python syntax
         import ast
+
         try:
             ast.parse(code)
             syntax_valid = True
@@ -203,9 +204,9 @@ class TestComponentSanity:
 
         assert syntax_valid, "Generated code has invalid Python syntax"
 
-        print(f"✅ Code generator operational")
+        print("✅ Code generator operational")
         print(f"   Generated {len(code)} characters of code")
-        print(f"   Syntax: valid Python")
+        print("   Syntax: valid Python")
 
     def test_safety_validator(self):
         """Test safety validator blocks dangerous code."""
@@ -219,14 +220,14 @@ class TestComponentSanity:
         safe_code = "import numpy as np\nresult = np.mean([1, 2, 3])"
         safe_result = validator.validate(safe_code)
         assert safe_result.passed is True
-        print(f"✅ Safe code allowed")
+        print("✅ Safe code allowed")
 
         # Test dangerous code
         dangerous_code = "import os; os.system('rm -rf /')"
         dangerous_result = validator.validate(dangerous_code)
         assert dangerous_result.passed is False
         assert len(dangerous_result.violations) > 0
-        print(f"✅ Dangerous code blocked")
+        print("✅ Dangerous code blocked")
         print(f"   Violations: {len(dangerous_result.violations)}")
 
     def test_code_executor(self):
@@ -250,7 +251,7 @@ print(f"Mean: {result}")
         assert "Mean: 30" in exec_result.stdout
         assert exec_result.execution_time > 0
 
-        print(f"✅ Code executed successfully")
+        print("✅ Code executed successfully")
         print(f"   Time: {exec_result.execution_time:.3f}s")
         print(f"   Output: {exec_result.stdout.strip()}")
 
@@ -262,10 +263,7 @@ print(f"Mean: {result}")
 
         # Create sandbox with conservative limits for testing
         sandbox = DockerSandbox(
-            cpu_limit=1.0,
-            memory_limit="512m",
-            timeout=60,
-            enable_monitoring=True
+            cpu_limit=1.0, memory_limit="512m", timeout=60, enable_monitoring=True
         )
 
         try:
@@ -284,7 +282,7 @@ print(f"RESULT:{result}")
             assert "Mean: 3.0" in result.stdout, f"Expected output not found: {result.stdout}"
             assert result.timeout_occurred is False, "Unexpected timeout"
 
-            print(f"✅ Docker sandbox execution successful")
+            print("✅ Docker sandbox execution successful")
             print(f"   Output: {result.stdout.strip()[:100]}")
             print(f"   Execution time: {result.execution_time:.2f}s")
             if result.resource_stats:
@@ -294,9 +292,10 @@ print(f"RESULT:{result}")
 
     def test_statistical_analysis(self):
         """Test statistical analysis functions."""
-        from kosmos.execution.data_analysis import DataAnalyzer
-        import pandas as pd
         import numpy as np
+        import pandas as pd
+
+        from kosmos.execution.data_analysis import DataAnalyzer
 
         print("\n📊 Testing statistical analysis...")
 
@@ -305,28 +304,28 @@ print(f"RESULT:{result}")
         control = np.random.normal(100, 15, 50)
         treatment = np.random.normal(120, 15, 50)  # ~20 point difference
 
-        df = pd.DataFrame({
-            'group': ['control'] * 50 + ['treatment'] * 50,
-            'score': np.concatenate([control, treatment])
-        })
-
-        # Test t-test
-        result = DataAnalyzer.ttest_comparison(
-            df, 'group', 'score', ('treatment', 'control')
+        df = pd.DataFrame(
+            {
+                "group": ["control"] * 50 + ["treatment"] * 50,
+                "score": np.concatenate([control, treatment]),
+            }
         )
 
+        # Test t-test
+        result = DataAnalyzer.ttest_comparison(df, "group", "score", ("treatment", "control"))
+
         # Verify result structure
-        assert 't_statistic' in result
-        assert 'p_value' in result
-        assert 'mean_difference' in result
-        assert 'significance_label' in result
+        assert "t_statistic" in result
+        assert "p_value" in result
+        assert "mean_difference" in result
+        assert "significance_label" in result
 
         # Verify statistical correctness
-        assert result['p_value'] < 0.05, "Expected significant difference"
-        assert result['significance_label'] in ['*', '**', '***'], "Expected significant result"
-        assert abs(result['mean_difference']) > 15, "Expected meaningful difference"
+        assert result["p_value"] < 0.05, "Expected significant difference"
+        assert result["significance_label"] in ["*", "**", "***"], "Expected significant result"
+        assert abs(result["mean_difference"]) > 15, "Expected meaningful difference"
 
-        print(f"✅ Statistical analysis operational")
+        print("✅ Statistical analysis operational")
         print(f"   t-statistic: {result['t_statistic']:.3f}")
         print(f"   p-value: {result['p_value']:.6f}")
         print(f"   Mean diff: {result['mean_difference']:.2f}")
@@ -334,17 +333,20 @@ print(f"RESULT:{result}")
 
     @pytest.mark.skipif(
         not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"),
-        reason="API key required"
+        reason="API key required",
     )
     def test_data_analyst(self):
         """Test data analyst interprets results."""
+        import platform as plat
+        from datetime import datetime
+
         from kosmos.agents.data_analyst import DataAnalystAgent
         from kosmos.models.result import (
-            ExperimentResult, ResultStatus, StatisticalTestResult,
-            ExecutionMetadata
+            ExecutionMetadata,
+            ExperimentResult,
+            ResultStatus,
+            StatisticalTestResult,
         )
-        from datetime import datetime
-        import platform as plat
 
         print("\n🔍 Testing data analyst agent...")
 
@@ -372,7 +374,7 @@ print(f"RESULT:{result}")
                     significant_0_001=False,
                     significance_label="**",
                     sample_size=100,
-                    is_primary=True
+                    is_primary=True,
                 )
             ],
             metadata=ExecutionMetadata(
@@ -382,33 +384,34 @@ print(f"RESULT:{result}")
                 end_time=datetime.utcnow(),
                 duration_seconds=5.0,
                 python_version="3.11",
-                platform=plat.system()
-            )
+                platform=plat.system(),
+            ),
         )
 
         agent = DataAnalystAgent()
         interpretation = agent.interpret_results(result=result)
 
         assert interpretation is not None
-        assert hasattr(interpretation, 'summary')
+        assert hasattr(interpretation, "summary")
         assert len(interpretation.summary) > 0
 
-        print(f"✅ Data analyst operational")
+        print("✅ Data analyst operational")
         print(f"   Hypothesis supported: {interpretation.hypothesis_supported}")
         print(f"   Confidence: {interpretation.confidence}")
         print(f"   Summary: {interpretation.summary[:100]}...")
 
     def test_database_persistence(self):
         """Test database persistence works."""
-        from kosmos.db import init_database, get_session
-        from kosmos.db.models import Hypothesis, HypothesisStatus
         import tempfile
         import uuid
+
+        from kosmos.db import get_session, init_database
+        from kosmos.db.models import Hypothesis, HypothesisStatus
 
         print("\n💾 Testing database persistence...")
 
         # Use a temporary database for testing
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name
 
         init_database(f"sqlite:///{db_path}")
@@ -424,7 +427,7 @@ print(f"RESULT:{result}")
                 domain="test_domain",
                 status=HypothesisStatus.GENERATED,
                 novelty_score=0.75,
-                testability_score=0.80
+                testability_score=0.80,
             )
             session.add(hypothesis)
 
@@ -438,10 +441,11 @@ print(f"RESULT:{result}")
 
         # Clean up
         import os
+
         os.unlink(db_path)
 
-        print(f"✅ Database persistence operational")
-        print(f"   Created, stored, and retrieved hypothesis")
+        print("✅ Database persistence operational")
+        print("   Created, stored, and retrieved hypothesis")
         print(f"   ID: {hyp_id[:8]}...")
 
     @pytest.mark.skip(reason="Neo4j authentication not configured")
@@ -457,7 +461,7 @@ class TestEndToEndMiniWorkflow:
 
     @pytest.mark.skipif(
         not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"),
-        reason="API key required"
+        reason="API key required",
     )
     def test_mini_research_workflow(self):
         """Test simplified pipeline: question → hypothesis → execution."""
@@ -499,10 +503,10 @@ print(f"Conclusion: {'Strong positive correlation' if correlation > 0.7 else 'We
 
         exec_result = executor.execute(mock_code)
         assert exec_result.success is True
-        print(f"  ✅ Execution successful")
+        print("  ✅ Execution successful")
         print(f"     Output: {exec_result.stdout.strip()}")
 
         # Verify end-to-end flow
         print("\n✅ COMPLETE MINI WORKFLOW VALIDATED")
-        print(f"   Question → Hypothesis → Analysis → Results")
-        print(f"   Core pipeline components integrated successfully!")
+        print("   Question → Hypothesis → Analysis → Results")
+        print("   Core pipeline components integrated successfully!")

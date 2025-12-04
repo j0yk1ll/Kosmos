@@ -5,14 +5,14 @@ These tests validate querying capabilities including related entity queries,
 graph traversal, filtering, and complex queries across the knowledge graph.
 """
 
-import pytest
 import uuid
 from datetime import datetime
-from typing import List
-from unittest.mock import Mock, patch
 
-from kosmos.world_model.models import Entity, Relationship
+import pytest
+
 from kosmos.world_model import get_world_model, reset_world_model
+from kosmos.world_model.models import Entity, Relationship
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -24,6 +24,7 @@ pytestmark = [
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def world_model():
@@ -59,34 +60,26 @@ def sample_graph(world_model):
 
     # Create entities
     paper1 = Entity(
-        type="Paper",
-        properties={"title": "Neural Networks Survey", "year": 2024},
-        project=project
+        type="Paper", properties={"title": "Neural Networks Survey", "year": 2024}, project=project
     )
     paper2 = Entity(
         type="Paper",
         properties={"title": "Deep Learning Foundations", "year": 2023},
-        project=project
+        project=project,
     )
     concept1 = Entity(
-        type="Concept",
-        properties={"name": "Deep Learning", "domain": "AI"},
-        project=project
+        type="Concept", properties={"name": "Deep Learning", "domain": "AI"}, project=project
     )
     author1 = Entity(
-        type="Author",
-        properties={"name": "Dr. Smith", "affiliation": "MIT"},
-        project=project
+        type="Author", properties={"name": "Dr. Smith", "affiliation": "MIT"}, project=project
     )
     hypothesis1 = Entity(
         type="Hypothesis",
         properties={"statement": "Test hypothesis", "testability_score": 0.9},
-        project=project
+        project=project,
     )
     experiment1 = Entity(
-        type="Experiment",
-        properties={"name": "Validation Experiment"},
-        project=project
+        type="Experiment", properties={"name": "Validation Experiment"}, project=project
     )
 
     # Add entities
@@ -124,6 +117,7 @@ def sample_graph(world_model):
 # REQ-WM-QUERY-001: Query Related Entities (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-QUERY-001")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_QUERY_001_QueryRelatedEntities:
@@ -138,10 +132,7 @@ class TestREQ_WM_QUERY_001_QueryRelatedEntities:
 
         # Query papers cited by paper1 (outgoing CITES)
         cited_papers = world_model.query_related_entities(
-            entity_id=paper1_id,
-            relationship_type="CITES",
-            direction="outgoing",
-            max_depth=1
+            entity_id=paper1_id, relationship_type="CITES", direction="outgoing", max_depth=1
         )
 
         assert len(cited_papers) >= 1
@@ -155,10 +146,7 @@ class TestREQ_WM_QUERY_001_QueryRelatedEntities:
 
         # Query authors of paper1 (incoming AUTHOR_OF)
         authors = world_model.query_related_entities(
-            entity_id=paper1_id,
-            relationship_type="AUTHOR_OF",
-            direction="incoming",
-            max_depth=1
+            entity_id=paper1_id, relationship_type="AUTHOR_OF", direction="incoming", max_depth=1
         )
 
         assert len(authors) >= 1
@@ -172,10 +160,7 @@ class TestREQ_WM_QUERY_001_QueryRelatedEntities:
 
         # Query papers that mention concept1 (incoming MENTIONS)
         related_entities = world_model.query_related_entities(
-            entity_id=concept1_id,
-            relationship_type="MENTIONS",
-            direction="both",
-            max_depth=1
+            entity_id=concept1_id, relationship_type="MENTIONS", direction="both", max_depth=1
         )
 
         # Should include both paper1 and paper2
@@ -190,7 +175,7 @@ class TestREQ_WM_QUERY_001_QueryRelatedEntities:
             entity_id=paper1_id,
             relationship_type=None,  # No filter
             direction="outgoing",
-            max_depth=1
+            max_depth=1,
         )
 
         # Should include paper2 (CITES) and concept1 (MENTIONS)
@@ -202,9 +187,7 @@ class TestREQ_WM_QUERY_001_QueryRelatedEntities:
 
         # Depth 1: Direct relationships only
         depth1_results = world_model.query_related_entities(
-            entity_id=paper1_id,
-            direction="outgoing",
-            max_depth=1
+            entity_id=paper1_id, direction="outgoing", max_depth=1
         )
 
         # Should have at least direct connections
@@ -213,9 +196,7 @@ class TestREQ_WM_QUERY_001_QueryRelatedEntities:
         # Depth 2: Could include entities 2 hops away
         # (Paper1 -> Paper2 -> Concept1)
         depth2_results = world_model.query_related_entities(
-            entity_id=paper1_id,
-            direction="outgoing",
-            max_depth=2
+            entity_id=paper1_id, direction="outgoing", max_depth=2
         )
 
         # Depth 2 should have >= depth 1 results
@@ -225,10 +206,7 @@ class TestREQ_WM_QUERY_001_QueryRelatedEntities:
         """Verify querying non-existent entity returns empty list."""
         fake_id = str(uuid.uuid4())
 
-        results = world_model.query_related_entities(
-            entity_id=fake_id,
-            direction="outgoing"
-        )
+        results = world_model.query_related_entities(entity_id=fake_id, direction="outgoing")
 
         assert isinstance(results, list)
         assert len(results) == 0
@@ -237,6 +215,7 @@ class TestREQ_WM_QUERY_001_QueryRelatedEntities:
 # ============================================================================
 # REQ-WM-QUERY-002: Filter by Entity Properties (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-QUERY-002")
 @pytest.mark.priority("MUST")
@@ -262,18 +241,14 @@ class TestREQ_WM_QUERY_002_FilterByProperties:
         """Verify entities can be filtered by project."""
         # Create entities in different projects
         entity_a = Entity(
-            type="Paper",
-            properties={"title": "Project A Paper"},
-            project="project_a"
+            type="Paper", properties={"title": "Project A Paper"}, project="project_a"
         )
         entity_b = Entity(
-            type="Paper",
-            properties={"title": "Project B Paper"},
-            project="project_b"
+            type="Paper", properties={"title": "Project B Paper"}, project="project_b"
         )
 
-        id_a = world_model.add_entity(entity_a)
-        id_b = world_model.add_entity(entity_b)
+        world_model.add_entity(entity_a)
+        world_model.add_entity(entity_b)
 
         # Get statistics by project
         stats_a = world_model.get_statistics(project="project_a")
@@ -290,13 +265,13 @@ class TestREQ_WM_QUERY_002_FilterByProperties:
             type="Hypothesis",
             properties={"statement": "High confidence hypothesis"},
             confidence=0.95,
-            project="test_query_project"
+            project="test_query_project",
         )
         low_conf = Entity(
             type="Hypothesis",
             properties={"statement": "Low confidence hypothesis"},
             confidence=0.4,
-            project="test_query_project"
+            project="test_query_project",
         )
 
         id_high = world_model.add_entity(high_conf)
@@ -317,13 +292,13 @@ class TestREQ_WM_QUERY_002_FilterByProperties:
             type="Paper",
             properties={"title": "Verified Paper"},
             verified=True,
-            project="test_query_project"
+            project="test_query_project",
         )
         unverified_entity = Entity(
             type="Paper",
             properties={"title": "Unverified Paper"},
             verified=False,
-            project="test_query_project"
+            project="test_query_project",
         )
 
         id_verified = world_model.add_entity(verified_entity)
@@ -342,6 +317,7 @@ class TestREQ_WM_QUERY_002_FilterByProperties:
 # REQ-WM-QUERY-003: Graph Traversal (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-QUERY-003")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_QUERY_003_GraphTraversal:
@@ -357,9 +333,7 @@ class TestREQ_WM_QUERY_003_GraphTraversal:
         # Traverse: Author -> Paper -> Concept (2 hops)
         # Author1 -AUTHOR_OF-> Paper1 -MENTIONS-> Concept1
         related = world_model.query_related_entities(
-            entity_id=author1_id,
-            direction="outgoing",
-            max_depth=2
+            entity_id=author1_id, direction="outgoing", max_depth=2
         )
 
         # Should include entities multiple hops away
@@ -370,9 +344,7 @@ class TestREQ_WM_QUERY_003_GraphTraversal:
         paper1_id = sample_graph["paper1"]
 
         neighbors = world_model.query_related_entities(
-            entity_id=paper1_id,
-            direction="both",
-            max_depth=1
+            entity_id=paper1_id, direction="both", max_depth=1
         )
 
         # Should include direct neighbors only
@@ -384,9 +356,7 @@ class TestREQ_WM_QUERY_003_GraphTraversal:
 
         # 2-hop neighborhood
         neighborhood = world_model.query_related_entities(
-            entity_id=paper1_id,
-            direction="both",
-            max_depth=2
+            entity_id=paper1_id, direction="both", max_depth=2
         )
 
         # Should include entities up to 2 hops away
@@ -413,9 +383,7 @@ class TestREQ_WM_QUERY_003_GraphTraversal:
 
         # Query with depth that would traverse cycle
         results = world_model.query_related_entities(
-            entity_id=id_a,
-            direction="outgoing",
-            max_depth=5
+            entity_id=id_a, direction="outgoing", max_depth=5
         )
 
         # Should not infinite loop and return reasonable results
@@ -428,9 +396,7 @@ class TestREQ_WM_QUERY_003_GraphTraversal:
 
         # Get all related entities (subgraph centered on paper1)
         subgraph_entities = world_model.query_related_entities(
-            entity_id=paper1_id,
-            direction="both",
-            max_depth=1
+            entity_id=paper1_id, direction="both", max_depth=1
         )
 
         assert len(subgraph_entities) >= 1
@@ -443,6 +409,7 @@ class TestREQ_WM_QUERY_003_GraphTraversal:
 # ============================================================================
 # REQ-WM-QUERY-004: Complex Queries (SHOULD)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-QUERY-004")
 @pytest.mark.priority("SHOULD")
@@ -461,15 +428,11 @@ class TestREQ_WM_QUERY_004_ComplexQueries:
         # This tests querying each separately
 
         cites = world_model.query_related_entities(
-            entity_id=paper1_id,
-            relationship_type="CITES",
-            direction="outgoing"
+            entity_id=paper1_id, relationship_type="CITES", direction="outgoing"
         )
 
         mentions = world_model.query_related_entities(
-            entity_id=paper1_id,
-            relationship_type="MENTIONS",
-            direction="outgoing"
+            entity_id=paper1_id, relationship_type="MENTIONS", direction="outgoing"
         )
 
         # Both queries should return results
@@ -500,19 +463,16 @@ class TestREQ_WM_QUERY_004_ComplexQueries:
         before = datetime.now()
 
         entity1 = Entity(
-            type="Paper",
-            properties={"title": "First Paper"},
-            project="test_query_project"
+            type="Paper", properties={"title": "First Paper"}, project="test_query_project"
         )
         id1 = world_model.add_entity(entity1)
 
         import time
+
         time.sleep(0.1)
 
         entity2 = Entity(
-            type="Paper",
-            properties={"title": "Second Paper"},
-            project="test_query_project"
+            type="Paper", properties={"title": "Second Paper"}, project="test_query_project"
         )
         id2 = world_model.add_entity(entity2)
 
@@ -538,18 +498,14 @@ class TestREQ_WM_QUERY_004_ComplexQueries:
             properties={
                 "title": "Neural Networks in Healthcare",
                 "domain": "healthcare",
-                "year": 2024
+                "year": 2024,
             },
-            project="test_query_project"
+            project="test_query_project",
         )
         entity2 = Entity(
             type="Paper",
-            properties={
-                "title": "Neural Networks in Finance",
-                "domain": "finance",
-                "year": 2024
-            },
-            project="test_query_project"
+            properties={"title": "Neural Networks in Finance", "domain": "finance", "year": 2024},
+            project="test_query_project",
         )
 
         id1 = world_model.add_entity(entity1)
@@ -574,13 +530,13 @@ class TestREQ_WM_QUERY_004_ComplexQueries:
             type="Paper",
             properties={"title": "High Confidence Paper"},
             confidence=0.95,
-            project="test_query_project"
+            project="test_query_project",
         )
         high_conf_concept = Entity(
             type="Concept",
             properties={"name": "High Confidence Concept"},
             confidence=0.9,
-            project="test_query_project"
+            project="test_query_project",
         )
 
         id_paper = world_model.add_entity(high_conf_paper)

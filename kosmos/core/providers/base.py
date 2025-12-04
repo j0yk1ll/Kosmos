@@ -7,9 +7,11 @@ enabling Kosmos to work with Anthropic, OpenAI, and other providers.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Union, AsyncIterator, Iterator
-from datetime import datetime
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +27,11 @@ class Message:
         name: Optional name for the message sender
         metadata: Optional provider-specific metadata
     """
+
     role: str  # "system", "user", "assistant"
     content: str
-    name: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    name: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass
@@ -45,13 +48,14 @@ class UsageStats:
         provider: Provider name
         timestamp: When the request was made
     """
+
     input_tokens: int
     output_tokens: int
     total_tokens: int
-    cost_usd: Optional[float] = None
-    model: Optional[str] = None
-    provider: Optional[str] = None
-    timestamp: Optional[datetime] = None
+    cost_usd: float | None = None
+    model: str | None = None
+    provider: str | None = None
+    timestamp: datetime | None = None
 
 
 @dataclass
@@ -67,12 +71,13 @@ class LLMResponse:
         raw_response: Original provider-specific response object
         metadata: Additional provider-specific metadata
     """
+
     content: str
     usage: UsageStats
     model: str
-    finish_reason: Optional[str] = None
-    raw_response: Optional[Any] = None
-    metadata: Optional[Dict[str, Any]] = None
+    finish_reason: str | None = None
+    raw_response: Any | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class LLMProvider(ABC):
@@ -98,7 +103,7 @@ class LLMProvider(ABC):
         ```
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize provider with configuration.
 
@@ -120,11 +125,11 @@ class LLMProvider(ABC):
     def generate(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        stop_sequences: Optional[List[str]] = None,
-        **kwargs
+        stop_sequences: list[str] | None = None,
+        **kwargs,
     ) -> LLMResponse:
         """
         Generate text from a prompt (synchronous).
@@ -149,11 +154,11 @@ class LLMProvider(ABC):
     async def generate_async(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        stop_sequences: Optional[List[str]] = None,
-        **kwargs
+        stop_sequences: list[str] | None = None,
+        **kwargs,
     ) -> LLMResponse:
         """
         Generate text from a prompt (asynchronous).
@@ -176,11 +181,7 @@ class LLMProvider(ABC):
 
     @abstractmethod
     def generate_with_messages(
-        self,
-        messages: List[Message],
-        max_tokens: int = 4096,
-        temperature: float = 0.7,
-        **kwargs
+        self, messages: list[Message], max_tokens: int = 4096, temperature: float = 0.7, **kwargs
     ) -> LLMResponse:
         """
         Generate text from a conversation history.
@@ -203,12 +204,12 @@ class LLMProvider(ABC):
     def generate_structured(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        system: Optional[str] = None,
+        schema: dict[str, Any],
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        **kwargs
-    ) -> Dict[str, Any]:
+        **kwargs,
+    ) -> dict[str, Any]:
         """
         Generate structured JSON output matching a schema.
 
@@ -232,10 +233,10 @@ class LLMProvider(ABC):
     def generate_stream(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        **kwargs
+        **kwargs,
     ) -> Iterator[str]:
         """
         Generate text with streaming (optional, not all providers support).
@@ -258,10 +259,10 @@ class LLMProvider(ABC):
     async def generate_stream_async(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        **kwargs
+        **kwargs,
     ) -> AsyncIterator[str]:
         """
         Generate text with async streaming (optional).
@@ -285,7 +286,7 @@ class LLMProvider(ABC):
             yield
 
     @abstractmethod
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """
         Get information about the current model.
 
@@ -294,7 +295,7 @@ class LLMProvider(ABC):
         """
         pass
 
-    def get_usage_stats(self) -> Dict[str, Any]:
+    def get_usage_stats(self) -> dict[str, Any]:
         """
         Get cumulative usage statistics for this provider instance.
 
@@ -352,9 +353,9 @@ class ProviderAPIError(Exception):
         self,
         provider: str,
         message: str,
-        status_code: Optional[int] = None,
-        raw_error: Optional[Exception] = None,
-        recoverable: bool = True
+        status_code: int | None = None,
+        raw_error: Exception | None = None,
+        recoverable: bool = True,
     ):
         self.provider = provider
         self.message = message
@@ -385,13 +386,34 @@ class ProviderAPIError(Exception):
         # Check message patterns for recoverable errors
         message_lower = self.message.lower()
         recoverable_patterns = (
-            'timeout', 'connection', 'network', 'rate_limit', 'rate limit',
-            'overloaded', 'service_unavailable', 'service unavailable',
-            'temporarily', 'retry', '429', '503', '502', '504'
+            "timeout",
+            "connection",
+            "network",
+            "rate_limit",
+            "rate limit",
+            "overloaded",
+            "service_unavailable",
+            "service unavailable",
+            "temporarily",
+            "retry",
+            "429",
+            "503",
+            "502",
+            "504",
         )
         non_recoverable_patterns = (
-            'json', 'parse', 'invalid', 'authentication', 'unauthorized',
-            'forbidden', 'not found', 'bad request', '401', '403', '404', '400'
+            "json",
+            "parse",
+            "invalid",
+            "authentication",
+            "unauthorized",
+            "forbidden",
+            "not found",
+            "bad request",
+            "401",
+            "403",
+            "404",
+            "400",
         )
 
         # If explicitly mentions recoverable error type

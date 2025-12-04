@@ -4,14 +4,12 @@ Integration tests for parallel experiment execution.
 Tests ParallelExperimentExecutor and concurrent experiment workflows.
 """
 
-import pytest
 import time
 from unittest.mock import MagicMock, patch
 
-from kosmos.execution.parallel import (
-    ParallelExperimentExecutor,
-    ParallelExecutionResult
-)
+import pytest
+
+from kosmos.execution.parallel import ParallelExecutionResult, ParallelExperimentExecutor
 
 
 class TestParallelExperimentExecutor:
@@ -34,12 +32,9 @@ class TestParallelExperimentExecutor:
         protocol_id = "test_protocol_1"
 
         # Mock experiment execution
-        with patch.object(executor, '_execute_experiment_task') as mock_exec:
+        with patch.object(executor, "_execute_experiment_task") as mock_exec:
             mock_exec.return_value = ParallelExecutionResult(
-                protocol_id=protocol_id,
-                success=True,
-                result_id="result_1",
-                duration_seconds=1.0
+                protocol_id=protocol_id, success=True, result_id="result_1", duration_seconds=1.0
             )
 
             result = executor.execute(protocol_id)
@@ -58,10 +53,10 @@ class TestParallelExperimentExecutor:
                 protocol_id=protocol_id,
                 success=True,
                 result_id=f"result_{protocol_id}",
-                duration_seconds=0.1
+                duration_seconds=0.1,
             )
 
-        with patch.object(executor, '_execute_experiment_task', side_effect=mock_execute_task):
+        with patch.object(executor, "_execute_experiment_task", side_effect=mock_execute_task):
             results = executor.execute_batch(protocol_ids)
 
             assert len(results) == 10
@@ -77,10 +72,10 @@ class TestParallelExperimentExecutor:
                 protocol_id=protocol_id,
                 success=True,
                 result_id=f"result_{protocol_id}",
-                duration_seconds=0.2
+                duration_seconds=0.2,
             )
 
-        with patch.object(executor, '_execute_experiment_task', side_effect=mock_execute_task):
+        with patch.object(executor, "_execute_experiment_task", side_effect=mock_execute_task):
             start = time.time()
             results = executor.execute_batch(protocol_ids)
             parallel_time = time.time() - start
@@ -101,10 +96,10 @@ class TestParallelExperimentExecutor:
                 protocol_id=protocol_id,
                 success=True,
                 result_id=f"result_{protocol_id}",
-                duration_seconds=0.1
+                duration_seconds=0.1,
             )
 
-        with patch.object(executor, '_execute_experiment_task', side_effect=mock_execute_task):
+        with patch.object(executor, "_execute_experiment_task", side_effect=mock_execute_task):
             results = executor.execute_batch(protocol_ids)
 
             assert len(results) == 3
@@ -144,10 +139,10 @@ class TestParallelExperimentExecutor:
                 protocol_id=protocol_id,
                 success=True,
                 result_id=f"result_{protocol_id}",
-                duration_seconds=delay
+                duration_seconds=delay,
             )
 
-        with patch.object(executor, '_execute_experiment_task', side_effect=mock_execute_task):
+        with patch.object(executor, "_execute_experiment_task", side_effect=mock_execute_task):
             results = executor.execute_batch(protocol_ids)
 
             # Results should be in same order as input
@@ -165,7 +160,7 @@ class TestParallelExecutionResult:
             success=True,
             result_id="result_123",
             duration_seconds=5.5,
-            data={"metric": 0.95}
+            data={"metric": 0.95},
         )
 
         assert result.success is True
@@ -175,9 +170,7 @@ class TestParallelExecutionResult:
     def test_failure_result(self):
         """Test creating failure result."""
         result = ParallelExecutionResult(
-            protocol_id="test_protocol",
-            success=False,
-            error="Experiment execution failed"
+            protocol_id="test_protocol", success=False, error="Experiment execution failed"
         )
 
         assert result.success is False
@@ -191,7 +184,7 @@ class TestParallelExecutionWithRealExperiments:
     @pytest.fixture
     def mock_llm_client(self):
         """Mock LLM client for experiment execution."""
-        with patch('kosmos.core.llm.ClaudeClient') as mock:
+        with patch("kosmos.core.llm.ClaudeClient") as mock:
             client = MagicMock()
             client.generate.return_value = "Experiment analysis: The results show..."
             mock.return_value = client
@@ -223,8 +216,9 @@ class TestParallelExecutionWithRealExperiments:
     @pytest.mark.integration
     def test_memory_usage_under_load(self):
         """Test memory usage doesn't grow excessively."""
-        import psutil
         import os
+
+        import psutil
 
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
@@ -234,19 +228,18 @@ class TestParallelExecutionWithRealExperiments:
         # Execute many experiments
         def mock_execute_task(protocol_id):
             # Allocate and release memory
-            data = [0] * 100000
             time.sleep(0.01)
             return ParallelExecutionResult(
                 protocol_id=protocol_id,
                 success=True,
                 result_id=f"result_{protocol_id}",
-                duration_seconds=0.01
+                duration_seconds=0.01,
             )
 
         protocol_ids = [f"protocol_{i}" for i in range(50)]
 
-        with patch.object(executor, '_execute_experiment_task', side_effect=mock_execute_task):
-            results = executor.execute_batch(protocol_ids)
+        with patch.object(executor, "_execute_experiment_task", side_effect=mock_execute_task):
+            executor.execute_batch(protocol_ids)
 
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
         memory_increase = final_memory - initial_memory
@@ -273,10 +266,10 @@ class TestConcurrentExperimentScheduling:
                 protocol_id=protocol_id,
                 success=True,
                 result_id=f"result_{protocol_id}",
-                duration_seconds=0.1
+                duration_seconds=0.1,
             )
 
-        with patch.object(executor, '_execute_experiment_task', side_effect=mock_execute_task):
+        with patch.object(executor, "_execute_experiment_task", side_effect=mock_execute_task):
             results = executor.execute_batch(protocol_ids)
 
             # All should complete eventually
@@ -295,14 +288,15 @@ class TestConcurrentExperimentScheduling:
                 protocol_id=protocol_id,
                 success=True,
                 result_id=f"result_{protocol_id}",
-                duration_seconds=1.0
+                duration_seconds=1.0,
             )
 
         protocol_ids = [f"protocol_{i}" for i in range(4)]
 
-        with patch.object(executor, '_execute_experiment_task', side_effect=slow_task):
+        with patch.object(executor, "_execute_experiment_task", side_effect=slow_task):
             # Start batch but don't wait
             import threading
+
             thread = threading.Thread(target=executor.execute_batch, args=(protocol_ids,))
             thread.start()
 
@@ -332,12 +326,12 @@ class TestResourceLimits:
                 success=True,
                 result_id=f"result_{protocol_id}",
                 duration_seconds=0.5,
-                data={"result": result}
+                data={"result": result},
             )
 
         protocol_ids = [f"protocol_{i}" for i in range(8)]
 
-        with patch.object(executor, '_execute_experiment_task', side_effect=cpu_intensive_task):
+        with patch.object(executor, "_execute_experiment_task", side_effect=cpu_intensive_task):
             start = time.time()
             results = executor.execute_batch(protocol_ids)
             duration = time.time() - start
@@ -357,23 +351,20 @@ class TestResourceLimits:
         def memory_intensive_task(protocol_id):
             try:
                 # Try to allocate large amount of memory
-                data = [0] * 100000000  # ~400MB
                 return ParallelExecutionResult(
                     protocol_id=protocol_id,
                     success=True,
                     result_id=f"result_{protocol_id}",
-                    duration_seconds=0.1
+                    duration_seconds=0.1,
                 )
             except MemoryError:
                 return ParallelExecutionResult(
-                    protocol_id=protocol_id,
-                    success=False,
-                    error="Memory limit exceeded"
+                    protocol_id=protocol_id, success=False, error="Memory limit exceeded"
                 )
 
         protocol_ids = ["protocol_1"]
 
-        with patch.object(executor, '_execute_experiment_task', side_effect=memory_intensive_task):
+        with patch.object(executor, "_execute_experiment_task", side_effect=memory_intensive_task):
             results = executor.execute_batch(protocol_ids)
 
             # Should handle gracefully (either succeed or fail with error)

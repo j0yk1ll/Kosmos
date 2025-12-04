@@ -1,13 +1,17 @@
 """Tests for novelty_checker module."""
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from kosmos.hypothesis.novelty_checker import NoveltyChecker
 from kosmos.models.hypothesis import Hypothesis
+
 
 @pytest.fixture
 def novelty_checker():
     return NoveltyChecker(similarity_threshold=0.75, use_vector_db=False)
+
 
 @pytest.fixture
 def sample_hypothesis():
@@ -15,17 +19,20 @@ def sample_hypothesis():
         research_question="Test question",
         statement="Attention mechanism improves transformer performance",
         rationale="Prior work shows attention captures dependencies",
-        domain="machine_learning"
+        domain="machine_learning",
     )
+
 
 @pytest.mark.unit
 class TestNoveltyChecker:
     def test_init(self, novelty_checker):
         assert novelty_checker.similarity_threshold == 0.75
 
-    @patch('kosmos.hypothesis.novelty_checker.UnifiedLiteratureSearch')
-    @patch('kosmos.hypothesis.novelty_checker.get_session')
-    def test_check_novelty_high(self, mock_session, mock_search, novelty_checker, sample_hypothesis):
+    @patch("kosmos.hypothesis.novelty_checker.UnifiedLiteratureSearch")
+    @patch("kosmos.hypothesis.novelty_checker.get_session")
+    def test_check_novelty_high(
+        self, mock_session, mock_search, novelty_checker, sample_hypothesis
+    ):
         mock_search_inst = Mock()
         mock_search_inst.search.return_value = []
         mock_search.return_value = mock_search_inst

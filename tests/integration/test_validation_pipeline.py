@@ -4,54 +4,56 @@ Integration tests for the validation pipeline.
 Tests ScholarEval with real discoveries and filtering workflow.
 """
 
-import pytest
 import asyncio
 
-from kosmos.validation.scholar_eval import ScholarEvalValidator, ScholarEvalScore
+import pytest
+
+from kosmos.validation.scholar_eval import ScholarEvalScore, ScholarEvalValidator
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def high_quality_findings():
     """High-quality scientific findings that should pass validation."""
     return [
         {
-            'finding_id': 'finding_001',
-            'summary': '''We identified 87 differentially expressed genes in KRAS G12D mutant
+            "finding_id": "finding_001",
+            "summary": """We identified 87 differentially expressed genes in KRAS G12D mutant
             pancreatic cancer cells compared to wildtype controls. The most significantly
-            upregulated gene was MYC (fold change = 3.2, FDR-adjusted p < 0.001).''',
-            'statistics': {
-                'p_value': 0.0001,
-                'sample_size': 150,
-                'n_genes': 87,
-                'effect_size': 0.82,
-                'fdr': 0.01
+            upregulated gene was MYC (fold change = 3.2, FDR-adjusted p < 0.001).""",
+            "statistics": {
+                "p_value": 0.0001,
+                "sample_size": 150,
+                "n_genes": 87,
+                "effect_size": 0.82,
+                "fdr": 0.01,
             },
-            'methods': '''RNA-seq analysis using DESeq2 with FDR correction (Benjamini-Hochberg).
+            "methods": """RNA-seq analysis using DESeq2 with FDR correction (Benjamini-Hochberg).
             Quality control: FastQC, alignment with STAR, quantification with featureCounts.
-            Statistical threshold: FDR < 0.05, |log2FC| > 1.''',
-            'interpretation': '''KRAS mutations drive significant transcriptional changes
-            consistent with enhanced cell proliferation and survival signaling.'''
+            Statistical threshold: FDR < 0.05, |log2FC| > 1.""",
+            "interpretation": """KRAS mutations drive significant transcriptional changes
+            consistent with enhanced cell proliferation and survival signaling.""",
         },
         {
-            'finding_id': 'finding_002',
-            'summary': '''Survival analysis reveals KRAS mutation status is an independent
-            predictor of overall survival (HR = 2.1, 95% CI: 1.5-2.9, p < 0.001).''',
-            'statistics': {
-                'p_value': 0.0005,
-                'sample_size': 500,
-                'hazard_ratio': 2.1,
-                'confidence_interval': [1.5, 2.9]
+            "finding_id": "finding_002",
+            "summary": """Survival analysis reveals KRAS mutation status is an independent
+            predictor of overall survival (HR = 2.1, 95% CI: 1.5-2.9, p < 0.001).""",
+            "statistics": {
+                "p_value": 0.0005,
+                "sample_size": 500,
+                "hazard_ratio": 2.1,
+                "confidence_interval": [1.5, 2.9],
             },
-            'methods': '''Cox proportional hazards regression with adjustment for age,
+            "methods": """Cox proportional hazards regression with adjustment for age,
             stage, and treatment. Kaplan-Meier survival curves with log-rank test.
-            Median follow-up: 36 months.''',
-            'interpretation': '''KRAS mutation status should be considered for patient
-            stratification and treatment decisions.'''
-        }
+            Median follow-up: 36 months.""",
+            "interpretation": """KRAS mutation status should be considered for patient
+            stratification and treatment decisions.""",
+        },
     ]
 
 
@@ -60,23 +62,20 @@ def low_quality_findings():
     """Low-quality findings that should fail validation."""
     return [
         {
-            'finding_id': 'finding_low_001',
-            'summary': 'Found some genes that might be different.',
-            'statistics': {},
-            'methods': None,
-            'interpretation': None
+            "finding_id": "finding_low_001",
+            "summary": "Found some genes that might be different.",
+            "statistics": {},
+            "methods": None,
+            "interpretation": None,
         },
         {
-            'finding_id': 'finding_low_002',
-            'summary': '''We noticed a trend in the data that could suggest KRAS
-            involvement but more research is needed.''',
-            'statistics': {
-                'p_value': 0.15,  # Not significant
-                'sample_size': 10  # Small sample
-            },
-            'methods': 'Basic analysis',
-            'interpretation': 'Results are inconclusive'
-        }
+            "finding_id": "finding_low_002",
+            "summary": """We noticed a trend in the data that could suggest KRAS
+            involvement but more research is needed.""",
+            "statistics": {"p_value": 0.15, "sample_size": 10},  # Not significant  # Small sample
+            "methods": "Basic analysis",
+            "interpretation": "Results are inconclusive",
+        },
     ]
 
 
@@ -89,16 +88,13 @@ def mixed_quality_findings(high_quality_findings, low_quality_findings):
 @pytest.fixture
 def scholar_validator():
     """ScholarEvalValidator without LLM for testing."""
-    return ScholarEvalValidator(
-        anthropic_client=None,
-        threshold=0.75,
-        min_rigor_score=0.70
-    )
+    return ScholarEvalValidator(anthropic_client=None, threshold=0.75, min_rigor_score=0.70)
 
 
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestScholarEvalPipeline:
     """Integration tests for ScholarEval validation pipeline."""
@@ -149,11 +145,11 @@ class TestScholarEvalPipeline:
 
         stats = scholar_validator.get_validation_statistics(scores)
 
-        assert stats['total_evaluated'] == len(high_quality_findings)
-        assert 'passed' in stats
-        assert 'rejected' in stats
-        assert 'validation_rate' in stats
-        assert 'avg_overall_score' in stats
+        assert stats["total_evaluated"] == len(high_quality_findings)
+        assert "passed" in stats
+        assert "rejected" in stats
+        assert "validation_rate" in stats
+        assert "avg_overall_score" in stats
 
 
 class TestScholarEvalScoring:
@@ -165,8 +161,16 @@ class TestScholarEvalScoring:
         score = await scholar_validator.evaluate_finding(high_quality_findings[0])
 
         # Check all dimensions present
-        dimensions = ['novelty', 'rigor', 'clarity', 'reproducibility',
-                      'impact', 'coherence', 'limitations', 'ethics']
+        dimensions = [
+            "novelty",
+            "rigor",
+            "clarity",
+            "reproducibility",
+            "impact",
+            "coherence",
+            "limitations",
+            "ethics",
+        ]
 
         for dim in dimensions:
             assert hasattr(score, dim), f"Missing dimension: {dim}"
@@ -178,16 +182,16 @@ class TestScholarEvalScoring:
         """Test that rigor has highest weight in overall score."""
         # High rigor, low everything else
         high_rigor_finding = {
-            'summary': 'Test finding',
-            'statistics': {'p_value': 0.001, 'sample_size': 500},
-            'methods': 'Comprehensive statistical analysis with multiple correction methods',
-            'interpretation': 'Clear'
+            "summary": "Test finding",
+            "statistics": {"p_value": 0.001, "sample_size": 500},
+            "methods": "Comprehensive statistical analysis with multiple correction methods",
+            "interpretation": "Clear",
         }
 
         score = await scholar_validator.evaluate_finding(high_rigor_finding)
 
         # Verify rigor contributes significantly
-        rigor_contribution = score.rigor * scholar_validator.DIMENSION_WEIGHTS['rigor']
+        rigor_contribution = score.rigor * scholar_validator.DIMENSION_WEIGHTS["rigor"]
         assert rigor_contribution > 0.15  # Should be substantial
 
 
@@ -200,7 +204,7 @@ class TestValidationFeedback:
         score = await scholar_validator.evaluate_finding(high_quality_findings[0])
 
         if score.passes_threshold:
-            assert 'APPROVED' in score.feedback or 'approved' in score.feedback.lower()
+            assert "APPROVED" in score.feedback or "approved" in score.feedback.lower()
 
     @pytest.mark.asyncio
     async def test_rejected_feedback(self, scholar_validator, low_quality_findings):
@@ -208,7 +212,7 @@ class TestValidationFeedback:
         score = await scholar_validator.evaluate_finding(low_quality_findings[0])
 
         if not score.passes_threshold:
-            assert 'REJECTED' in score.feedback or 'rejected' in score.feedback.lower()
+            assert "REJECTED" in score.feedback or "rejected" in score.feedback.lower()
 
     @pytest.mark.asyncio
     async def test_feedback_actionable(self, scholar_validator, low_quality_findings):
@@ -217,8 +221,10 @@ class TestValidationFeedback:
 
         # Feedback should mention weaknesses or suggestions
         feedback_lower = score.feedback.lower()
-        has_actionable = any(word in feedback_lower for word in
-                            ['weakness', 'improve', 'suggest', 'concern', 'rigor'])
+        any(
+            word in feedback_lower
+            for word in ["weakness", "improve", "suggest", "concern", "rigor"]
+        )
 
         # May not always have actionable feedback in mock mode
         assert isinstance(score.feedback, str)
@@ -232,9 +238,7 @@ class TestValidationThresholds:
     async def test_custom_threshold(self, high_quality_findings):
         """Test validation with custom threshold."""
         strict_validator = ScholarEvalValidator(
-            anthropic_client=None,
-            threshold=0.90,  # Stricter threshold
-            min_rigor_score=0.85
+            anthropic_client=None, threshold=0.90, min_rigor_score=0.85  # Stricter threshold
         )
 
         score = await strict_validator.evaluate_finding(high_quality_findings[0])
@@ -247,17 +251,17 @@ class TestValidationThresholds:
         """Test that findings fail if rigor is below minimum."""
         # Mock finding with potentially low rigor
         finding = {
-            'summary': 'We observed some patterns in the data',
-            'statistics': {},  # No statistics
-            'methods': '',  # No methods
-            'interpretation': 'Needs more research'
+            "summary": "We observed some patterns in the data",
+            "statistics": {},  # No statistics
+            "methods": "",  # No methods
+            "interpretation": "Needs more research",
         }
 
         score = await scholar_validator.evaluate_finding(finding)
 
         # Should have feedback about rigor if failed
         if not score.passes_threshold and score.rigor < scholar_validator.min_rigor_score:
-            assert 'rigor' in score.feedback.lower() or isinstance(score.feedback, str)
+            assert "rigor" in score.feedback.lower() or isinstance(score.feedback, str)
 
 
 class TestValidationEdgeCases:
@@ -274,9 +278,7 @@ class TestValidationEdgeCases:
     @pytest.mark.asyncio
     async def test_partial_finding(self, scholar_validator):
         """Test validation of finding with only some fields."""
-        partial_finding = {
-            'summary': 'Partial finding with only summary'
-        }
+        partial_finding = {"summary": "Partial finding with only summary"}
 
         score = await scholar_validator.evaluate_finding(partial_finding)
 
@@ -285,10 +287,7 @@ class TestValidationEdgeCases:
     @pytest.mark.asyncio
     async def test_concurrent_validation(self, scholar_validator, mixed_quality_findings):
         """Test concurrent validation of multiple findings."""
-        tasks = [
-            scholar_validator.evaluate_finding(f)
-            for f in mixed_quality_findings
-        ]
+        tasks = [scholar_validator.evaluate_finding(f) for f in mixed_quality_findings]
 
         scores = await asyncio.gather(*tasks)
 

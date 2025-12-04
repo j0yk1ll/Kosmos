@@ -1,20 +1,22 @@
 """
 Experiment result data models.
-from kosmos.utils.compat import model_to_dict
 
 Defines Pydantic models for experiment results, extending the database Result model
 with validation and structured data handling.
 """
 
-from pydantic import BaseModel, Field, field_validator
-from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
 from enum import Enum
-import json
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
+
+from kosmos.utils.compat import model_to_dict
 
 
 class ResultStatus(str, Enum):
     """Status of experiment result."""
+
     SUCCESS = "success"
     FAILED = "failed"
     PARTIAL = "partial"
@@ -32,29 +34,28 @@ class ExecutionMetadata(BaseModel):
     # System information
     python_version: str = Field(..., description="Python version used")
     platform: str = Field(..., description="Operating system platform")
-    hostname: Optional[str] = Field(None, description="Machine hostname")
+    hostname: str | None = Field(None, description="Machine hostname")
 
     # Resource usage
-    cpu_time_seconds: Optional[float] = Field(None, ge=0, description="CPU time consumed")
-    memory_peak_mb: Optional[float] = Field(None, ge=0, description="Peak memory usage in MB")
+    cpu_time_seconds: float | None = Field(None, ge=0, description="CPU time consumed")
+    memory_peak_mb: float | None = Field(None, ge=0, description="Peak memory usage in MB")
 
     # Execution environment
-    random_seed: Optional[int] = Field(None, description="Random seed used")
-    library_versions: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Versions of key libraries used"
+    random_seed: int | None = Field(None, description="Random seed used")
+    library_versions: dict[str, str] = Field(
+        default_factory=dict, description="Versions of key libraries used"
     )
 
     # Parameters
     experiment_id: str = Field(..., description="Experiment ID")
     protocol_id: str = Field(..., description="Protocol ID")
-    hypothesis_id: Optional[str] = Field(None, description="Hypothesis ID")
+    hypothesis_id: str | None = Field(None, description="Hypothesis ID")
 
     # Execution details
     sandbox_used: bool = Field(default=False, description="Whether sandbox was used")
     timeout_occurred: bool = Field(default=False, description="Whether timeout occurred")
-    errors: List[str] = Field(default_factory=list, description="Errors encountered")
-    warnings: List[str] = Field(default_factory=list, description="Warnings generated")
+    errors: list[str] = Field(default_factory=list, description="Errors encountered")
+    warnings: list[str] = Field(default_factory=list, description="Warnings generated")
 
 
 class StatisticalTestResult(BaseModel):
@@ -68,15 +69,14 @@ class StatisticalTestResult(BaseModel):
     p_value: float = Field(..., ge=0, le=1, description="P-value")
 
     # Effect size (optional)
-    effect_size: Optional[float] = Field(None, description="Effect size measure")
-    effect_size_type: Optional[str] = Field(None, description="Type of effect size (Cohen's d, etc.)")
+    effect_size: float | None = Field(None, description="Effect size measure")
+    effect_size_type: str | None = Field(None, description="Type of effect size (Cohen's d, etc.)")
 
     # Confidence intervals (optional)
-    confidence_interval: Optional[Dict[str, float]] = Field(
-        None,
-        description="Confidence interval (lower, upper)"
+    confidence_interval: dict[str, float] | None = Field(
+        None, description="Confidence interval (lower, upper)"
     )
-    confidence_level: Optional[float] = Field(None, ge=0, le=1, description="CI confidence level")
+    confidence_level: float | None = Field(None, ge=0, le=1, description="CI confidence level")
 
     # Significance
     significant_0_05: bool = Field(..., description="Significant at α=0.05")
@@ -88,17 +88,16 @@ class StatisticalTestResult(BaseModel):
     is_primary: bool = Field(default=False, description="Whether this is the primary test")
 
     # Sample information
-    sample_size: Optional[int] = Field(None, ge=0, description="Total sample size")
-    degrees_of_freedom: Optional[int] = Field(None, description="Degrees of freedom")
+    sample_size: int | None = Field(None, ge=0, description="Total sample size")
+    degrees_of_freedom: int | None = Field(None, description="Degrees of freedom")
 
     # Additional test-specific data
-    additional_stats: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional test-specific statistics"
+    additional_stats: dict[str, Any] = Field(
+        default_factory=dict, description="Additional test-specific statistics"
     )
 
     # Interpretation
-    interpretation: Optional[str] = Field(None, description="Human-readable interpretation")
+    interpretation: str | None = Field(None, description="Human-readable interpretation")
 
 
 class VariableResult(BaseModel):
@@ -108,19 +107,18 @@ class VariableResult(BaseModel):
     variable_type: str = Field(..., description="Variable type (independent, dependent, etc.)")
 
     # Summary statistics
-    mean: Optional[float] = Field(None, description="Mean value")
-    median: Optional[float] = Field(None, description="Median value")
-    std: Optional[float] = Field(None, description="Standard deviation")
-    min: Optional[float] = Field(None, description="Minimum value")
-    max: Optional[float] = Field(None, description="Maximum value")
+    mean: float | None = Field(None, description="Mean value")
+    median: float | None = Field(None, description="Median value")
+    std: float | None = Field(None, description="Standard deviation")
+    min: float | None = Field(None, description="Minimum value")
+    max: float | None = Field(None, description="Maximum value")
 
     # Data points
-    values: Optional[List[Union[float, int, str]]] = Field(
-        None,
-        description="Raw data values (if not too large)"
+    values: list[float | int | str] | None = Field(
+        None, description="Raw data values (if not too large)"
     )
-    n_samples: Optional[int] = Field(None, ge=0, description="Number of samples")
-    n_missing: Optional[int] = Field(None, ge=0, description="Number of missing values")
+    n_samples: int | None = Field(None, ge=0, description="Number of samples")
+    n_missing: int | None = Field(None, ge=0, description="Number of missing values")
 
 
 class ExperimentResult(BaseModel):
@@ -131,48 +129,44 @@ class ExperimentResult(BaseModel):
     """
 
     # Identifiers
-    id: Optional[str] = Field(None, description="Result ID")
+    id: str | None = Field(None, description="Result ID")
     experiment_id: str = Field(..., description="Experiment ID")
     protocol_id: str = Field(..., description="Protocol ID used")
-    hypothesis_id: Optional[str] = Field(None, description="Hypothesis ID tested")
+    hypothesis_id: str | None = Field(None, description="Hypothesis ID tested")
 
     # Status
     status: ResultStatus = Field(..., description="Result status")
 
     # Data
-    raw_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Raw output data from execution"
+    raw_data: dict[str, Any] = Field(
+        default_factory=dict, description="Raw output data from execution"
     )
-    processed_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Processed/cleaned data"
+    processed_data: dict[str, Any] = Field(
+        default_factory=dict, description="Processed/cleaned data"
     )
 
     # Variables
-    variable_results: List[VariableResult] = Field(
-        default_factory=list,
-        description="Results for each variable"
+    variable_results: list[VariableResult] = Field(
+        default_factory=list, description="Results for each variable"
     )
 
     # Statistical tests
-    statistical_tests: List[StatisticalTestResult] = Field(
-        default_factory=list,
-        description="Statistical test results"
+    statistical_tests: list[StatisticalTestResult] = Field(
+        default_factory=list, description="Statistical test results"
     )
-    primary_test: Optional[str] = Field(
-        None,
-        description="Name of primary statistical test"
-    )
+    primary_test: str | None = Field(None, description="Name of primary statistical test")
 
     # Key results
-    primary_p_value: Optional[float] = Field(None, ge=0, le=1, description="Primary p-value")
-    primary_effect_size: Optional[float] = Field(None, description="Primary effect size")
-    primary_ci_lower: Optional[float] = Field(None, description="Primary confidence interval lower bound")
-    primary_ci_upper: Optional[float] = Field(None, description="Primary confidence interval upper bound")
-    supports_hypothesis: Optional[bool] = Field(
-        None,
-        description="Whether results support the hypothesis"
+    primary_p_value: float | None = Field(None, ge=0, le=1, description="Primary p-value")
+    primary_effect_size: float | None = Field(None, description="Primary effect size")
+    primary_ci_lower: float | None = Field(
+        None, description="Primary confidence interval lower bound"
+    )
+    primary_ci_upper: float | None = Field(
+        None, description="Primary confidence interval upper bound"
+    )
+    supports_hypothesis: bool | None = Field(
+        None, description="Whether results support the hypothesis"
     )
 
     # Metadata
@@ -180,31 +174,33 @@ class ExperimentResult(BaseModel):
 
     # Versioning
     version: int = Field(default=1, ge=1, description="Result version number")
-    parent_result_id: Optional[str] = Field(None, description="ID of parent result if re-run")
+    parent_result_id: str | None = Field(None, description="ID of parent result if re-run")
 
     # Outputs
-    stdout: Optional[str] = Field(None, description="Standard output from execution")
-    stderr: Optional[str] = Field(None, description="Standard error from execution")
-    generated_files: List[str] = Field(
-        default_factory=list,
-        description="Paths to generated files (plots, data, etc.)"
+    stdout: str | None = Field(None, description="Standard output from execution")
+    stderr: str | None = Field(None, description="Standard error from execution")
+    generated_files: list[str] = Field(
+        default_factory=list, description="Paths to generated files (plots, data, etc.)"
     )
 
     # Interpretation
-    summary: Optional[str] = Field(None, description="Summary of results")
-    interpretation: Optional[str] = Field(None, description="Interpretation of findings")
-    recommendations: List[str] = Field(
-        default_factory=list,
-        description="Recommendations for follow-up"
+    summary: str | None = Field(None, description="Summary of results")
+    interpretation: str | None = Field(None, description="Interpretation of findings")
+    recommendations: list[str] = Field(
+        default_factory=list, description="Recommendations for follow-up"
     )
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow, description="Result creation time")
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Result creation time"
+    )
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update time")
 
-    @field_validator('statistical_tests')
+    @field_validator("statistical_tests")
     @classmethod
-    def validate_statistical_tests(cls, v: List[StatisticalTestResult]) -> List[StatisticalTestResult]:
+    def validate_statistical_tests(
+        cls, v: list[StatisticalTestResult]
+    ) -> list[StatisticalTestResult]:
         """Validate statistical tests list."""
         # Check for duplicate test names
         test_names = [test.test_name for test in v]
@@ -212,21 +208,21 @@ class ExperimentResult(BaseModel):
             raise ValueError("Duplicate test names in statistical_tests")
         return v
 
-    @field_validator('primary_test')
+    @field_validator("primary_test")
     @classmethod
-    def validate_primary_test(cls, v: Optional[str], info) -> Optional[str]:
+    def validate_primary_test(cls, v: str | None, info) -> str | None:
         """Validate primary test exists in statistical_tests."""
-        if v is not None and 'statistical_tests' in info.data:
+        if v is not None and "statistical_tests" in info.data:
             # In Pydantic V2, info.data contains raw dicts, not model instances
             test_names = [
-                test['test_name'] if isinstance(test, dict) else test.test_name
-                for test in info.data['statistical_tests']
+                test["test_name"] if isinstance(test, dict) else test.test_name
+                for test in info.data["statistical_tests"]
             ]
             if v not in test_names:
                 raise ValueError(f"Primary test '{v}' not found in statistical_tests")
         return v
 
-    def get_primary_test_result(self) -> Optional[StatisticalTestResult]:
+    def get_primary_test_result(self) -> StatisticalTestResult | None:
         """Get the primary statistical test result."""
         if self.primary_test is None:
             return None
@@ -237,16 +233,16 @@ class ExperimentResult(BaseModel):
 
         return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for database storage."""
-        return model_to_dict(self, mode='json', exclude_none=True)
+        return model_to_dict(self, mode="json", exclude_none=True)
 
     def to_json(self) -> str:
         """Convert to JSON string."""
         return self.model_dump_json(indent=2, exclude_none=True)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ExperimentResult":
+    def from_dict(cls, data: dict[str, Any]) -> "ExperimentResult":
         """Create from dictionary."""
         return cls.model_validate(data)
 
@@ -261,17 +257,17 @@ class ExperimentResult(BaseModel):
             return False
         return self.primary_p_value < alpha
 
-    def get_summary_stats(self) -> Dict[str, Any]:
+    def get_summary_stats(self) -> dict[str, Any]:
         """Get summary statistics for all variables."""
         stats = {}
         for var_result in self.variable_results:
             stats[var_result.variable_name] = {
-                'mean': var_result.mean,
-                'median': var_result.median,
-                'std': var_result.std,
-                'min': var_result.min,
-                'max': var_result.max,
-                'n_samples': var_result.n_samples
+                "mean": var_result.mean,
+                "median": var_result.median,
+                "std": var_result.std,
+                "min": var_result.min,
+                "max": var_result.max,
+                "n_samples": var_result.n_samples,
             }
         return stats
 
@@ -294,14 +290,14 @@ class ResultExport(BaseModel):
         data = []
         for var in self.result.variable_results:
             row = {
-                'variable': var.variable_name,
-                'type': var.variable_type,
-                'mean': var.mean,
-                'median': var.median,
-                'std': var.std,
-                'min': var.min,
-                'max': var.max,
-                'n_samples': var.n_samples
+                "variable": var.variable_name,
+                "type": var.variable_type,
+                "mean": var.mean,
+                "median": var.median,
+                "std": var.std,
+                "min": var.min,
+                "max": var.max,
+                "n_samples": var.n_samples,
             }
             data.append(row)
 
@@ -313,7 +309,7 @@ class ResultExport(BaseModel):
         lines = []
 
         # Header
-        lines.append(f"# Experiment Result Report")
+        lines.append("# Experiment Result Report")
         lines.append(f"**Experiment ID:** {self.result.experiment_id}")
         lines.append(f"**Status:** {self.result.status.value}")
         lines.append(f"**Date:** {self.result.created_at.isoformat()}")
@@ -335,7 +331,9 @@ class ResultExport(BaseModel):
                 lines.append(f"- **P-value:** {test.p_value:.6f}")
                 lines.append(f"- **Significance:** {test.significance_label}")
                 if test.effect_size:
-                    lines.append(f"- **Effect Size:** {test.effect_size:.4f} ({test.effect_size_type})")
+                    lines.append(
+                        f"- **Effect Size:** {test.effect_size:.4f} ({test.effect_size_type})"
+                    )
                 lines.append("")
 
         # Variables

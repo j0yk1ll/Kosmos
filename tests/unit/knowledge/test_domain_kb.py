@@ -5,22 +5,22 @@ Tests cross-domain integration, concept search, mapping, and domain suggestions.
 """
 
 import pytest
-from typing import List, Tuple
 
+from kosmos.domains.biology.ontology import BiologyOntology
+from kosmos.domains.materials.ontology import MaterialsOntology
+from kosmos.domains.neuroscience.ontology import NeuroscienceOntology
 from kosmos.knowledge.domain_kb import (
-    DomainKnowledgeBase,
+    CrossDomainMapping,
     Domain,
     DomainConcept,
-    CrossDomainMapping
+    DomainKnowledgeBase,
 )
-from kosmos.domains.biology.ontology import BiologyOntology
-from kosmos.domains.neuroscience.ontology import NeuroscienceOntology
-from kosmos.domains.materials.ontology import MaterialsOntology
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def domain_kb():
@@ -31,6 +31,7 @@ def domain_kb():
 # ============================================================================
 # Test Domain KB Initialization
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestDomainKBInit:
@@ -75,21 +76,22 @@ class TestDomainKBInit:
     def test_ontology_instances_correct_types(self, domain_kb):
         """Test that ontology instances are correct types."""
         # Biology
-        assert hasattr(domain_kb.biology, 'concepts')
-        assert hasattr(domain_kb.biology, 'relations')
+        assert hasattr(domain_kb.biology, "concepts")
+        assert hasattr(domain_kb.biology, "relations")
 
         # Neuroscience
-        assert hasattr(domain_kb.neuroscience, 'concepts')
-        assert hasattr(domain_kb.neuroscience, 'relations')
+        assert hasattr(domain_kb.neuroscience, "concepts")
+        assert hasattr(domain_kb.neuroscience, "relations")
 
         # Materials
-        assert hasattr(domain_kb.materials, 'concepts')
-        assert hasattr(domain_kb.materials, 'relations')
+        assert hasattr(domain_kb.materials, "concepts")
+        assert hasattr(domain_kb.materials, "relations")
 
 
 # ============================================================================
 # Test Get Domain Ontology
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestGetDomainOntology:
@@ -120,6 +122,7 @@ class TestGetDomainOntology:
 # ============================================================================
 # Test Find Concepts
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestFindConcepts:
@@ -192,6 +195,7 @@ class TestFindConcepts:
 # Test Cross-Domain Mappings
 # ============================================================================
 
+
 @pytest.mark.unit
 class TestCrossDomainMappings:
     """Test cross-domain concept mapping."""
@@ -199,8 +203,7 @@ class TestCrossDomainMappings:
     def test_find_mapping_electrical_conductivity(self, domain_kb):
         """Test finding mapping for electrical_conductivity."""
         mappings = domain_kb.map_cross_domain_concepts(
-            concept_id="electrical_conductivity",
-            source_domain=Domain.MATERIALS
+            concept_id="electrical_conductivity", source_domain=Domain.MATERIALS
         )
 
         # Should map materials → neuroscience (neural_conductance)
@@ -212,8 +215,7 @@ class TestCrossDomainMappings:
         """Test finding reverse mapping (target → source)."""
         # Search from neuroscience side
         mappings = domain_kb.map_cross_domain_concepts(
-            concept_id="neural_conductance",
-            source_domain=Domain.NEUROSCIENCE
+            concept_id="neural_conductance", source_domain=Domain.NEUROSCIENCE
         )
 
         # Should find reverse mapping to materials
@@ -225,16 +227,12 @@ class TestCrossDomainMappings:
         """Test filtering by confidence threshold."""
         # Get all mappings
         all_mappings = domain_kb.map_cross_domain_concepts(
-            concept_id="electrical_conductivity",
-            source_domain=Domain.MATERIALS,
-            min_confidence=0.0
+            concept_id="electrical_conductivity", source_domain=Domain.MATERIALS, min_confidence=0.0
         )
 
         # Get high-confidence only
         high_conf_mappings = domain_kb.map_cross_domain_concepts(
-            concept_id="electrical_conductivity",
-            source_domain=Domain.MATERIALS,
-            min_confidence=0.9
+            concept_id="electrical_conductivity", source_domain=Domain.MATERIALS, min_confidence=0.9
         )
 
         # High confidence should be subset of all
@@ -246,31 +244,33 @@ class TestCrossDomainMappings:
 
         # Should have different types
         mapping_types = {m.mapping_type for m in mappings}
-        assert "analogous" in mapping_types or "related" in mapping_types or "equivalent" in mapping_types
+        assert (
+            "analogous" in mapping_types
+            or "related" in mapping_types
+            or "equivalent" in mapping_types
+        )
 
     def test_all_initial_mappings_present(self, domain_kb):
         """Test that all 7 initial mappings are present."""
         mappings = domain_kb.cross_domain_mappings
 
         # Check specific known mappings
-        mapping_pairs = {
-            (m.source_concept_id, m.target_concept_id) for m in mappings
-        }
+        mapping_pairs = {(m.source_concept_id, m.target_concept_id) for m in mappings}
 
         # Should have electrical_conductivity ↔ neural_conductance
-        assert ("electrical_conductivity", "neural_conductance") in mapping_pairs or \
-               ("neural_conductance", "electrical_conductivity") in mapping_pairs
+        assert ("electrical_conductivity", "neural_conductance") in mapping_pairs or (
+            "neural_conductance",
+            "electrical_conductivity",
+        ) in mapping_pairs
 
     def test_source_domain_filtering(self, domain_kb):
         """Test filtering by source domain."""
         mappings_with_domain = domain_kb.map_cross_domain_concepts(
-            concept_id="electrical_conductivity",
-            source_domain=Domain.MATERIALS
+            concept_id="electrical_conductivity", source_domain=Domain.MATERIALS
         )
 
         mappings_no_domain = domain_kb.map_cross_domain_concepts(
-            concept_id="electrical_conductivity",
-            source_domain=None
+            concept_id="electrical_conductivity", source_domain=None
         )
 
         # Without domain filter might find more (if concept appears in multiple domains)
@@ -279,8 +279,7 @@ class TestCrossDomainMappings:
     def test_bidirectional_mapping_consistency(self, domain_kb):
         """Test that bidirectional mappings are consistent."""
         forward = domain_kb.map_cross_domain_concepts(
-            concept_id="electrical_conductivity",
-            source_domain=Domain.MATERIALS
+            concept_id="electrical_conductivity", source_domain=Domain.MATERIALS
         )
 
         if len(forward) > 0:
@@ -290,8 +289,7 @@ class TestCrossDomainMappings:
 
             # Find reverse
             reverse = domain_kb.map_cross_domain_concepts(
-                concept_id=target_id,
-                source_domain=target_domain
+                concept_id=target_id, source_domain=target_domain
             )
 
             # Should map back
@@ -301,8 +299,7 @@ class TestCrossDomainMappings:
     def test_no_mappings_for_unmapped_concept(self, domain_kb):
         """Test that unmapped concepts return empty list."""
         mappings = domain_kb.map_cross_domain_concepts(
-            concept_id="nonexistent_concept",
-            source_domain=Domain.BIOLOGY
+            concept_id="nonexistent_concept", source_domain=Domain.BIOLOGY
         )
 
         assert isinstance(mappings, list)
@@ -312,14 +309,12 @@ class TestCrossDomainMappings:
         """Test that min_confidence parameter is respected."""
         # All mappings
         all_mappings = domain_kb.map_cross_domain_concepts(
-            concept_id="electrical_conductivity",
-            min_confidence=0.0
+            concept_id="electrical_conductivity", min_confidence=0.0
         )
 
         # Very high confidence only (unlikely to have any)
         very_high = domain_kb.map_cross_domain_concepts(
-            concept_id="electrical_conductivity",
-            min_confidence=0.99
+            concept_id="electrical_conductivity", min_confidence=0.99
         )
 
         # Verify filtering worked
@@ -332,6 +327,7 @@ class TestCrossDomainMappings:
 # Test Find Related Concepts
 # ============================================================================
 
+
 @pytest.mark.unit
 class TestFindRelatedConcepts:
     """Test finding related concepts (same-domain + cross-domain)."""
@@ -342,9 +338,7 @@ class TestFindRelatedConcepts:
         concept_id = "purine_metabolism"  # Biology concept
 
         results = domain_kb.find_related_concepts(
-            concept_id=concept_id,
-            source_domain=Domain.BIOLOGY,
-            include_cross_domain=False
+            concept_id=concept_id, source_domain=Domain.BIOLOGY, include_cross_domain=False
         )
 
         assert "same_domain" in results
@@ -361,7 +355,7 @@ class TestFindRelatedConcepts:
             concept_id=concept_id,
             source_domain=Domain.MATERIALS,
             include_cross_domain=True,
-            min_confidence=0.5
+            min_confidence=0.5,
         )
 
         assert "same_domain" in results
@@ -377,9 +371,7 @@ class TestFindRelatedConcepts:
         concept_id = "electrical_conductivity"
 
         results = domain_kb.find_related_concepts(
-            concept_id=concept_id,
-            source_domain=Domain.MATERIALS,
-            include_cross_domain=True
+            concept_id=concept_id, source_domain=Domain.MATERIALS, include_cross_domain=True
         )
 
         assert "same_domain" in results
@@ -394,7 +386,7 @@ class TestFindRelatedConcepts:
             concept_id=concept_id,
             source_domain=Domain.MATERIALS,
             include_cross_domain=True,
-            min_confidence=0.1
+            min_confidence=0.1,
         )
 
         # High threshold
@@ -402,7 +394,7 @@ class TestFindRelatedConcepts:
             concept_id=concept_id,
             source_domain=Domain.MATERIALS,
             include_cross_domain=True,
-            min_confidence=0.95
+            min_confidence=0.95,
         )
 
         # High threshold should have fewer or equal cross-domain results
@@ -411,9 +403,7 @@ class TestFindRelatedConcepts:
     def test_empty_results_for_isolated_concept(self, domain_kb):
         """Test that isolated concepts return empty results."""
         results = domain_kb.find_related_concepts(
-            concept_id="nonexistent",
-            source_domain=Domain.BIOLOGY,
-            include_cross_domain=True
+            concept_id="nonexistent", source_domain=Domain.BIOLOGY, include_cross_domain=True
         )
 
         assert len(results["same_domain"]) == 0
@@ -424,9 +414,7 @@ class TestFindRelatedConcepts:
         concept_id = "electrical_conductivity"
 
         results = domain_kb.find_related_concepts(
-            concept_id=concept_id,
-            source_domain=Domain.MATERIALS,
-            include_cross_domain=True
+            concept_id=concept_id, source_domain=Domain.MATERIALS, include_cross_domain=True
         )
 
         if len(results["cross_domain"]) > 0:
@@ -439,6 +427,7 @@ class TestFindRelatedConcepts:
 # ============================================================================
 # Test Get All Concepts
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestGetAllConcepts:
@@ -475,10 +464,10 @@ class TestGetAllConcepts:
             assert concept.name is not None
             assert concept.type is not None
             # Optional fields
-            assert hasattr(concept, 'description')
-            assert hasattr(concept, 'synonyms')
-            assert hasattr(concept, 'external_ids')
-            assert hasattr(concept, 'metadata')
+            assert hasattr(concept, "description")
+            assert hasattr(concept, "synonyms")
+            assert hasattr(concept, "external_ids")
+            assert hasattr(concept, "metadata")
 
     def test_domain_field_correct(self, domain_kb):
         """Test that domain field is correctly set."""
@@ -490,6 +479,7 @@ class TestGetAllConcepts:
 # ============================================================================
 # Test Suggest Domains for Hypothesis
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestSuggestDomainsForHypothesis:
@@ -515,7 +505,7 @@ class TestSuggestDomainsForHypothesis:
         suggestions = domain_kb.suggest_domains_for_hypothesis(hypothesis)
 
         # Neuroscience should score highly
-        domain_scores = {domain: score for domain, score in suggestions}
+        domain_scores = dict(suggestions)
         assert domain_scores.get(Domain.NEUROSCIENCE, 0) > 0.5
 
     def test_materials_specific_hypothesis(self, domain_kb):
@@ -525,7 +515,7 @@ class TestSuggestDomainsForHypothesis:
         suggestions = domain_kb.suggest_domains_for_hypothesis(hypothesis)
 
         # Materials should score highly
-        domain_scores = {domain: score for domain, score in suggestions}
+        domain_scores = dict(suggestions)
         assert domain_scores.get(Domain.MATERIALS, 0) > 0.5
 
     def test_multi_domain_hypothesis(self, domain_kb):
@@ -534,7 +524,7 @@ class TestSuggestDomainsForHypothesis:
 
         suggestions = domain_kb.suggest_domains_for_hypothesis(hypothesis)
 
-        domain_scores = {domain: score for domain, score in suggestions}
+        domain_scores = dict(suggestions)
 
         # Both neuroscience and materials should score
         assert domain_scores.get(Domain.NEUROSCIENCE, 0) > 0
@@ -547,7 +537,7 @@ class TestSuggestDomainsForHypothesis:
         suggestions = domain_kb.suggest_domains_for_hypothesis(hypothesis)
 
         # All scores should be low
-        for domain, score in suggestions:
+        for _domain, score in suggestions:
             assert score <= 0.5
 
     def test_normalized_scoring(self, domain_kb):
@@ -556,13 +546,14 @@ class TestSuggestDomainsForHypothesis:
 
         suggestions = domain_kb.suggest_domains_for_hypothesis(hypothesis)
 
-        for domain, score in suggestions:
+        for _domain, score in suggestions:
             assert 0.0 <= score <= 1.0
 
 
 # ============================================================================
 # Test Get Concept By ID
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestGetConceptByID:

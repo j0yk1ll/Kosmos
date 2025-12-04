@@ -5,12 +5,12 @@ These tests validate sandbox isolation, network restrictions, command restrictio
 and resource limits as specified in REQUIREMENTS.md Section 11.1.
 """
 
-import pytest
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-import docker
+
+import pytest
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -32,7 +32,7 @@ def test_req_sec_exec_001_sandbox_isolation():
     - Host filesystem is not accessible
     - Only designated data/output directories are accessible
     """
-    from kosmos.execution.sandbox import DockerSandbox, SandboxExecutionResult
+    from kosmos.execution.sandbox import DockerSandbox
 
     # Arrange: Code that attempts to access host filesystem
     malicious_code = """
@@ -64,11 +64,7 @@ except Exception as e:
 """
 
     # Act: Execute in sandbox
-    sandbox = DockerSandbox(
-        network_disabled=True,
-        read_only=True,
-        timeout=30
-    )
+    sandbox = DockerSandbox(network_disabled=True, read_only=True, timeout=30)
 
     try:
         result = sandbox.execute(malicious_code)
@@ -77,13 +73,16 @@ except Exception as e:
         assert result.success, "Sandbox should execute code even with access attempts"
 
         # Verify isolation - should not be able to access host
-        assert 'SECURITY_BREACH' not in result.stdout, \
-            "Code should not have accessed host filesystem"
+        assert (
+            "SECURITY_BREACH" not in result.stdout
+        ), "Code should not have accessed host filesystem"
 
         # Verify proper isolation message
-        assert 'ISOLATED' in result.stdout or 'denied' in result.stdout.lower() or \
-               result.exit_code == 0, \
-            "Code should be isolated from host filesystem"
+        assert (
+            "ISOLATED" in result.stdout
+            or "denied" in result.stdout.lower()
+            or result.exit_code == 0
+        ), "Code should be isolated from host filesystem"
 
     finally:
         sandbox.cleanup()
@@ -136,17 +135,16 @@ results = {'read_success': True, 'write_success': True}
         sandbox = DockerSandbox(timeout=30)
 
         try:
-            result = sandbox.execute(
-                code,
-                data_files={'test_data.txt': str(data_file)}
-            )
+            result = sandbox.execute(code, data_files={"test_data.txt": str(data_file)})
 
             # Assert: Should be able to access designated directories
             assert result.success, f"Execution should succeed: {result.error}"
-            assert "Successfully read data" in result.stdout, \
-                "Should be able to read from data directory"
-            assert "Successfully wrote to output" in result.stdout, \
-                "Should be able to write to output directory"
+            assert (
+                "Successfully read data" in result.stdout
+            ), "Should be able to read from data directory"
+            assert (
+                "Successfully wrote to output" in result.stdout
+            ), "Should be able to write to output directory"
 
         finally:
             sandbox.cleanup()
@@ -192,25 +190,23 @@ except ImportError:
 """
 
     # Act: Execute with network disabled
-    sandbox = DockerSandbox(
-        network_disabled=True,
-        timeout=30
-    )
+    sandbox = DockerSandbox(network_disabled=True, timeout=30)
 
     try:
         result = sandbox.execute(network_code)
 
         # Assert: Network should be blocked
-        assert result.success or result.timeout_occurred, \
-            "Code should complete or timeout (not crash)"
+        assert (
+            result.success or result.timeout_occurred
+        ), "Code should complete or timeout (not crash)"
 
-        assert 'NETWORK_ACCESSIBLE' not in result.stdout, \
-            "Network access should be blocked"
+        assert "NETWORK_ACCESSIBLE" not in result.stdout, "Network access should be blocked"
 
-        assert 'blocked' in result.stdout.lower() or \
-               'denied' in result.stdout.lower() or \
-               result.exit_code != 0, \
-            "Network operations should fail"
+        assert (
+            "blocked" in result.stdout.lower()
+            or "denied" in result.stdout.lower()
+            or result.exit_code != 0
+        ), "Network operations should fail"
 
     finally:
         sandbox.cleanup()
@@ -272,11 +268,11 @@ results = {'commands_blocked': True}
 
         # Assert: Commands should be blocked
         # Note: In Docker sandbox, imports may succeed but execution should be restricted
-        assert 'COMMAND_EXECUTED' not in result.stdout, \
-            "System commands should be blocked"
+        assert "COMMAND_EXECUTED" not in result.stdout, "System commands should be blocked"
 
-        assert 'SYSTEM_COMMAND_EXECUTED' not in result.stdout, \
-            "os.system() should be blocked or restricted"
+        assert (
+            "SYSTEM_COMMAND_EXECUTED" not in result.stdout
+        ), "os.system() should be blocked or restricted"
 
     finally:
         sandbox.cleanup()
@@ -294,8 +290,8 @@ def test_req_sec_exec_003_code_validator_blocks_commands():
     - subprocess, os.system are flagged as dangerous
     - Code is rejected before execution
     """
+    from kosmos.models.safety import ViolationType
     from kosmos.safety.code_validator import CodeValidator
-    from kosmos.models.safety import RiskLevel, ViolationType
 
     # Arrange: Dangerous code patterns
     dangerous_codes = [
@@ -306,30 +302,22 @@ def test_req_sec_exec_003_code_validator_blocks_commands():
         ("__import__('os')", "__import__ call"),
     ]
 
-    validator = CodeValidator(
-        allow_file_read=True,
-        allow_file_write=False,
-        allow_network=False
-    )
+    validator = CodeValidator(allow_file_read=True, allow_file_write=False, allow_network=False)
 
     for code, description in dangerous_codes:
         # Act: Validate dangerous code
         report = validator.validate(code)
 
         # Assert: Code should be rejected
-        assert not report.passed, \
-            f"Dangerous code should be rejected: {description}"
+        assert not report.passed, f"Dangerous code should be rejected: {description}"
 
-        assert len(report.violations) > 0, \
-            f"Should have violations for: {description}"
+        assert len(report.violations) > 0, f"Should have violations for: {description}"
 
         # Verify violation type is dangerous code
         dangerous_violations = [
-            v for v in report.violations
-            if v.type == ViolationType.DANGEROUS_CODE
+            v for v in report.violations if v.type == ViolationType.DANGEROUS_CODE
         ]
-        assert len(dangerous_violations) > 0, \
-            f"Should flag as dangerous code: {description}"
+        assert len(dangerous_violations) > 0, f"Should flag as dangerous code: {description}"
 
 
 @pytest.mark.requirement("REQ-SEC-EXEC-004")
@@ -377,24 +365,22 @@ results = {'completed': True}
 """
 
     # Act: Execute with strict resource limits
-    sandbox = DockerSandbox(
-        cpu_limit=1.0,  # 1 CPU core
-        memory_limit="512m",  # 512MB
-        timeout=30
-    )
+    sandbox = DockerSandbox(cpu_limit=1.0, memory_limit="512m", timeout=30)  # 1 CPU core  # 512MB
 
     try:
         result = sandbox.execute(resource_code)
 
         # Assert: Should complete but be constrained
-        assert result.success or result.timeout_occurred, \
-            "Code should run within resource limits or timeout"
+        assert (
+            result.success or result.timeout_occurred
+        ), "Code should run within resource limits or timeout"
 
         # Verify resource monitoring worked
         if result.resource_stats:
-            assert 'memory_mb_max' in result.resource_stats or \
-                   'cpu_percent_max' in result.resource_stats, \
-                "Resource monitoring should track usage"
+            assert (
+                "memory_mb_max" in result.resource_stats
+                or "cpu_percent_max" in result.resource_stats
+            ), "Resource monitoring should track usage"
 
     finally:
         sandbox.cleanup()
@@ -424,9 +410,7 @@ results = {'completed': True}
 """
 
     # Act: Execute with short timeout
-    sandbox = DockerSandbox(
-        timeout=5  # 5 second timeout
-    )
+    sandbox = DockerSandbox(timeout=5)  # 5 second timeout
 
     start_time = time.time()
 
@@ -435,17 +419,15 @@ results = {'completed': True}
         elapsed = time.time() - start_time
 
         # Assert: Should timeout
-        assert result.timeout_occurred, \
-            "Timeout should be detected"
+        assert result.timeout_occurred, "Timeout should be detected"
 
-        assert not result.success, \
-            "Execution should fail on timeout"
+        assert not result.success, "Execution should fail on timeout"
 
-        assert elapsed < 10, \
-            f"Should timeout quickly (took {elapsed:.1f}s)"
+        assert elapsed < 10, f"Should timeout quickly (took {elapsed:.1f}s)"
 
-        assert result.error and 'timeout' in result.error.lower(), \
-            f"Error should mention timeout: {result.error}"
+        assert (
+            result.error and "timeout" in result.error.lower()
+        ), f"Error should mention timeout: {result.error}"
 
     finally:
         sandbox.cleanup()
@@ -491,22 +473,20 @@ results = {'disk_limited': True}
 """
 
     # Act: Execute with disk limits
-    sandbox = DockerSandbox(
-        read_only=True,
-        timeout=30
-    )
+    sandbox = DockerSandbox(read_only=True, timeout=30)
 
     try:
         result = sandbox.execute(disk_code)
 
         # Assert: Large writes should fail
-        assert 'LARGE_FILE_WRITTEN' not in result.stdout or \
-               'limit reached' in result.stdout.lower(), \
-            "Large disk writes should be limited"
+        assert (
+            "LARGE_FILE_WRITTEN" not in result.stdout or "limit reached" in result.stdout.lower()
+        ), "Large disk writes should be limited"
 
         # Assert: Read-only violations should be prevented
-        assert 'READONLY_VIOLATION' not in result.stdout, \
-            "Should not be able to write to read-only locations"
+        assert (
+            "READONLY_VIOLATION" not in result.stdout
+        ), "Should not be able to write to read-only locations"
 
     finally:
         sandbox.cleanup()
@@ -542,10 +522,7 @@ results = {'computed': result, 'data_size': len(data)}
 """
 
     # Act: Execute with monitoring enabled
-    sandbox = DockerSandbox(
-        enable_monitoring=True,
-        timeout=30
-    )
+    sandbox = DockerSandbox(enable_monitoring=True, timeout=30)
 
     try:
         result = sandbox.execute(monitored_code)
@@ -554,8 +531,7 @@ results = {'computed': result, 'data_size': len(data)}
         assert result.success, f"Code should execute successfully: {result.error}"
 
         # Assert: Resource stats should be present
-        assert result.resource_stats is not None, \
-            "Resource statistics should be collected"
+        assert result.resource_stats is not None, "Resource statistics should be collected"
 
         # Note: Stats may be empty if monitoring thread didn't get data
         # This is acceptable as long as monitoring is attempted
@@ -643,11 +619,7 @@ results = security_tests
 
     # Act: Execute comprehensive security test
     sandbox = DockerSandbox(
-        network_disabled=True,
-        read_only=True,
-        cpu_limit=1.0,
-        memory_limit="512m",
-        timeout=30
+        network_disabled=True, read_only=True, cpu_limit=1.0, memory_limit="512m", timeout=30
     )
 
     try:
@@ -657,18 +629,16 @@ results = security_tests
         assert result.success, f"Security test should complete: {result.error}"
 
         # Assert: All security tests should pass
-        assert 'PASS: Filesystem isolated' in result.stdout, \
-            "Filesystem should be isolated"
+        assert "PASS: Filesystem isolated" in result.stdout, "Filesystem should be isolated"
 
-        assert 'PASS: Network blocked' in result.stdout, \
-            "Network should be blocked"
+        assert "PASS: Network blocked" in result.stdout, "Network should be blocked"
 
-        assert 'FAIL' not in result.stdout or 'WARNING' in result.stdout, \
-            "No critical security failures should occur"
+        assert (
+            "FAIL" not in result.stdout or "WARNING" in result.stdout
+        ), "No critical security failures should occur"
 
         # Verify summary shows good security posture
-        assert 'Security tests passed:' in result.stdout, \
-            "Should report security test results"
+        assert "Security tests passed:" in result.stdout, "Should report security test results"
 
     finally:
         sandbox.cleanup()

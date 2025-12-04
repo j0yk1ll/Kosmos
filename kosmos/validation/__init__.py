@@ -25,7 +25,8 @@ Approval Thresholds:
 Target: ~75% validation rate (typical for good research)
 """
 
-from .scholar_eval import ScholarEvalValidator, ScholarEvalScore
+from .scholar_eval import ScholarEvalScore, ScholarEvalValidator
+
 
 __all__ = [
     "ScholarEvalValidator",

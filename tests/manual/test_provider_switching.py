@@ -11,6 +11,7 @@ import os
 import sys
 from pathlib import Path
 
+
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -51,10 +52,10 @@ def test_anthropic_provider():
 
     try:
         config = {
-            'api_key': api_key,
-            'model': 'claude-3-5-sonnet-20241022',
-            'max_tokens': 100,
-            'temperature': 0.7
+            "api_key": api_key,
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 100,
+            "temperature": 0.7,
         }
 
         provider = get_provider("anthropic", config)
@@ -68,13 +69,11 @@ def test_anthropic_provider():
         print(f"✓ Mode: {info.get('mode', 'N/A')}")
 
         # Test simple generation (if not CLI mode)
-        is_cli_mode = api_key.replace('9', '') == ''
+        is_cli_mode = api_key.replace("9", "") == ""
         if not is_cli_mode:
             print("\nTesting generation...")
             response = provider.generate(
-                prompt="Say 'Hello from Anthropic' and nothing else",
-                max_tokens=50,
-                temperature=0.0
+                prompt="Say 'Hello from Anthropic' and nothing else", max_tokens=50, temperature=0.0
             )
             print(f"✓ Response: {response.content[:100]}")
             print(f"✓ Input tokens: {response.usage.input_tokens}")
@@ -92,6 +91,7 @@ def test_anthropic_provider():
     except Exception as e:
         print(f"✗ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -117,13 +117,13 @@ def test_openai_provider():
 
     try:
         config = {
-            'api_key': api_key,
-            'model': os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo"),
-            'max_tokens': 100,
-            'temperature': 0.7
+            "api_key": api_key,
+            "model": os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo"),
+            "max_tokens": 100,
+            "temperature": 0.7,
         }
         if base_url:
-            config['base_url'] = base_url
+            config["base_url"] = base_url
 
         provider = get_provider("openai", config)
         print(f"✓ Provider instantiated: {provider}")
@@ -138,9 +138,7 @@ def test_openai_provider():
         # Test simple generation
         print("\nTesting generation...")
         response = provider.generate(
-            prompt="Say 'Hello from OpenAI' and nothing else",
-            max_tokens=50,
-            temperature=0.0
+            prompt="Say 'Hello from OpenAI' and nothing else", max_tokens=50, temperature=0.0
         )
         print(f"✓ Response: {response.content[:100]}")
         print(f"✓ Input tokens: {response.usage.input_tokens}")
@@ -154,11 +152,12 @@ def test_openai_provider():
 
     except ProviderAPIError as e:
         print(f"✗ Provider API error: {e}")
-        print(f"  This is expected if API key is invalid or quota exceeded")
+        print("  This is expected if API key is invalid or quota exceeded")
         return False
     except Exception as e:
         print(f"✗ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -174,7 +173,7 @@ def test_provider_from_config():
         from kosmos.core.providers import get_provider_from_config
 
         config = get_config()
-        print(f"✓ Configuration loaded")
+        print("✓ Configuration loaded")
         print(f"✓ LLM Provider: {config.llm_provider}")
 
         if config.llm_provider == "anthropic":
@@ -202,6 +201,7 @@ def test_provider_from_config():
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -223,19 +223,19 @@ def test_usage_tracking():
         if os.environ.get("ANTHROPIC_API_KEY"):
             provider_name = "anthropic"
             config = {
-                'api_key': os.environ.get("ANTHROPIC_API_KEY"),
-                'model': 'claude-3-5-haiku-20241022',  # Use cheaper model
-                'max_tokens': 50
+                "api_key": os.environ.get("ANTHROPIC_API_KEY"),
+                "model": "claude-3-5-haiku-20241022",  # Use cheaper model
+                "max_tokens": 50,
             }
         else:
             provider_name = "openai"
             config = {
-                'api_key': os.environ.get("OPENAI_API_KEY"),
-                'model': os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo"),
-                'max_tokens': 50
+                "api_key": os.environ.get("OPENAI_API_KEY"),
+                "model": os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo"),
+                "max_tokens": 50,
             }
             if os.environ.get("OPENAI_BASE_URL"):
-                config['base_url'] = os.environ.get("OPENAI_BASE_URL")
+                config["base_url"] = os.environ.get("OPENAI_BASE_URL")
 
         provider = get_provider(provider_name, config)
 
@@ -245,25 +245,24 @@ def test_usage_tracking():
         print(f"✓ Initial stats: {stats_before['total_requests']} requests")
 
         # Make a request (skip if CLI mode)
-        is_cli = provider_name == "anthropic" and config['api_key'].replace('9', '') == ''
+        is_cli = provider_name == "anthropic" and config["api_key"].replace("9", "") == ""
         if not is_cli:
             response = provider.generate(
-                prompt="Say 'test' and nothing else",
-                max_tokens=10,
-                temperature=0.0
+                prompt="Say 'test' and nothing else", max_tokens=10, temperature=0.0
             )
             print(f"✓ Generated response: {response.content[:50]}")
 
             # Check stats updated
             stats_after = provider.get_usage_stats()
-            print(f"✓ After 1 request:")
+            print("✓ After 1 request:")
             print(f"  - Total requests: {stats_after['total_requests']}")
             print(f"  - Total tokens: {stats_after['total_tokens']}")
             print(f"  - Total cost: ${stats_after['total_cost_usd']:.6f}")
 
-            assert stats_after['total_requests'] > stats_before['total_requests'], \
-                "Request count should increase"
-            assert stats_after['total_tokens'] > 0, "Should have token usage"
+            assert (
+                stats_after["total_requests"] > stats_before["total_requests"]
+            ), "Request count should increase"
+            assert stats_after["total_tokens"] > 0, "Should have token usage"
         else:
             print("⚠ CLI mode - skipping generation test")
 
@@ -272,6 +271,7 @@ def test_usage_tracking():
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -293,11 +293,11 @@ def main():
     # Run tests
     results = {}
 
-    results['list_providers'] = test_list_providers()
-    results['anthropic'] = test_anthropic_provider()
-    results['openai'] = test_openai_provider()
-    results['from_config'] = test_provider_from_config()
-    results['usage_tracking'] = test_usage_tracking()
+    results["list_providers"] = test_list_providers()
+    results["anthropic"] = test_anthropic_provider()
+    results["openai"] = test_openai_provider()
+    results["from_config"] = test_provider_from_config()
+    results["usage_tracking"] = test_usage_tracking()
 
     # Summary
     print("\n" + "=" * 70)

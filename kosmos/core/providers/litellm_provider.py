@@ -19,25 +19,25 @@ Model Format Examples:
 
 import json
 import logging
-from typing import List, Dict, Any, Optional, Iterator, AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import datetime
+from typing import Any
 
 from kosmos.core.providers.base import (
     LLMProvider,
-    Message,
-    UsageStats,
     LLMResponse,
-    ProviderAPIError
+    Message,
+    ProviderAPIError,
+    UsageStats,
 )
+
 
 logger = logging.getLogger(__name__)
 
 
-from kosmos.config import _DEFAULT_CLAUDE_SONNET_MODEL, _DEFAULT_CLAUDE_HAIKU_MODEL
-
 # Model pricing per 1M tokens (input, output) in USD
 # Updated pricing as of November 2025
-MODEL_PRICING: Dict[str, tuple] = {
+MODEL_PRICING: dict[str, tuple] = {
     # Anthropic Claude 4.5 (current)
     "claude-sonnet-4-5": (3.0, 15.0),
     "claude-haiku-4-5": (1.0, 5.0),
@@ -103,7 +103,7 @@ class LiteLLMProvider(LLMProvider):
         ```
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize LiteLLM provider.
 
@@ -121,29 +121,29 @@ class LiteLLMProvider(LLMProvider):
         # Import litellm here to make it an optional dependency
         try:
             import litellm
+
             self.litellm = litellm
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
-                "LiteLLM is required for LiteLLMProvider. "
-                "Install it with: pip install litellm"
-            )
+                "LiteLLM is required for LiteLLMProvider. " "Install it with: pip install litellm"
+            ) from e
 
         # Configuration
-        self.model = config.get('model', 'gpt-3.5-turbo')
-        self.api_key = config.get('api_key')
-        self.api_base = config.get('api_base')
-        self.max_tokens_default = config.get('max_tokens', 4096)
-        self.temperature_default = config.get('temperature', 0.7)
-        self.timeout = config.get('timeout', 120)
+        self.model = config.get("model", "gpt-3.5-turbo")
+        self.api_key = config.get("api_key")
+        self.api_base = config.get("api_base")
+        self.max_tokens_default = config.get("max_tokens", 4096)
+        self.temperature_default = config.get("temperature", 0.7)
+        self.timeout = config.get("timeout", 120)
 
         # Configure LiteLLM
         if self.api_key:
             # Set API key based on model provider
-            if 'claude' in self.model.lower() or 'anthropic' in self.model.lower():
+            if "claude" in self.model.lower() or "anthropic" in self.model.lower():
                 litellm.anthropic_key = self.api_key
-            elif 'deepseek' in self.model.lower():
+            elif "deepseek" in self.model.lower():
                 litellm.deepseek_key = self.api_key
-            elif 'openai' in self.model.lower() or 'gpt' in self.model.lower():
+            elif "openai" in self.model.lower() or "gpt" in self.model.lower():
                 litellm.openai_key = self.api_key
 
         # Set up LiteLLM settings
@@ -161,18 +161,18 @@ class LiteLLMProvider(LLMProvider):
         """Detect provider type from model name for cost tracking."""
         model_lower = self.model.lower()
 
-        if model_lower.startswith('ollama/'):
-            self.provider_type = 'ollama'
-        elif model_lower.startswith('deepseek/'):
-            self.provider_type = 'deepseek'
-        elif model_lower.startswith('azure/'):
-            self.provider_type = 'azure'
-        elif 'claude' in model_lower:
-            self.provider_type = 'anthropic'
-        elif 'gpt' in model_lower or model_lower.startswith('openai/'):
-            self.provider_type = 'openai'
+        if model_lower.startswith("ollama/"):
+            self.provider_type = "ollama"
+        elif model_lower.startswith("deepseek/"):
+            self.provider_type = "deepseek"
+        elif model_lower.startswith("azure/"):
+            self.provider_type = "azure"
+        elif "claude" in model_lower:
+            self.provider_type = "anthropic"
+        elif "gpt" in model_lower or model_lower.startswith("openai/"):
+            self.provider_type = "openai"
         else:
-            self.provider_type = 'unknown'
+            self.provider_type = "unknown"
 
     def _estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Estimate cost based on model pricing."""
@@ -180,21 +180,16 @@ class LiteLLMProvider(LLMProvider):
         if self.model in MODEL_PRICING:
             input_price, output_price = MODEL_PRICING[self.model]
         # Try base model name (without tags like :8b)
-        elif self.model.split(':')[0] in MODEL_PRICING:
-            input_price, output_price = MODEL_PRICING[self.model.split(':')[0]]
+        elif self.model.split(":")[0] in MODEL_PRICING:
+            input_price, output_price = MODEL_PRICING[self.model.split(":")[0]]
         # Default: free (local models or unknown)
         else:
             input_price, output_price = (0.0, 0.0)
 
-        cost = (input_tokens / 1_000_000) * input_price + \
-               (output_tokens / 1_000_000) * output_price
+        cost = (input_tokens / 1_000_000) * input_price + (output_tokens / 1_000_000) * output_price
         return cost
 
-    def _build_messages(
-        self,
-        prompt: str,
-        system: Optional[str] = None
-    ) -> List[Dict[str, str]]:
+    def _build_messages(self, prompt: str, system: str | None = None) -> list[dict[str, str]]:
         """Build messages list for LiteLLM."""
         messages = []
 
@@ -220,10 +215,12 @@ class LiteLLMProvider(LLMProvider):
         content = response.choices[0].message.content or ""
 
         # Extract usage stats
-        usage_data = response.usage if hasattr(response, 'usage') else None
-        input_tokens = getattr(usage_data, 'prompt_tokens', 0) if usage_data else 0
-        output_tokens = getattr(usage_data, 'completion_tokens', 0) if usage_data else 0
-        total_tokens = getattr(usage_data, 'total_tokens', input_tokens + output_tokens) if usage_data else 0
+        usage_data = response.usage if hasattr(response, "usage") else None
+        input_tokens = getattr(usage_data, "prompt_tokens", 0) if usage_data else 0
+        output_tokens = getattr(usage_data, "completion_tokens", 0) if usage_data else 0
+        total_tokens = (
+            getattr(usage_data, "total_tokens", input_tokens + output_tokens) if usage_data else 0
+        )
 
         cost = self._estimate_cost(input_tokens, output_tokens)
 
@@ -234,7 +231,7 @@ class LiteLLMProvider(LLMProvider):
             cost_usd=cost,
             model=self.model,
             provider=f"litellm/{self.provider_type}",
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         self._update_usage_stats(usage)
@@ -242,12 +239,12 @@ class LiteLLMProvider(LLMProvider):
         return LLMResponse(
             content=content,
             usage=usage,
-            model=response.model if hasattr(response, 'model') else self.model,
+            model=response.model if hasattr(response, "model") else self.model,
             finish_reason=response.choices[0].finish_reason if response.choices else None,
-            raw_response=response
+            raw_response=response,
         )
 
-    def _get_effective_max_tokens(self, max_tokens: Optional[int]) -> int:
+    def _get_effective_max_tokens(self, max_tokens: int | None) -> int:
         """
         Get effective max_tokens, with special handling for Qwen models.
 
@@ -267,11 +264,11 @@ class LiteLLMProvider(LLMProvider):
     def generate(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = None,
         temperature: float = None,
-        stop_sequences: Optional[List[str]] = None,
-        **kwargs
+        stop_sequences: list[str] | None = None,
+        **kwargs,
     ) -> LLMResponse:
         """
         Generate text from a prompt (synchronous).
@@ -293,6 +290,7 @@ class LiteLLMProvider(LLMProvider):
         log_llm = False
         try:
             from kosmos.config import get_config
+
             config = get_config()
             log_llm = config.logging.log_llm_calls
         except Exception:
@@ -311,7 +309,7 @@ class LiteLLMProvider(LLMProvider):
                 len(prompt),
                 len(system or ""),
                 effective_max_tokens,
-                effective_temperature
+                effective_temperature,
             )
 
         start_time = time_module.time()
@@ -326,15 +324,15 @@ class LiteLLMProvider(LLMProvider):
                 api_key=self.api_key,
                 api_base=self.api_base,
                 timeout=self.timeout,
-                **kwargs
+                **kwargs,
             )
 
             # Post-call logging
             latency_ms = int((time_module.time() - start_time) * 1000)
             if log_llm:
-                usage_data = response.usage if hasattr(response, 'usage') else None
-                input_tokens = getattr(usage_data, 'prompt_tokens', 0) if usage_data else 0
-                output_tokens = getattr(usage_data, 'completion_tokens', 0) if usage_data else 0
+                usage_data = response.usage if hasattr(response, "usage") else None
+                input_tokens = getattr(usage_data, "prompt_tokens", 0) if usage_data else 0
+                output_tokens = getattr(usage_data, "completion_tokens", 0) if usage_data else 0
                 logger.debug(
                     "[LLM] Response: model=%s, in_tokens=%d, out_tokens=%d, "
                     "latency=%dms, finish=%s",
@@ -342,27 +340,23 @@ class LiteLLMProvider(LLMProvider):
                     input_tokens,
                     output_tokens,
                     latency_ms,
-                    response.choices[0].finish_reason if response.choices else "unknown"
+                    response.choices[0].finish_reason if response.choices else "unknown",
                 )
 
             return self._parse_response(response)
 
         except Exception as e:
             logger.error(f"LiteLLM generation failed: {e}")
-            raise ProviderAPIError(
-                "litellm",
-                f"Generation failed: {e}",
-                raw_error=e
-            )
+            raise ProviderAPIError("litellm", f"Generation failed: {e}", raw_error=e) from e
 
     async def generate_async(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = None,
         temperature: float = None,
-        stop_sequences: Optional[List[str]] = None,
-        **kwargs
+        stop_sequences: list[str] | None = None,
+        **kwargs,
     ) -> LLMResponse:
         """
         Generate text from a prompt (asynchronous).
@@ -391,24 +385,16 @@ class LiteLLMProvider(LLMProvider):
                 api_key=self.api_key,
                 api_base=self.api_base,
                 timeout=self.timeout,
-                **kwargs
+                **kwargs,
             )
             return self._parse_response(response)
 
         except Exception as e:
             logger.error(f"LiteLLM async generation failed: {e}")
-            raise ProviderAPIError(
-                "litellm",
-                f"Async generation failed: {e}",
-                raw_error=e
-            )
+            raise ProviderAPIError("litellm", f"Async generation failed: {e}", raw_error=e) from e
 
     def generate_with_messages(
-        self,
-        messages: List[Message],
-        max_tokens: int = None,
-        temperature: float = None,
-        **kwargs
+        self, messages: list[Message], max_tokens: int = None, temperature: float = None, **kwargs
     ) -> LLMResponse:
         """
         Generate text from a conversation history.
@@ -423,10 +409,7 @@ class LiteLLMProvider(LLMProvider):
             LLMResponse: Unified response object
         """
         # Convert Message objects to LiteLLM format
-        litellm_messages = [
-            {"role": msg.role, "content": msg.content}
-            for msg in messages
-        ]
+        litellm_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
 
         try:
             response = self.litellm.completion(
@@ -437,27 +420,23 @@ class LiteLLMProvider(LLMProvider):
                 api_key=self.api_key,
                 api_base=self.api_base,
                 timeout=self.timeout,
-                **kwargs
+                **kwargs,
             )
             return self._parse_response(response)
 
         except Exception as e:
             logger.error(f"LiteLLM message generation failed: {e}")
-            raise ProviderAPIError(
-                "litellm",
-                f"Message generation failed: {e}",
-                raw_error=e
-            )
+            raise ProviderAPIError("litellm", f"Message generation failed: {e}", raw_error=e) from e
 
     def generate_structured(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        system: Optional[str] = None,
+        schema: dict[str, Any],
+        system: str | None = None,
         max_tokens: int = None,
         temperature: float = None,
-        **kwargs
-    ) -> Dict[str, Any]:
+        **kwargs,
+    ) -> dict[str, Any]:
         """
         Generate structured JSON output matching a schema.
 
@@ -476,17 +455,23 @@ class LiteLLMProvider(LLMProvider):
             ProviderAPIError: If generation or parsing fails
         """
         # Build system prompt for JSON output
-        json_system = (system or "") + """
+        json_system = (
+            (system or "")
+            + """
 
 IMPORTANT: Respond ONLY with valid JSON. No explanations, no markdown code blocks, just pure JSON.
-The response must match this schema: """ + json.dumps(schema, indent=2)
+The response must match this schema: """
+            + json.dumps(schema, indent=2)
+        )
 
         response = self.generate(
             prompt=prompt,
             system=json_system.strip(),
             max_tokens=max_tokens,
-            temperature=temperature if temperature is not None else 0.3,  # Lower temp for structured output
-            **kwargs
+            temperature=(
+                temperature if temperature is not None else 0.3
+            ),  # Lower temp for structured output
+            **kwargs,
         )
 
         # Clean and parse JSON
@@ -506,19 +491,16 @@ The response must match this schema: """ + json.dumps(schema, indent=2)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {content[:200]}...")
             raise ProviderAPIError(
-                "litellm",
-                f"Invalid JSON response: {e}",
-                raw_error=e,
-                recoverable=False
-            )
+                "litellm", f"Invalid JSON response: {e}", raw_error=e, recoverable=False
+            ) from e
 
     def generate_stream(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = None,
         temperature: float = None,
-        **kwargs
+        **kwargs,
     ) -> Iterator[str]:
         """
         Generate text with streaming.
@@ -545,7 +527,7 @@ The response must match this schema: """ + json.dumps(schema, indent=2)
                 api_base=self.api_base,
                 timeout=self.timeout,
                 stream=True,
-                **kwargs
+                **kwargs,
             )
 
             for chunk in response:
@@ -554,19 +536,15 @@ The response must match this schema: """ + json.dumps(schema, indent=2)
 
         except Exception as e:
             logger.error(f"LiteLLM streaming failed: {e}")
-            raise ProviderAPIError(
-                "litellm",
-                f"Streaming failed: {e}",
-                raw_error=e
-            )
+            raise ProviderAPIError("litellm", f"Streaming failed: {e}", raw_error=e) from e
 
     async def generate_stream_async(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = None,
         temperature: float = None,
-        **kwargs
+        **kwargs,
     ) -> AsyncIterator[str]:
         """
         Generate text with async streaming.
@@ -593,7 +571,7 @@ The response must match this schema: """ + json.dumps(schema, indent=2)
                 api_base=self.api_base,
                 timeout=self.timeout,
                 stream=True,
-                **kwargs
+                **kwargs,
             )
 
             async for chunk in response:
@@ -602,13 +580,9 @@ The response must match this schema: """ + json.dumps(schema, indent=2)
 
         except Exception as e:
             logger.error(f"LiteLLM async streaming failed: {e}")
-            raise ProviderAPIError(
-                "litellm",
-                f"Async streaming failed: {e}",
-                raw_error=e
-            )
+            raise ProviderAPIError("litellm", f"Async streaming failed: {e}", raw_error=e) from e
 
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """
         Get information about the current model.
 

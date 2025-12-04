@@ -5,13 +5,14 @@ Combines unified literature search with vector database and embeddings
 for intelligent paper discovery and recommendation.
 """
 
-from typing import List, Optional, Dict, Any, Tuple
 import logging
+from typing import Any
 
+from kosmos.knowledge.embeddings import get_embedder
+from kosmos.knowledge.vector_db import get_vector_db
 from kosmos.literature.base_client import PaperMetadata, PaperSource
 from kosmos.literature.unified_search import UnifiedLiteratureSearch
-from kosmos.knowledge.vector_db import get_vector_db
-from kosmos.knowledge.embeddings import get_embedder
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +32,9 @@ class SemanticLiteratureSearch:
         self,
         vector_db_collection: str = "papers",
         use_cache: bool = True,
-        semantic_scholar_api_key: Optional[str] = None,
-        pubmed_api_key: Optional[str] = None,
-        pubmed_email: Optional[str] = None
+        semantic_scholar_api_key: str | None = None,
+        pubmed_api_key: str | None = None,
+        pubmed_email: str | None = None,
     ):
         """
         Initialize semantic literature search.
@@ -49,7 +50,7 @@ class SemanticLiteratureSearch:
         self.unified_search = UnifiedLiteratureSearch(
             semantic_scholar_api_key=semantic_scholar_api_key,
             pubmed_api_key=pubmed_api_key,
-            pubmed_email=pubmed_email
+            pubmed_email=pubmed_email,
         )
 
         # Initialize vector database
@@ -64,16 +65,16 @@ class SemanticLiteratureSearch:
         self,
         query: str,
         max_results: int = 20,
-        year_from: Optional[int] = None,
-        year_to: Optional[int] = None,
-        fields: Optional[List[str]] = None,
-        sources: Optional[List[PaperSource]] = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        fields: list[str] | None = None,
+        sources: list[PaperSource] | None = None,
         use_api_search: bool = True,
         use_vector_search: bool = True,
         rerank_by_semantic: bool = True,
         extract_full_text: bool = False,
-        **kwargs
-    ) -> List[PaperMetadata]:
+        **kwargs,
+    ) -> list[PaperMetadata]:
         """
         Perform semantic search for papers.
 
@@ -127,7 +128,7 @@ class SemanticLiteratureSearch:
                 sources=sources,
                 deduplicate=True,
                 extract_full_text=extract_full_text,
-                **kwargs
+                **kwargs,
             )
 
             logger.info(f"Found {len(api_results)} papers from literature APIs")
@@ -140,11 +141,7 @@ class SemanticLiteratureSearch:
         # 2. Search vector database
         if use_vector_search:
             vector_results = self._search_vector_db(
-                query,
-                max_results=max_results,
-                year_from=year_from,
-                year_to=year_to,
-                fields=fields
+                query, max_results=max_results, year_from=year_from, year_to=year_to, fields=fields
             )
 
             logger.info(f"Found {len(vector_results)} papers from vector database")
@@ -163,11 +160,8 @@ class SemanticLiteratureSearch:
         return results
 
     def find_similar(
-        self,
-        paper: PaperMetadata,
-        max_results: int = 10,
-        min_similarity: float = 0.7
-    ) -> List[Tuple[PaperMetadata, float]]:
+        self, paper: PaperMetadata, max_results: int = 10, min_similarity: float = 0.7
+    ) -> list[tuple[PaperMetadata, float]]:
         """
         Find papers similar to a given paper.
 
@@ -188,10 +182,7 @@ class SemanticLiteratureSearch:
             ```
         """
         # Search vector database by paper
-        results = self.vector_db.search_by_paper(
-            paper,
-            top_k=max_results
-        )
+        results = self.vector_db.search_by_paper(paper, top_k=max_results)
 
         # Convert to PaperMetadata objects with scores
         similar_papers = []
@@ -206,10 +197,10 @@ class SemanticLiteratureSearch:
 
     def get_recommendations(
         self,
-        based_on_papers: List[PaperMetadata],
+        based_on_papers: list[PaperMetadata],
         max_results: int = 10,
-        diversity_weight: float = 0.3
-    ) -> List[PaperMetadata]:
+        diversity_weight: float = 0.3,
+    ) -> list[PaperMetadata]:
         """
         Get paper recommendations based on a set of papers.
 
@@ -237,19 +228,18 @@ class SemanticLiteratureSearch:
 
         # Compute centroid embedding
         embeddings = self.embedder.embed_papers(based_on_papers)
-        centroid = embeddings.mean(axis=0)
+        embeddings.mean(axis=0)
 
         # Search by centroid
         # Note: This would require extending vector_db to support direct embedding queries
         # For now, we'll use the first paper as a proxy
         results = self.vector_db.search_by_paper(
-            based_on_papers[0],
-            top_k=max_results * 2  # Get more for diversity filtering
+            based_on_papers[0], top_k=max_results * 2  # Get more for diversity filtering
         )
 
         # Apply diversity filtering (simplified version)
         recommended = []
-        seen_titles = set(p.title.lower() for p in based_on_papers if p is not None and p.title)
+        seen_titles = {p.title.lower() for p in based_on_papers if p is not None and p.title}
 
         for result in results:
             title = result["metadata"].get("title", "").lower()
@@ -266,10 +256,7 @@ class SemanticLiteratureSearch:
         return recommended[:max_results]
 
     def build_corpus_index(
-        self,
-        papers: List[PaperMetadata],
-        batch_size: int = 100,
-        show_progress: bool = True
+        self, papers: list[PaperMetadata], batch_size: int = 100, show_progress: bool = True
     ):
         """
         Build vector index from a corpus of papers.
@@ -289,12 +276,10 @@ class SemanticLiteratureSearch:
 
         # Compute embeddings in batches
         for i in range(0, len(papers), batch_size):
-            batch = papers[i:i + batch_size]
+            batch = papers[i : i + batch_size]
 
             embeddings = self.embedder.embed_papers(
-                batch,
-                batch_size=batch_size,
-                show_progress=show_progress
+                batch, batch_size=batch_size, show_progress=show_progress
             )
 
             self.vector_db.add_papers(batch, embeddings=embeddings)
@@ -303,7 +288,7 @@ class SemanticLiteratureSearch:
 
         logger.info("Index building complete")
 
-    def get_corpus_stats(self) -> Dict[str, Any]:
+    def get_corpus_stats(self) -> dict[str, Any]:
         """
         Get statistics about the indexed corpus.
 
@@ -314,17 +299,17 @@ class SemanticLiteratureSearch:
 
         return {
             **db_stats,
-            "sources_enabled": [source.value for source in self.unified_search.clients.keys()]
+            "sources_enabled": [source.value for source in self.unified_search.clients.keys()],
         }
 
     def _search_vector_db(
         self,
         query: str,
         max_results: int,
-        year_from: Optional[int],
-        year_to: Optional[int],
-        fields: Optional[List[str]]
-    ) -> List[PaperMetadata]:
+        year_from: int | None,
+        year_to: int | None,
+        fields: list[str] | None,
+    ) -> list[PaperMetadata]:
         """
         Search vector database with filters.
 
@@ -354,18 +339,14 @@ class SemanticLiteratureSearch:
             filters["domain"] = {"$in": [f.lower() for f in fields]}
 
         # Search
-        results = self.vector_db.search(
-            query,
-            top_k=max_results,
-            filters=filters if filters else None
-        )
+        self.vector_db.search(query, top_k=max_results, filters=filters if filters else None)
 
         # Convert to PaperMetadata (simplified - would need full reconstruction)
         # For now, return empty as placeholder
         # In production, you'd store full paper data or fetch from database
         return []
 
-    def _index_papers(self, papers: List[PaperMetadata]):
+    def _index_papers(self, papers: list[PaperMetadata]):
         """
         Index papers in vector database.
 
@@ -389,10 +370,8 @@ class SemanticLiteratureSearch:
             logger.error(f"Error indexing papers: {e}")
 
     def _merge_results(
-        self,
-        results1: List[PaperMetadata],
-        results2: List[PaperMetadata]
-    ) -> List[PaperMetadata]:
+        self, results1: list[PaperMetadata], results2: list[PaperMetadata]
+    ) -> list[PaperMetadata]:
         """
         Merge and deduplicate two result lists.
 
@@ -417,10 +396,8 @@ class SemanticLiteratureSearch:
         return merged
 
     def _rerank_by_semantic_similarity(
-        self,
-        query: str,
-        papers: List[PaperMetadata]
-    ) -> List[PaperMetadata]:
+        self, query: str, papers: list[PaperMetadata]
+    ) -> list[PaperMetadata]:
         """
         Rerank papers by semantic similarity to query.
 

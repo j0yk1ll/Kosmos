@@ -4,15 +4,14 @@ Tests for ConvergenceDetector (Phase 7).
 Tests convergence metrics, stopping criteria, and convergence reporting.
 """
 
-from datetime import datetime
 import pytest
 
 from kosmos.core.convergence import (
     ConvergenceDetector,
     ConvergenceMetrics,
+    ConvergenceReport,
     StoppingDecision,
     StoppingReason,
-    ConvergenceReport,
 )
 from kosmos.core.workflow import ResearchPlan
 from kosmos.models.hypothesis import Hypothesis, HypothesisStatus
@@ -22,6 +21,7 @@ from kosmos.models.result import ExperimentResult, ResultStatus
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def convergence_detector():
@@ -116,6 +116,7 @@ def sample_results():
 # Test Class 1: Initialization
 # ============================================================================
 
+
 class TestConvergenceDetectorInitialization:
     """Test ConvergenceDetector initialization."""
 
@@ -165,12 +166,11 @@ class TestConvergenceDetectorInitialization:
 # Test Class 2: Progress Metrics
 # ============================================================================
 
+
 class TestProgressMetrics:
     """Test progress metrics calculation."""
 
-    def test_calculate_discovery_rate_all_supported(
-        self, convergence_detector
-    ):
+    def test_calculate_discovery_rate_all_supported(self, convergence_detector):
         """Test discovery rate when all results support hypotheses."""
         results = [
             ExperimentResult(
@@ -189,9 +189,7 @@ class TestProgressMetrics:
 
         assert rate == 1.0  # 100% discovery rate
 
-    def test_calculate_discovery_rate_mixed(
-        self, convergence_detector
-    ):
+    def test_calculate_discovery_rate_mixed(self, convergence_detector):
         """Test discovery rate with mixed results."""
         results = [
             ExperimentResult(
@@ -218,17 +216,13 @@ class TestProgressMetrics:
 
         assert rate == 0.5  # 1 out of 2
 
-    def test_calculate_discovery_rate_empty(
-        self, convergence_detector
-    ):
+    def test_calculate_discovery_rate_empty(self, convergence_detector):
         """Test discovery rate with no results."""
         rate = convergence_detector.calculate_discovery_rate([])
 
         assert rate == 0.0
 
-    def test_calculate_novelty_decline(
-        self, convergence_detector
-    ):
+    def test_calculate_novelty_decline(self, convergence_detector):
         """Test novelty decline calculation."""
         # Decreasing novelty scores
         hypotheses = [
@@ -249,9 +243,7 @@ class TestProgressMetrics:
         assert isinstance(is_declining, bool)
         assert is_declining is True  # Should be declining
 
-    def test_calculate_novelty_decline_increasing(
-        self, convergence_detector
-    ):
+    def test_calculate_novelty_decline_increasing(self, convergence_detector):
         """Test novelty decline with increasing novelty."""
         # Increasing novelty scores
         hypotheses = [
@@ -270,18 +262,14 @@ class TestProgressMetrics:
 
         assert is_declining is False
 
-    def test_calculate_saturation(
-        self, convergence_detector, research_plan
-    ):
+    def test_calculate_saturation(self, convergence_detector, research_plan):
         """Test saturation calculation."""
         # 1 tested out of 3 total
         saturation = convergence_detector.calculate_saturation(research_plan)
 
         assert saturation == pytest.approx(1.0 / 3.0)
 
-    def test_calculate_saturation_all_tested(
-        self, convergence_detector, research_plan
-    ):
+    def test_calculate_saturation_all_tested(self, convergence_detector, research_plan):
         """Test saturation when all hypotheses tested."""
         research_plan.tested_hypotheses = ["hyp_001", "hyp_002", "hyp_003"]
 
@@ -289,9 +277,7 @@ class TestProgressMetrics:
 
         assert saturation == 1.0
 
-    def test_calculate_consistency(
-        self, convergence_detector
-    ):
+    def test_calculate_consistency(self, convergence_detector):
         """Test consistency calculation."""
         # Mixed results
         results = [
@@ -329,9 +315,7 @@ class TestProgressMetrics:
         # 2 supported out of 3 = 2/3
         assert consistency == pytest.approx(2.0 / 3.0)
 
-    def test_calculate_consistency_empty(
-        self, convergence_detector
-    ):
+    def test_calculate_consistency_empty(self, convergence_detector):
         """Test consistency with no results."""
         consistency = convergence_detector.calculate_consistency([])
 
@@ -342,12 +326,11 @@ class TestProgressMetrics:
 # Test Class 3: Mandatory Criteria
 # ============================================================================
 
+
 class TestMandatoryCriteria:
     """Test mandatory stopping criteria."""
 
-    def test_check_iteration_limit_not_reached(
-        self, convergence_detector, research_plan
-    ):
+    def test_check_iteration_limit_not_reached(self, convergence_detector, research_plan):
         """Test iteration limit check when not reached."""
         research_plan.iteration_count = 5
         research_plan.max_iterations = 10
@@ -358,9 +341,7 @@ class TestMandatoryCriteria:
         assert decision.reason == StoppingReason.ITERATION_LIMIT
         assert decision.is_mandatory is True
 
-    def test_check_iteration_limit_reached(
-        self, convergence_detector, research_plan
-    ):
+    def test_check_iteration_limit_reached(self, convergence_detector, research_plan):
         """Test iteration limit check when reached."""
         research_plan.iteration_count = 10
         research_plan.max_iterations = 10
@@ -370,9 +351,7 @@ class TestMandatoryCriteria:
         assert decision.should_stop is True
         assert decision.reason == StoppingReason.ITERATION_LIMIT
 
-    def test_check_iteration_limit_exceeded(
-        self, convergence_detector, research_plan
-    ):
+    def test_check_iteration_limit_exceeded(self, convergence_detector, research_plan):
         """Test iteration limit check when exceeded."""
         research_plan.iteration_count = 12
         research_plan.max_iterations = 10
@@ -389,7 +368,9 @@ class TestMandatoryCriteria:
         research_plan.hypothesis_pool = ["hyp_001", "hyp_002", "hyp_003"]
         research_plan.tested_hypotheses = ["hyp_001"]
 
-        decision = convergence_detector.check_hypothesis_exhaustion(research_plan, sample_hypotheses)
+        decision = convergence_detector.check_hypothesis_exhaustion(
+            research_plan, sample_hypotheses
+        )
 
         assert decision.should_stop is False
 
@@ -402,7 +383,9 @@ class TestMandatoryCriteria:
         research_plan.tested_hypotheses = ["hyp_001", "hyp_002", "hyp_003"]
         research_plan.experiment_queue = []
 
-        decision = convergence_detector.check_hypothesis_exhaustion(research_plan, sample_hypotheses)
+        decision = convergence_detector.check_hypothesis_exhaustion(
+            research_plan, sample_hypotheses
+        )
 
         assert decision.should_stop is True
         assert decision.reason == StoppingReason.HYPOTHESIS_EXHAUSTION
@@ -415,7 +398,9 @@ class TestMandatoryCriteria:
         research_plan.tested_hypotheses = ["hyp_001"]
         research_plan.experiment_queue = ["exp_001"]  # Has queued experiment
 
-        decision = convergence_detector.check_hypothesis_exhaustion(research_plan, sample_hypotheses)
+        decision = convergence_detector.check_hypothesis_exhaustion(
+            research_plan, sample_hypotheses
+        )
 
         assert decision.should_stop is False
 
@@ -424,12 +409,11 @@ class TestMandatoryCriteria:
 # Test Class 4: Optional Criteria
 # ============================================================================
 
+
 class TestOptionalCriteria:
     """Test optional stopping criteria."""
 
-    def test_check_novelty_decline_not_declining(
-        self, convergence_detector
-    ):
+    def test_check_novelty_decline_not_declining(self, convergence_detector):
         """Test novelty decline when novelty is stable."""
         # Set metrics with high novelty
         convergence_detector.metrics.novelty_trend = [0.8, 0.75, 0.78, 0.77, 0.76]
@@ -439,9 +423,7 @@ class TestOptionalCriteria:
 
         assert decision.should_stop is False
 
-    def test_check_novelty_decline_all_below_threshold(
-        self, convergence_detector
-    ):
+    def test_check_novelty_decline_all_below_threshold(self, convergence_detector):
         """Test novelty decline when all recent values below threshold."""
         # All below 0.3 threshold
         convergence_detector.metrics.novelty_trend = [0.2, 0.25, 0.22, 0.23, 0.21]
@@ -451,9 +433,7 @@ class TestOptionalCriteria:
         assert decision.should_stop is True
         assert decision.reason == StoppingReason.NOVELTY_DECLINE
 
-    def test_check_novelty_decline_strictly_declining(
-        self, convergence_detector
-    ):
+    def test_check_novelty_decline_strictly_declining(self, convergence_detector):
         """Test novelty decline when strictly decreasing."""
         # Strictly declining
         convergence_detector.metrics.novelty_trend = [0.8, 0.7, 0.6, 0.5, 0.4]
@@ -462,9 +442,7 @@ class TestOptionalCriteria:
 
         assert decision.should_stop is True
 
-    def test_check_novelty_decline_insufficient_data(
-        self, convergence_detector
-    ):
+    def test_check_novelty_decline_insufficient_data(self, convergence_detector):
         """Test novelty decline with insufficient data."""
         # Not enough data points
         convergence_detector.metrics.novelty_trend = [0.8, 0.7]
@@ -473,9 +451,7 @@ class TestOptionalCriteria:
 
         assert decision.should_stop is False
 
-    def test_check_diminishing_returns_below_threshold(
-        self, convergence_detector
-    ):
+    def test_check_diminishing_returns_below_threshold(self, convergence_detector):
         """Test diminishing returns when below threshold."""
         convergence_detector.metrics.cost_per_discovery = 50.0  # Below 100 threshold
 
@@ -483,9 +459,7 @@ class TestOptionalCriteria:
 
         assert decision.should_stop is False
 
-    def test_check_diminishing_returns_above_threshold(
-        self, convergence_detector
-    ):
+    def test_check_diminishing_returns_above_threshold(self, convergence_detector):
         """Test diminishing returns when above threshold."""
         convergence_detector.metrics.cost_per_discovery = 150.0  # Above 100 threshold
 
@@ -494,9 +468,7 @@ class TestOptionalCriteria:
         assert decision.should_stop is True
         assert decision.reason == StoppingReason.DIMINISHING_RETURNS
 
-    def test_check_diminishing_returns_no_cost_data(
-        self, convergence_detector
-    ):
+    def test_check_diminishing_returns_no_cost_data(self, convergence_detector):
         """Test diminishing returns with no cost data."""
         convergence_detector.metrics.cost_per_discovery = None
 
@@ -509,6 +481,7 @@ class TestOptionalCriteria:
 # Test Class 5: Convergence Decision
 # ============================================================================
 
+
 class TestConvergenceDecision:
     """Test overall convergence decision logic."""
 
@@ -520,7 +493,9 @@ class TestConvergenceDecision:
         research_plan.iteration_count = 5
         research_plan.max_iterations = 10
 
-        decision = convergence_detector.check_convergence(research_plan, sample_hypotheses, sample_results)
+        decision = convergence_detector.check_convergence(
+            research_plan, sample_hypotheses, sample_results
+        )
 
         assert decision.should_stop is False
 
@@ -531,7 +506,9 @@ class TestConvergenceDecision:
         research_plan.iteration_count = 10
         research_plan.max_iterations = 10
 
-        decision = convergence_detector.check_convergence(research_plan, sample_hypotheses, sample_results)
+        decision = convergence_detector.check_convergence(
+            research_plan, sample_hypotheses, sample_results
+        )
 
         assert decision.should_stop is True
         assert decision.reason == StoppingReason.ITERATION_LIMIT
@@ -545,7 +522,9 @@ class TestConvergenceDecision:
         research_plan.tested_hypotheses = ["hyp_001", "hyp_002", "hyp_003"]
         research_plan.experiment_queue = []
 
-        decision = convergence_detector.check_convergence(research_plan, sample_hypotheses, sample_results)
+        decision = convergence_detector.check_convergence(
+            research_plan, sample_hypotheses, sample_results
+        )
 
         assert decision.should_stop is True
         assert decision.reason == StoppingReason.HYPOTHESIS_EXHAUSTION
@@ -557,7 +536,9 @@ class TestConvergenceDecision:
         # Set up novelty decline
         convergence_detector.metrics.novelty_trend = [0.2, 0.22, 0.21, 0.19, 0.18]
 
-        decision = convergence_detector.check_convergence(research_plan, sample_hypotheses, sample_results)
+        decision = convergence_detector.check_convergence(
+            research_plan, sample_hypotheses, sample_results
+        )
 
         if decision.should_stop:
             assert decision.reason == StoppingReason.NOVELTY_DECLINE
@@ -572,7 +553,9 @@ class TestConvergenceDecision:
         research_plan.max_iterations = 10
         convergence_detector.metrics.novelty_trend = [0.2, 0.22, 0.21, 0.19, 0.18]
 
-        decision = convergence_detector.check_convergence(research_plan, sample_hypotheses, sample_results)
+        decision = convergence_detector.check_convergence(
+            research_plan, sample_hypotheses, sample_results
+        )
 
         assert decision.should_stop is True
         # Should be mandatory (iteration limit), not optional (novelty)
@@ -594,6 +577,7 @@ class TestConvergenceDecision:
 # ============================================================================
 # Test Class 6: Convergence Report
 # ============================================================================
+
 
 class TestConvergenceReport:
     """Test convergence report generation."""
@@ -707,6 +691,7 @@ class TestConvergenceReport:
 # ============================================================================
 # Test Class 7: Recommended Next Steps
 # ============================================================================
+
 
 class TestRecommendedNextSteps:
     """Test recommended next steps generation."""

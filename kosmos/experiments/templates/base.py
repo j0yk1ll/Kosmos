@@ -4,44 +4,47 @@ Base template system for experiment protocols.
 Provides abstract base class and registry for experiment templates.
 """
 
-from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any, Type
-from pydantic import BaseModel, Field
-from datetime import datetime
-import pkgutil
 import importlib
 import inspect
-from pathlib import Path
+import pkgutil
+from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 from kosmos.models.experiment import (
+    ControlGroup,
     ExperimentProtocol,
     ExperimentType,
-    ProtocolStep,
-    Variable,
-    ControlGroup,
     ResourceRequirements,
-    StatisticalTestSpec,
-    ValidationCheck,
 )
 from kosmos.models.hypothesis import Hypothesis
 
 
 class TemplateMetadata(BaseModel):
     """Metadata about an experiment template."""
+
     name: str = Field(..., description="Unique template name")
     version: str = Field(default="1.0.0", description="Template version")
     experiment_type: ExperimentType
-    domain: Optional[str] = None  # None means general-purpose
+    domain: str | None = None  # None means general-purpose
 
     title: str = Field(..., description="Human-readable title")
     description: str = Field(..., min_length=50, description="Template description")
 
     # Applicability
-    suitable_for: List[str] = Field(default_factory=list, description="Types of hypotheses this works for")
-    requirements: List[str] = Field(default_factory=list, description="Prerequisites for using this template")
+    suitable_for: list[str] = Field(
+        default_factory=list, description="Types of hypotheses this works for"
+    )
+    requirements: list[str] = Field(
+        default_factory=list, description="Prerequisites for using this template"
+    )
 
     # Quality metrics
-    complexity_score: float = Field(default=0.5, ge=0.0, le=1.0, description="Template complexity (0=simple, 1=advanced)")
+    complexity_score: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Template complexity (0=simple, 1=advanced)"
+    )
     rigor_score: float = Field(default=0.7, ge=0.0, le=1.0, description="Expected scientific rigor")
 
     # Authorship
@@ -51,35 +54,37 @@ class TemplateMetadata(BaseModel):
 
     # Usage statistics (tracked by registry)
     times_used: int = Field(default=0, ge=0)
-    avg_success_rate: Optional[float] = Field(None, ge=0.0, le=1.0)
+    avg_success_rate: float | None = Field(None, ge=0.0, le=1.0)
 
 
 class TemplateCustomizationParams(BaseModel):
     """Parameters for customizing a template to a specific hypothesis."""
+
     hypothesis: Hypothesis
 
     # Override defaults
-    sample_size: Optional[int] = None
-    control_groups: Optional[List[str]] = None
-    statistical_tests: Optional[List[str]] = None
+    sample_size: int | None = None
+    control_groups: list[str] | None = None
+    statistical_tests: list[str] | None = None
 
     # Resource constraints
-    max_cost_usd: Optional[float] = None
-    max_duration_days: Optional[float] = None
-    max_compute_hours: Optional[float] = None
+    max_cost_usd: float | None = None
+    max_duration_days: float | None = None
+    max_compute_hours: float | None = None
 
     # Additional customization
-    custom_variables: Optional[Dict[str, Any]] = None
-    custom_steps: Optional[List[Dict[str, Any]]] = None
-    additional_context: Optional[Dict[str, Any]] = None
+    custom_variables: dict[str, Any] | None = None
+    custom_steps: list[dict[str, Any]] | None = None
+    additional_context: dict[str, Any] | None = None
 
 
 class TemplateValidationResult(BaseModel):
     """Result of template validation."""
+
     is_valid: bool
-    errors: List[str] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list)
-    suggestions: List[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
 
     def add_error(self, message: str) -> None:
         """Add a validation error."""
@@ -131,9 +136,9 @@ class TemplateBase(ABC):
         experiment_type: ExperimentType,
         title: str,
         description: str = "",
-        domain: Optional[str] = None,
+        domain: str | None = None,
         version: str = "1.0.0",
-        **kwargs
+        **kwargs,
     ):
         """Initialize template with metadata."""
         self.metadata = TemplateMetadata(
@@ -143,14 +148,11 @@ class TemplateBase(ABC):
             domain=domain,
             title=title,
             description=description or f"Template for {title}",
-            **kwargs
+            **kwargs,
         )
 
     @abstractmethod
-    def generate_protocol(
-        self,
-        params: TemplateCustomizationParams
-    ) -> ExperimentProtocol:
+    def generate_protocol(self, params: TemplateCustomizationParams) -> ExperimentProtocol:
         """
         Generate an experiment protocol from this template.
 
@@ -203,10 +205,7 @@ class TemplateBase(ABC):
 
         return result
 
-    def estimate_resources(
-        self,
-        params: TemplateCustomizationParams
-    ) -> ResourceRequirements:
+    def estimate_resources(self, params: TemplateCustomizationParams) -> ResourceRequirements:
         """
         Estimate resource requirements for this template.
 
@@ -255,7 +254,7 @@ class TemplateBase(ABC):
             can_parallelize=False,
         )
 
-    def get_required_libraries(self) -> List[str]:
+    def get_required_libraries(self) -> list[str]:
         """
         Get list of Python libraries required by this template.
 
@@ -274,10 +273,7 @@ class TemplateBase(ABC):
 
         return common + type_specific.get(self.metadata.experiment_type, [])
 
-    def get_default_control_groups(
-        self,
-        hypothesis: Hypothesis
-    ) -> List[ControlGroup]:
+    def get_default_control_groups(self, hypothesis: Hypothesis) -> list[ControlGroup]:
         """
         Get default control groups for this template.
 
@@ -363,13 +359,13 @@ class TemplateRegistry:
         Args:
             auto_discover: Automatically discover and register domain templates
         """
-        self._templates: Dict[str, TemplateBase] = {}
-        self._templates_by_type: Dict[ExperimentType, List[str]] = {
+        self._templates: dict[str, TemplateBase] = {}
+        self._templates_by_type: dict[ExperimentType, list[str]] = {
             ExperimentType.COMPUTATIONAL: [],
             ExperimentType.DATA_ANALYSIS: [],
             ExperimentType.LITERATURE_SYNTHESIS: [],
         }
-        self._templates_by_domain: Dict[str, List[str]] = {}
+        self._templates_by_domain: dict[str, list[str]] = {}
 
         # Auto-discover templates from all domains
         if auto_discover:
@@ -390,9 +386,9 @@ class TemplateRegistry:
         """
         # Domain template packages to discover
         template_packages = [
-            'kosmos.experiments.templates.biology',
-            'kosmos.experiments.templates.neuroscience',
-            'kosmos.experiments.templates.materials',
+            "kosmos.experiments.templates.biology",
+            "kosmos.experiments.templates.neuroscience",
+            "kosmos.experiments.templates.materials",
         ]
 
         discovered_count = 0
@@ -403,9 +399,9 @@ class TemplateRegistry:
                 package = importlib.import_module(package_name)
 
                 # Get all modules in this package
-                if hasattr(package, '__path__'):
-                    for importer, modname, ispkg in pkgutil.iter_modules(package.__path__):
-                        if modname == '__init__':
+                if hasattr(package, "__path__"):
+                    for _importer, modname, _ispkg in pkgutil.iter_modules(package.__path__):
+                        if modname == "__init__":
                             continue
 
                         # Import the module
@@ -414,17 +410,19 @@ class TemplateRegistry:
                             module = importlib.import_module(full_module_name)
 
                             # Find all TemplateBase subclasses in the module
-                            for name, obj in inspect.getmembers(module, inspect.isclass):
-                                if (issubclass(obj, TemplateBase) and
-                                    obj != TemplateBase and
-                                    obj.__module__ == full_module_name):
+                            for _name, obj in inspect.getmembers(module, inspect.isclass):
+                                if (
+                                    issubclass(obj, TemplateBase)
+                                    and obj != TemplateBase
+                                    and obj.__module__ == full_module_name
+                                ):
 
                                     # Instantiate and register
                                     try:
                                         template_instance = obj()
                                         self.register(template_instance, skip_validation=True)
                                         discovered_count += 1
-                                    except Exception as e:
+                                    except Exception:
                                         # Skip templates that fail to instantiate
                                         pass
 
@@ -497,7 +495,7 @@ class TemplateRegistry:
         # Remove from main registry
         del self._templates[template_name]
 
-    def get_template(self, name: str) -> Optional[TemplateBase]:
+    def get_template(self, name: str) -> TemplateBase | None:
         """
         Get a template by name.
 
@@ -509,10 +507,7 @@ class TemplateRegistry:
         """
         return self._templates.get(name)
 
-    def get_templates_by_type(
-        self,
-        experiment_type: ExperimentType
-    ) -> List[TemplateBase]:
+    def get_templates_by_type(self, experiment_type: ExperimentType) -> list[TemplateBase]:
         """
         Get all templates for an experiment type.
 
@@ -525,7 +520,7 @@ class TemplateRegistry:
         names = self._templates_by_type.get(experiment_type, [])
         return [self._templates[name] for name in names]
 
-    def get_templates_by_domain(self, domain: str) -> List[TemplateBase]:
+    def get_templates_by_domain(self, domain: str) -> list[TemplateBase]:
         """
         Get all templates for a domain.
 
@@ -539,10 +534,8 @@ class TemplateRegistry:
         return [self._templates[name] for name in names]
 
     def find_applicable_templates(
-        self,
-        hypothesis: Hypothesis,
-        experiment_type: Optional[ExperimentType] = None
-    ) -> List[TemplateBase]:
+        self, hypothesis: Hypothesis, experiment_type: ExperimentType | None = None
+    ) -> list[TemplateBase]:
         """
         Find all templates applicable to a hypothesis.
 
@@ -572,10 +565,8 @@ class TemplateRegistry:
         return [template for score, template in applicable]
 
     def find_best_template(
-        self,
-        hypothesis: Hypothesis,
-        experiment_type: Optional[ExperimentType] = None
-    ) -> Optional[TemplateBase]:
+        self, hypothesis: Hypothesis, experiment_type: ExperimentType | None = None
+    ) -> TemplateBase | None:
         """
         Find the best template for a hypothesis.
 
@@ -589,7 +580,7 @@ class TemplateRegistry:
         applicable = self.find_applicable_templates(hypothesis, experiment_type)
         return applicable[0] if applicable else None
 
-    def list_all_templates(self) -> List[TemplateMetadata]:
+    def list_all_templates(self) -> list[TemplateMetadata]:
         """
         Get metadata for all registered templates.
 
@@ -598,7 +589,7 @@ class TemplateRegistry:
         """
         return [template.metadata for template in self._templates.values()]
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """
         Get registry statistics.
 
@@ -608,12 +599,10 @@ class TemplateRegistry:
         return {
             "total_templates": len(self._templates),
             "by_type": {
-                exp_type.value: len(names)
-                for exp_type, names in self._templates_by_type.items()
+                exp_type.value: len(names) for exp_type, names in self._templates_by_type.items()
             },
             "by_domain": {
-                domain: len(names)
-                for domain, names in self._templates_by_domain.items()
+                domain: len(names) for domain, names in self._templates_by_domain.items()
             },
             "domains_covered": list(self._templates_by_domain.keys()),
         }
@@ -632,7 +621,7 @@ class TemplateRegistry:
 
 
 # Global template registry instance
-_global_registry: Optional[TemplateRegistry] = None
+_global_registry: TemplateRegistry | None = None
 _auto_discovery_done: bool = False
 
 

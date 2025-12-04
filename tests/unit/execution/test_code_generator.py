@@ -4,20 +4,22 @@ Tests for code generation system.
 Tests template matching, code generation, LLM fallback, and validation.
 """
 
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+
 from kosmos.execution.code_generator import (
-    ExperimentCodeGenerator,
-    TTestComparisonCodeTemplate,
     CorrelationAnalysisCodeTemplate,
+    ExperimentCodeGenerator,
     LogLogScalingCodeTemplate,
     MLExperimentCodeTemplate,
-    CodeTemplate
+    TTestComparisonCodeTemplate,
 )
 from kosmos.models.experiment import ExperimentProtocol, ExperimentType, Variable, VariableType
 
 
 # Fixtures
+
 
 @pytest.fixture
 def ttest_protocol():
@@ -30,11 +32,15 @@ def ttest_protocol():
         experiment_type=ExperimentType.DATA_ANALYSIS,
         statistical_tests=["t-test"],
         variables={
-            "group": Variable(name="group", type=VariableType.INDEPENDENT, description="Group variable"),
-            "measurement": Variable(name="measurement", type=VariableType.DEPENDENT, description="Measurement")
+            "group": Variable(
+                name="group", type=VariableType.INDEPENDENT, description="Group variable"
+            ),
+            "measurement": Variable(
+                name="measurement", type=VariableType.DEPENDENT, description="Measurement"
+            ),
         },
         data_requirements={"format": "csv", "columns": ["group", "measurement"]},
-        expected_duration_minutes=10
+        expected_duration_minutes=10,
     )
 
 
@@ -50,10 +56,10 @@ def correlation_protocol():
         statistical_tests=["correlation"],
         variables={
             "x": Variable(name="x", type=VariableType.INDEPENDENT, description="X variable"),
-            "y": Variable(name="y", type=VariableType.DEPENDENT, description="Y variable")
+            "y": Variable(name="y", type=VariableType.DEPENDENT, description="Y variable"),
         },
         data_requirements={"format": "csv", "columns": ["x", "y"]},
-        expected_duration_minutes=10
+        expected_duration_minutes=10,
     )
 
 
@@ -69,10 +75,10 @@ def loglog_protocol():
         statistical_tests=["scaling", "power_law"],
         variables={
             "x": Variable(name="x", type=VariableType.INDEPENDENT, description="X variable"),
-            "y": Variable(name="y", type=VariableType.DEPENDENT, description="Y variable")
+            "y": Variable(name="y", type=VariableType.DEPENDENT, description="Y variable"),
         },
         data_requirements={"format": "csv", "columns": ["x", "y"]},
-        expected_duration_minutes=10
+        expected_duration_minutes=10,
     )
 
 
@@ -87,11 +93,13 @@ def ml_protocol():
         experiment_type=ExperimentType.ML_TRAINING,
         statistical_tests=["classification"],
         variables={
-            "features": Variable(name="features", type=VariableType.INDEPENDENT, description="Features"),
-            "target": Variable(name="target", type=VariableType.DEPENDENT, description="Target")
+            "features": Variable(
+                name="features", type=VariableType.INDEPENDENT, description="Features"
+            ),
+            "target": Variable(name="target", type=VariableType.DEPENDENT, description="Target"),
         },
         data_requirements={"format": "csv"},
-        expected_duration_minutes=30
+        expected_duration_minutes=30,
     )
 
 
@@ -110,6 +118,7 @@ def code_generator_with_llm():
 
 
 # Template Matching Tests
+
 
 class TestTemplateMatching:
     """Tests for template matching logic."""
@@ -144,13 +153,16 @@ class TestTemplateMatching:
         template = code_generator._match_template(ttest_protocol)
         assert isinstance(template, TTestComparisonCodeTemplate)
 
-    def test_generator_selects_correct_template_for_correlation(self, code_generator, correlation_protocol):
+    def test_generator_selects_correct_template_for_correlation(
+        self, code_generator, correlation_protocol
+    ):
         """Test generator selects correlation template."""
         template = code_generator._match_template(correlation_protocol)
         assert isinstance(template, CorrelationAnalysisCodeTemplate)
 
 
 # Code Generation Tests
+
 
 class TestCodeGeneration:
     """Tests for code generation from templates."""
@@ -214,6 +226,7 @@ class TestCodeGeneration:
 
 # LLM Fallback Tests
 
+
 class TestLLMFallback:
     """Tests for LLM-based code generation fallback."""
 
@@ -229,7 +242,7 @@ class TestLLMFallback:
             statistical_tests=["custom_test"],
             variables={},
             data_requirements={},
-            expected_duration_minutes=10
+            expected_duration_minutes=10,
         )
 
         code = code_generator_with_llm.generate(custom_protocol)
@@ -238,7 +251,9 @@ class TestLLMFallback:
         assert code_generator_with_llm.llm_client.generate.called
         assert code is not None
 
-    def test_template_preferred_over_llm_when_available(self, code_generator_with_llm, ttest_protocol):
+    def test_template_preferred_over_llm_when_available(
+        self, code_generator_with_llm, ttest_protocol
+    ):
         """Test template used instead of LLM when available."""
         code = code_generator_with_llm.generate(ttest_protocol)
 
@@ -252,10 +267,7 @@ class TestLLMFallback:
         mock_llm.generate.return_value = "# Enhanced\nimport pandas as pd\nresults = {}"
 
         generator = ExperimentCodeGenerator(
-            use_templates=True,
-            use_llm=True,
-            llm_enhance_templates=True,
-            llm_client=mock_llm
+            use_templates=True, use_llm=True, llm_enhance_templates=True, llm_client=mock_llm
         )
 
         protocol = ExperimentProtocol(
@@ -267,16 +279,17 @@ class TestLLMFallback:
             statistical_tests=["t-test"],
             variables={},
             data_requirements={},
-            expected_duration_minutes=10
+            expected_duration_minutes=10,
         )
 
-        code = generator.generate(protocol)
+        generator.generate(protocol)
 
         # LLM should have been called for enhancement
         assert mock_llm.generate.called
 
 
 # Validation Tests
+
 
 class TestCodeValidation:
     """Tests for code validation and syntax checking."""
@@ -315,16 +328,16 @@ class TestCodeValidation:
 
 # Variable Extraction Tests
 
+
 class TestVariableExtraction:
     """Tests for extracting variables from protocols."""
 
     def test_extract_dependent_variable(self, ttest_protocol):
         """Test extraction of dependent variable."""
-        template = TTestComparisonCodeTemplate()
+        TTestComparisonCodeTemplate()
 
         dependent_vars = [
-            var for var in ttest_protocol.variables.values()
-            if var.type == VariableType.DEPENDENT
+            var for var in ttest_protocol.variables.values() if var.type == VariableType.DEPENDENT
         ]
 
         assert len(dependent_vars) > 0
@@ -332,11 +345,10 @@ class TestVariableExtraction:
 
     def test_extract_independent_variable(self, ttest_protocol):
         """Test extraction of independent variable."""
-        template = TTestComparisonCodeTemplate()
+        TTestComparisonCodeTemplate()
 
         independent_vars = [
-            var for var in ttest_protocol.variables.values()
-            if var.type == VariableType.INDEPENDENT
+            var for var in ttest_protocol.variables.values() if var.type == VariableType.INDEPENDENT
         ]
 
         assert len(independent_vars) > 0
@@ -344,6 +356,7 @@ class TestVariableExtraction:
 
 
 # Integration Tests
+
 
 class TestCodeGeneratorIntegration:
     """Integration tests for code generator."""
@@ -360,6 +373,7 @@ class TestCodeGeneratorIntegration:
 
         # Verify valid syntax
         import ast
+
         ast.parse(code)
 
     def test_end_to_end_ml_generation(self, code_generator, ml_protocol):
@@ -372,6 +386,7 @@ class TestCodeGeneratorIntegration:
 
         # Verify valid syntax
         import ast
+
         ast.parse(code)
 
     def test_generator_handles_minimal_protocol(self, code_generator):
@@ -385,7 +400,7 @@ class TestCodeGeneratorIntegration:
             statistical_tests=[],
             variables={},
             data_requirements={},
-            expected_duration_minutes=5
+            expected_duration_minutes=5,
         )
 
         code = code_generator.generate(minimal_protocol)
@@ -396,6 +411,7 @@ class TestCodeGeneratorIntegration:
 
 
 # Edge Cases and Error Handling
+
 
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
@@ -413,7 +429,7 @@ class TestEdgeCases:
             statistical_tests=[],
             variables={},
             data_requirements={},
-            expected_duration_minutes=5
+            expected_duration_minutes=5,
         )
 
         code = generator.generate(protocol)
@@ -433,7 +449,7 @@ class TestEdgeCases:
             statistical_tests=[],
             variables={},  # Empty
             data_requirements={},
-            expected_duration_minutes=5
+            expected_duration_minutes=5,
         )
 
         code = code_generator.generate(protocol)
@@ -450,7 +466,7 @@ class TestEdgeCases:
             statistical_tests=["t-test"],
             variables={},
             data_requirements={},  # Empty
-            expected_duration_minutes=5
+            expected_duration_minutes=5,
         )
 
         code = code_generator.generate(protocol)

@@ -5,13 +5,12 @@ These tests validate agent-world model integration, cross-agent coordination,
 and parallel execution as specified in REQUIREMENTS.md Section 6.
 """
 
-import pytest
-import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any
-from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
+
+import pytest
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -23,6 +22,7 @@ pytestmark = [
 # ============================================================================
 # REQ-INT-AWM-001: Agent Results Ingested into World Model (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-INT-AWM-001")
 @pytest.mark.priority("MUST")
@@ -36,30 +36,30 @@ def test_req_int_awm_001_agent_results_ingestion():
     - No data loss occurs during ingestion
     - All result fields are preserved
     """
-    from kosmos.world_model import get_world_model
     from kosmos.agents.data_analyst import DataAnalyst
+    from kosmos.world_model import get_world_model
 
     # Arrange: Create world model and agent
     try:
         world_model = get_world_model()
-        agent = DataAnalyst()
+        DataAnalyst()
 
         # Sample agent result
         agent_result = {
-            'agent_id': 'data_analyst_001',
-            'execution_id': 'exec_12345',
-            'timestamp': datetime.now().isoformat(),
-            'analysis_type': 'correlation_analysis',
-            'findings': [
-                'Gene X expression correlates with disease (r=0.78, p<0.001)',
-                'DNA repair pathway significantly enriched (FDR=0.005)'
+            "agent_id": "data_analyst_001",
+            "execution_id": "exec_12345",
+            "timestamp": datetime.now().isoformat(),
+            "analysis_type": "correlation_analysis",
+            "findings": [
+                "Gene X expression correlates with disease (r=0.78, p<0.001)",
+                "DNA repair pathway significantly enriched (FDR=0.005)",
             ],
-            'artifacts': ['notebook_001.ipynb', 'correlation_plot.png'],
-            'metadata': {
-                'dataset': 'experiment_001.csv',
-                'samples': 150,
-                'method': 'pearson_correlation'
-            }
+            "artifacts": ["notebook_001.ipynb", "correlation_plot.png"],
+            "metadata": {
+                "dataset": "experiment_001.csv",
+                "samples": 150,
+                "method": "pearson_correlation",
+            },
         }
 
         # Act: Ingest agent result into world model
@@ -67,21 +67,21 @@ def test_req_int_awm_001_agent_results_ingestion():
 
         # Assert: Ingestion successful
         assert ingestion_result.success, "Ingestion should succeed"
-        assert ingestion_result.entity_id is not None, \
-            "Should return entity ID for ingested result"
+        assert ingestion_result.entity_id is not None, "Should return entity ID for ingested result"
 
         # Act: Retrieve ingested data
         retrieved = world_model.get_entity(ingestion_result.entity_id)
 
         # Assert: No data loss
         assert retrieved is not None, "Should retrieve ingested data"
-        assert retrieved['agent_id'] == agent_result['agent_id']
-        assert len(retrieved['findings']) == len(agent_result['findings']), \
-            "All findings should be preserved"
-        assert len(retrieved['artifacts']) == len(agent_result['artifacts']), \
-            "All artifacts should be preserved"
-        assert retrieved['metadata']['samples'] == 150, \
-            "Metadata should be preserved"
+        assert retrieved["agent_id"] == agent_result["agent_id"]
+        assert len(retrieved["findings"]) == len(
+            agent_result["findings"]
+        ), "All findings should be preserved"
+        assert len(retrieved["artifacts"]) == len(
+            agent_result["artifacts"]
+        ), "All artifacts should be preserved"
+        assert retrieved["metadata"]["samples"] == 150, "Metadata should be preserved"
 
     except (ImportError, AttributeError):
         # Fallback: Test ingestion logic
@@ -89,10 +89,10 @@ def test_req_int_awm_001_agent_results_ingestion():
 
         # Simulate ingestion
         agent_result = {
-            'agent_id': 'agent_001',
-            'findings': ['Finding 1', 'Finding 2'],
-            'artifacts': ['artifact_1', 'artifact_2'],
-            'metadata': {'key': 'value'}
+            "agent_id": "agent_001",
+            "findings": ["Finding 1", "Finding 2"],
+            "artifacts": ["artifact_1", "artifact_2"],
+            "metadata": {"key": "value"},
         }
 
         entity_id = f"entity_{len(world_model_storage)}"
@@ -100,15 +100,16 @@ def test_req_int_awm_001_agent_results_ingestion():
 
         # Assert: Data preserved
         retrieved = world_model_storage[entity_id]
-        assert retrieved['agent_id'] == 'agent_001'
-        assert len(retrieved['findings']) == 2
-        assert len(retrieved['artifacts']) == 2
-        assert retrieved['metadata']['key'] == 'value'
+        assert retrieved["agent_id"] == "agent_001"
+        assert len(retrieved["findings"]) == 2
+        assert len(retrieved["artifacts"]) == 2
+        assert retrieved["metadata"]["key"] == "value"
 
 
 # ============================================================================
 # REQ-INT-AWM-002: Link Artifacts to World Model Entries (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-INT-AWM-002")
 @pytest.mark.priority("MUST")
@@ -122,8 +123,9 @@ def test_req_int_awm_002_artifact_linking():
     - Links use unique identifiers
     - Bidirectional navigation is possible
     """
-    from kosmos.world_model import get_world_model
     from kosmos.core.artifact_manager import ArtifactManager
+
+    from kosmos.world_model import get_world_model
 
     # Arrange: Create world model and artifact manager
     try:
@@ -134,70 +136,60 @@ def test_req_int_awm_002_artifact_linking():
         artifact_id = artifact_manager.store_artifact(
             content="Analysis results with correlation r=0.78",
             filename="analysis_001.ipynb",
-            artifact_type="notebook"
+            artifact_type="notebook",
         )
 
         # Create world model entity linked to artifact
         entity_data = {
-            'type': 'AnalysisResult',
-            'content': 'Correlation analysis completed',
-            'artifact_ids': [artifact_id],
-            'created_by': 'data_analyst'
+            "type": "AnalysisResult",
+            "content": "Correlation analysis completed",
+            "artifact_ids": [artifact_id],
+            "created_by": "data_analyst",
         }
 
         entity_id = world_model.add_entity(**entity_data)
 
         # Assert: Entity has artifact link
         entity = world_model.get_entity(entity_id)
-        assert artifact_id in entity['artifact_ids'], \
-            "Entity should link to artifact"
+        assert artifact_id in entity["artifact_ids"], "Entity should link to artifact"
 
         # Assert: Can navigate from entity to artifact
         linked_artifact = artifact_manager.get_artifact(artifact_id)
-        assert linked_artifact is not None, \
-            "Should retrieve artifact via link"
+        assert linked_artifact is not None, "Should retrieve artifact via link"
 
         # Assert: Can navigate from artifact to entity
         artifact_metadata = artifact_manager.get_metadata(artifact_id)
-        assert entity_id in artifact_metadata.get('entity_ids', []) or \
-               artifact_metadata.get('entity_id') == entity_id, \
-            "Artifact should reference entity (bidirectional link)"
+        assert (
+            entity_id in artifact_metadata.get("entity_ids", [])
+            or artifact_metadata.get("entity_id") == entity_id
+        ), "Artifact should reference entity (bidirectional link)"
 
     except (ImportError, AttributeError):
         # Fallback: Test linking structure
-        artifacts = {
-            'artifact_001': {
-                'content': 'Notebook content',
-                'entity_id': 'entity_001'
-            }
-        }
+        artifacts = {"artifact_001": {"content": "Notebook content", "entity_id": "entity_001"}}
 
-        entities = {
-            'entity_001': {
-                'type': 'AnalysisResult',
-                'artifact_ids': ['artifact_001']
-            }
-        }
+        entities = {"entity_001": {"type": "AnalysisResult", "artifact_ids": ["artifact_001"]}}
 
         # Assert: Forward link (entity -> artifact)
-        entity = entities['entity_001']
-        assert 'artifact_001' in entity['artifact_ids']
+        entity = entities["entity_001"]
+        assert "artifact_001" in entity["artifact_ids"]
 
         # Assert: Backward link (artifact -> entity)
-        artifact = artifacts['artifact_001']
-        assert artifact['entity_id'] == 'entity_001'
+        artifact = artifacts["artifact_001"]
+        assert artifact["entity_id"] == "entity_001"
 
         # Assert: Can navigate both ways
-        linked_artifact_id = entity['artifact_ids'][0]
+        linked_artifact_id = entity["artifact_ids"][0]
         assert linked_artifact_id in artifacts
 
-        linked_entity_id = artifacts[linked_artifact_id]['entity_id']
+        linked_entity_id = artifacts[linked_artifact_id]["entity_id"]
         assert linked_entity_id in entities
 
 
 # ============================================================================
 # REQ-INT-AWM-003: Handle Schema Mismatches Gracefully (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-INT-AWM-003")
 @pytest.mark.priority("MUST")
@@ -219,33 +211,29 @@ def test_req_int_awm_003_schema_mismatch_handling():
 
         # Valid agent output
         valid_output = {
-            'agent_id': 'agent_001',
-            'findings': ['Finding 1'],
-            'confidence': 0.85,
-            'timestamp': datetime.now().isoformat()
+            "agent_id": "agent_001",
+            "findings": ["Finding 1"],
+            "confidence": 0.85,
+            "timestamp": datetime.now().isoformat(),
         }
 
         # Invalid outputs with schema mismatches
         invalid_outputs = [
             # Missing required field
             {
-                'agent_id': 'agent_002',
-                'confidence': 0.90
+                "agent_id": "agent_002",
+                "confidence": 0.90,
                 # Missing 'findings'
             },
             # Wrong type for field
-            {
-                'agent_id': 'agent_003',
-                'findings': 'Should be list, not string',
-                'confidence': 0.80
-            },
+            {"agent_id": "agent_003", "findings": "Should be list, not string", "confidence": 0.80},
             # Extra unexpected fields
             {
-                'agent_id': 'agent_004',
-                'findings': ['Finding'],
-                'unexpected_field': 'This should not cause crash',
-                'another_unexpected': 123
-            }
+                "agent_id": "agent_004",
+                "findings": ["Finding"],
+                "unexpected_field": "This should not cause crash",
+                "another_unexpected": 123,
+            },
         ]
 
         # Act & Assert: Valid output succeeds
@@ -261,51 +249,46 @@ def test_req_int_awm_003_schema_mismatch_handling():
 
             if not result.success:
                 # Failure is acceptable, but should be graceful
-                assert hasattr(result, 'error') or hasattr(result, 'validation_errors'), \
-                    "Should provide error information"
-                assert result.error is not None or len(result.validation_errors) > 0, \
-                    "Should explain validation failure"
+                assert hasattr(result, "error") or hasattr(
+                    result, "validation_errors"
+                ), "Should provide error information"
+                assert (
+                    result.error is not None or len(result.validation_errors) > 0
+                ), "Should explain validation failure"
             else:
                 # If successful, might have applied default values or corrections
                 pass
 
     except (ImportError, AttributeError):
         # Fallback: Test schema validation
-        from pydantic import BaseModel, ValidationError, Field
-        from typing import List
+
+        from pydantic import BaseModel, Field, ValidationError
 
         class AgentOutput(BaseModel):
             agent_id: str
-            findings: List[str]
+            findings: list[str]
             confidence: float = Field(ge=0.0, le=1.0)
 
         # Valid data
         try:
-            valid = AgentOutput(
-                agent_id='agent_001',
-                findings=['Finding 1'],
-                confidence=0.85
-            )
-            assert valid.agent_id == 'agent_001'
+            valid = AgentOutput(agent_id="agent_001", findings=["Finding 1"], confidence=0.85)
+            assert valid.agent_id == "agent_001"
         except ValidationError:
             pytest.fail("Valid data should not raise validation error")
 
         # Invalid data - graceful handling
         try:
-            invalid = AgentOutput(
-                agent_id='agent_002',
-                findings='Not a list',  # Type error
-                confidence=0.80
-            )
+            AgentOutput(agent_id="agent_002", findings="Not a list", confidence=0.80)  # Type error
             # If validation passes, it was coerced
         except ValidationError as e:
             # Graceful: caught validation error
-            assert 'findings' in str(e).lower()
+            assert "findings" in str(e).lower()
 
 
 # ============================================================================
 # REQ-INT-CROSS-001: Literature Info Accessible to Data Analyst (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-INT-CROSS-001")
 @pytest.mark.priority("MUST")
@@ -319,79 +302,75 @@ def test_req_int_cross_001_cross_agent_data_access():
     - Data analyst can query literature findings
     - Cross-agent information flow works
     """
-    from kosmos.world_model import get_world_model
-    from kosmos.agents.literature_analyzer import LiteratureAnalyzer
     from kosmos.agents.data_analyst import DataAnalyst
+    from kosmos.agents.literature_analyzer import LiteratureAnalyzer
+    from kosmos.world_model import get_world_model
 
     # Arrange: Create agents and world model
     try:
         world_model = get_world_model()
-        lit_agent = LiteratureAnalyzer()
-        data_agent = DataAnalyst()
+        LiteratureAnalyzer()
+        DataAnalyst()
 
         # Act: Literature agent discovers information
         lit_finding = {
-            'agent_id': 'literature_001',
-            'type': 'LiteratureFinding',
-            'content': 'Gene BRCA1 is a known tumor suppressor (Smith et al., 2020)',
-            'source': 'PubMed:12345678',
-            'confidence': 0.95
+            "agent_id": "literature_001",
+            "type": "LiteratureFinding",
+            "content": "Gene BRCA1 is a known tumor suppressor (Smith et al., 2020)",
+            "source": "PubMed:12345678",
+            "confidence": 0.95,
         }
 
         lit_entity_id = world_model.add_entity(**lit_finding)
 
         # Act: Data analyst queries world model for context
         context = world_model.query(
-            query_type='related_to',
-            keywords=['BRCA1', 'tumor'],
-            agent_requesting='data_analyst_001'
+            query_type="related_to",
+            keywords=["BRCA1", "tumor"],
+            agent_requesting="data_analyst_001",
         )
 
         # Assert: Literature finding accessible to data analyst
-        assert len(context.results) > 0, \
-            "Data analyst should find literature information"
+        assert len(context.results) > 0, "Data analyst should find literature information"
 
-        lit_finding_retrieved = any(
-            lit_entity_id == result.id for result in context.results
-        )
-        assert lit_finding_retrieved, \
-            "Specific literature finding should be in context"
+        lit_finding_retrieved = any(lit_entity_id == result.id for result in context.results)
+        assert lit_finding_retrieved, "Specific literature finding should be in context"
 
         # Assert: Can use literature context for analysis
-        literature_context = [r for r in context.results if r.type == 'LiteratureFinding']
-        assert len(literature_context) > 0, \
-            "Should retrieve literature-type findings"
+        literature_context = [r for r in context.results if r.type == "LiteratureFinding"]
+        assert len(literature_context) > 0, "Should retrieve literature-type findings"
 
     except (ImportError, AttributeError):
         # Fallback: Test cross-agent data sharing
         world_model_data = {}
 
         # Literature agent adds finding
-        world_model_data['entity_001'] = {
-            'type': 'LiteratureFinding',
-            'content': 'BRCA1 is tumor suppressor',
-            'keywords': ['BRCA1', 'tumor'],
-            'created_by': 'literature_agent'
+        world_model_data["entity_001"] = {
+            "type": "LiteratureFinding",
+            "content": "BRCA1 is tumor suppressor",
+            "keywords": ["BRCA1", "tumor"],
+            "created_by": "literature_agent",
         }
 
         # Data analyst queries
         def query_world_model(keywords):
             results = []
-            for entity_id, entity in world_model_data.items():
-                if any(kw in entity.get('keywords', []) for kw in keywords):
+            for _entity_id, entity in world_model_data.items():
+                if any(kw in entity.get("keywords", []) for kw in keywords):
                     results.append(entity)
             return results
 
-        results = query_world_model(['BRCA1', 'tumor'])
+        results = query_world_model(["BRCA1", "tumor"])
 
         # Assert: Data analyst can access literature findings
         assert len(results) == 1
-        assert results[0]['created_by'] == 'literature_agent'
+        assert results[0]["created_by"] == "literature_agent"
 
 
 # ============================================================================
 # REQ-INT-CROSS-002: Hypothesis Triggers Cross-Agent Tasks (MAY)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-INT-CROSS-002")
 @pytest.mark.priority("MAY")
@@ -405,8 +384,9 @@ def test_req_int_cross_002_hypothesis_triggers_tasks():
     - Task dispatch to appropriate agents
     - Cross-iteration coordination works
     """
-    from kosmos.agents.hypothesis_generator import HypothesisGenerator
     from kosmos.core.orchestrator import Orchestrator
+
+    from kosmos.agents.hypothesis_generator import HypothesisGenerator
 
     # Arrange: Create orchestrator and hypothesis generator
     try:
@@ -415,70 +395,74 @@ def test_req_int_cross_002_hypothesis_triggers_tasks():
 
         # Act: Generate hypothesis
         hypothesis = hyp_generator.generate_hypothesis(
-            context="High BRCA1 expression observed in subset of patients",
-            domain="genetics"
+            context="High BRCA1 expression observed in subset of patients", domain="genetics"
         )
 
         # Hypothesis suggests follow-up tasks
-        suggested_tasks = hypothesis.suggested_tasks  # e.g., ['literature_search', 'pathway_analysis']
+        suggested_tasks = (
+            hypothesis.suggested_tasks
+        )  # e.g., ['literature_search', 'pathway_analysis']
 
         # Act: Orchestrator creates tasks based on hypothesis
         dispatched_tasks = []
         for task_type in suggested_tasks:
-            if task_type == 'literature_search':
+            if task_type == "literature_search":
                 task = orchestrator.create_task(
-                    task_type='literature_search',
-                    agent_type='literature_analyzer',
-                    parameters={'query': hypothesis.text}
+                    task_type="literature_search",
+                    agent_type="literature_analyzer",
+                    parameters={"query": hypothesis.text},
                 )
                 dispatched_tasks.append(task)
-            elif task_type == 'pathway_analysis':
+            elif task_type == "pathway_analysis":
                 task = orchestrator.create_task(
-                    task_type='data_analysis',
-                    agent_type='data_analyst',
-                    parameters={'analysis': 'pathway_enrichment'}
+                    task_type="data_analysis",
+                    agent_type="data_analyst",
+                    parameters={"analysis": "pathway_enrichment"},
                 )
                 dispatched_tasks.append(task)
 
         # Assert: Tasks created from hypothesis
-        assert len(dispatched_tasks) > 0, \
-            "Hypothesis should trigger follow-up tasks"
+        assert len(dispatched_tasks) > 0, "Hypothesis should trigger follow-up tasks"
 
         # Assert: Tasks assigned to appropriate agents
         agent_types = [task.agent_type for task in dispatched_tasks]
-        assert 'literature_analyzer' in agent_types or 'data_analyst' in agent_types, \
-            "Tasks should be assigned to relevant agents"
+        assert (
+            "literature_analyzer" in agent_types or "data_analyst" in agent_types
+        ), "Tasks should be assigned to relevant agents"
 
     except (ImportError, AttributeError):
         # Fallback: Test task generation from hypothesis
         hypothesis = {
-            'text': 'BRCA1 pathway may be dysregulated',
-            'confidence': 0.70,
-            'suggested_follow_ups': [
-                {'task_type': 'literature_search', 'agent': 'literature'},
-                {'task_type': 'pathway_analysis', 'agent': 'data_analyst'}
-            ]
+            "text": "BRCA1 pathway may be dysregulated",
+            "confidence": 0.70,
+            "suggested_follow_ups": [
+                {"task_type": "literature_search", "agent": "literature"},
+                {"task_type": "pathway_analysis", "agent": "data_analyst"},
+            ],
         }
 
         # Generate tasks
         tasks = []
-        for follow_up in hypothesis['suggested_follow_ups']:
-            tasks.append({
-                'id': f"task_{len(tasks)}",
-                'type': follow_up['task_type'],
-                'agent': follow_up['agent'],
-                'parameters': {'context': hypothesis['text']}
-            })
+        for follow_up in hypothesis["suggested_follow_ups"]:
+            tasks.append(
+                {
+                    "id": f"task_{len(tasks)}",
+                    "type": follow_up["task_type"],
+                    "agent": follow_up["agent"],
+                    "parameters": {"context": hypothesis["text"]},
+                }
+            )
 
         # Assert: Tasks generated
         assert len(tasks) == 2
-        assert tasks[0]['agent'] == 'literature'
-        assert tasks[1]['agent'] == 'data_analyst'
+        assert tasks[0]["agent"] == "literature"
+        assert tasks[1]["agent"] == "data_analyst"
 
 
 # ============================================================================
 # REQ-INT-CROSS-003: Prevent Circular Dependencies (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-INT-CROSS-003")
 @pytest.mark.priority("MUST")
@@ -499,42 +483,35 @@ def test_req_int_cross_003_prevent_circular_dependencies():
         scheduler = TaskScheduler()
 
         # Create tasks with dependencies
-        task_a = scheduler.create_task(
-            task_id='task_a',
-            agent_type='data_analyst',
-            dependencies=[]
+        scheduler.create_task(task_id="task_a", agent_type="data_analyst", dependencies=[])
+
+        scheduler.create_task(
+            task_id="task_b", agent_type="literature_analyzer", dependencies=["task_a"]
         )
 
-        task_b = scheduler.create_task(
-            task_id='task_b',
-            agent_type='literature_analyzer',
-            dependencies=['task_a']
-        )
-
-        task_c = scheduler.create_task(
-            task_id='task_c',
-            agent_type='hypothesis_generator',
-            dependencies=['task_b']
+        scheduler.create_task(
+            task_id="task_c", agent_type="hypothesis_generator", dependencies=["task_b"]
         )
 
         # Act: Attempt to create circular dependency
         # task_a depends on task_c (would create cycle: a -> b -> c -> a)
         with pytest.raises((ValueError, Exception)) as exc_info:
-            task_a_circular = scheduler.create_task(
-                task_id='task_a',
-                agent_type='data_analyst',
-                dependencies=['task_c']  # This creates a cycle
+            scheduler.create_task(
+                task_id="task_a",
+                agent_type="data_analyst",
+                dependencies=["task_c"],  # This creates a cycle
             )
 
         # Assert: Circular dependency rejected
-        assert 'circular' in str(exc_info.value).lower() or \
-               'cycle' in str(exc_info.value).lower() or \
-               'deadlock' in str(exc_info.value).lower(), \
-            "Should detect and reject circular dependency"
+        assert (
+            "circular" in str(exc_info.value).lower()
+            or "cycle" in str(exc_info.value).lower()
+            or "deadlock" in str(exc_info.value).lower()
+        ), "Should detect and reject circular dependency"
 
     except (ImportError, AttributeError):
         # Fallback: Test cycle detection
-        def has_cycle(tasks: Dict[str, List[str]]) -> bool:
+        def has_cycle(tasks: dict[str, list[str]]) -> bool:
             """Check if task dependency graph has cycles using DFS."""
             visited = set()
             rec_stack = set()
@@ -561,25 +538,18 @@ def test_req_int_cross_003_prevent_circular_dependencies():
             return False
 
         # Valid DAG
-        valid_tasks = {
-            'task_a': [],
-            'task_b': ['task_a'],
-            'task_c': ['task_b']
-        }
+        valid_tasks = {"task_a": [], "task_b": ["task_a"], "task_c": ["task_b"]}
         assert not has_cycle(valid_tasks), "Valid DAG should have no cycle"
 
         # Circular dependency
-        circular_tasks = {
-            'task_a': ['task_c'],
-            'task_b': ['task_a'],
-            'task_c': ['task_b']
-        }
+        circular_tasks = {"task_a": ["task_c"], "task_b": ["task_a"], "task_c": ["task_b"]}
         assert has_cycle(circular_tasks), "Should detect cycle"
 
 
 # ============================================================================
 # REQ-INT-PAR-001: Parallel Task Execution (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-INT-PAR-001")
 @pytest.mark.priority("MUST")
@@ -603,10 +573,10 @@ def test_req_int_par_001_parallel_execution():
         tasks = []
         for i in range(10):
             task = {
-                'id': f'task_{i:03d}',
-                'agent_type': 'data_analyst' if i % 2 == 0 else 'literature_analyzer',
-                'execution_time': 0.1,  # Simulated execution time
-                'dependencies': []  # Independent
+                "id": f"task_{i:03d}",
+                "agent_type": "data_analyst" if i % 2 == 0 else "literature_analyzer",
+                "execution_time": 0.1,  # Simulated execution time
+                "dependencies": [],  # Independent
             }
             tasks.append(task)
 
@@ -621,8 +591,9 @@ def test_req_int_par_001_parallel_execution():
         # Assert: Parallel execution (should be faster than sequential)
         # Sequential would take 10 * 0.1 = 1.0 seconds
         # Parallel should take ~0.1 seconds (plus overhead)
-        assert execution_time < 0.5, \
-            "Parallel execution should be significantly faster than sequential"
+        assert (
+            execution_time < 0.5
+        ), "Parallel execution should be significantly faster than sequential"
 
         # Assert: All tasks successful
         successful_tasks = [r for r in results if r.success]
@@ -633,14 +604,13 @@ def test_req_int_par_001_parallel_execution():
         def simulate_task(task_id, duration=0.1):
             """Simulate task execution."""
             time.sleep(duration)
-            return {'id': task_id, 'success': True}
+            return {"id": task_id, "success": True}
 
         # Execute 10 tasks in parallel
         start_time = time.time()
 
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(simulate_task, f'task_{i}', 0.1)
-                      for i in range(10)]
+            futures = [executor.submit(simulate_task, f"task_{i}", 0.1) for i in range(10)]
 
             results = [future.result() for future in as_completed(futures)]
 
@@ -648,13 +618,13 @@ def test_req_int_par_001_parallel_execution():
 
         # Assert: Parallel execution
         assert len(results) == 10
-        assert execution_time < 0.5, \
-            f"Parallel execution too slow: {execution_time:.2f}s"
+        assert execution_time < 0.5, f"Parallel execution too slow: {execution_time:.2f}s"
 
 
 # ============================================================================
 # REQ-INT-PAR-002: No Data Corruption from Parallel Execution (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-INT-PAR-002")
 @pytest.mark.priority("MUST")
@@ -668,8 +638,9 @@ def test_req_int_par_002_no_data_corruption():
     - Synchronization mechanisms work
     - Data integrity is maintained
     """
-    from kosmos.world_model import get_world_model
     import threading
+
+    from kosmos.world_model import get_world_model
 
     # Arrange: Create world model
     try:
@@ -683,14 +654,14 @@ def test_req_int_par_002_no_data_corruption():
         def concurrent_write(thread_id):
             try:
                 entity_data = {
-                    'type': 'Finding',
-                    'content': f'Finding from thread {thread_id}',
-                    'thread_id': thread_id
+                    "type": "Finding",
+                    "content": f"Finding from thread {thread_id}",
+                    "thread_id": thread_id,
                 }
                 entity_id = world_model.add_entity(**entity_data)
-                results.append({'thread_id': thread_id, 'entity_id': entity_id})
+                results.append({"thread_id": thread_id, "entity_id": entity_id})
             except Exception as e:
-                errors.append({'thread_id': thread_id, 'error': str(e)})
+                errors.append({"thread_id": thread_id, "error": str(e)})
 
         threads = []
         for i in range(num_threads):
@@ -706,35 +677,34 @@ def test_req_int_par_002_no_data_corruption():
         assert len(errors) == 0, f"Concurrent writes caused errors: {errors}"
 
         # Assert: All writes succeeded
-        assert len(results) == num_threads, \
-            "All concurrent writes should succeed"
+        assert len(results) == num_threads, "All concurrent writes should succeed"
 
         # Assert: No duplicate entity IDs (data integrity)
-        entity_ids = [r['entity_id'] for r in results]
-        assert len(entity_ids) == len(set(entity_ids)), \
-            "Entity IDs should be unique (no corruption)"
+        entity_ids = [r["entity_id"] for r in results]
+        assert len(entity_ids) == len(
+            set(entity_ids)
+        ), "Entity IDs should be unique (no corruption)"
 
         # Assert: Can retrieve all entities
         for result in results:
-            entity = world_model.get_entity(result['entity_id'])
+            entity = world_model.get_entity(result["entity_id"])
             assert entity is not None, "Should retrieve all entities"
-            assert entity['thread_id'] == result['thread_id'], \
-                "Entity data should be intact"
+            assert entity["thread_id"] == result["thread_id"], "Entity data should be intact"
 
     except (ImportError, AttributeError):
         # Fallback: Test concurrent writes with locks
         import threading
 
-        shared_data = {'entities': {}, 'counter': 0}
+        shared_data = {"entities": {}, "counter": 0}
         lock = threading.Lock()
 
         def safe_concurrent_write(thread_id):
             with lock:
                 entity_id = f"entity_{shared_data['counter']}"
-                shared_data['counter'] += 1
-                shared_data['entities'][entity_id] = {
-                    'content': f'Data from thread {thread_id}',
-                    'thread_id': thread_id
+                shared_data["counter"] += 1
+                shared_data["entities"][entity_id] = {
+                    "content": f"Data from thread {thread_id}",
+                    "thread_id": thread_id,
                 }
                 return entity_id
 
@@ -755,18 +725,19 @@ def test_req_int_par_002_no_data_corruption():
             t.join()
 
         # Assert: No data corruption
-        assert len(shared_data['entities']) == 10
-        assert shared_data['counter'] == 10
+        assert len(shared_data["entities"]) == 10
+        assert shared_data["counter"] == 10
 
         # Verify all entities intact
         for thread_id, entity_id in results:
-            assert entity_id in shared_data['entities']
-            assert shared_data['entities'][entity_id]['thread_id'] == thread_id
+            assert entity_id in shared_data["entities"]
+            assert shared_data["entities"][entity_id]["thread_id"] == thread_id
 
 
 # ============================================================================
 # REQ-INT-PAR-003: Fair Resource Allocation (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-INT-PAR-003")
 @pytest.mark.priority("MUST")
@@ -790,10 +761,10 @@ def test_req_int_par_003_fair_resource_allocation():
         tasks = []
         for i in range(10):
             task = {
-                'id': f'task_{i:03d}',
-                'priority': i % 3,  # Mix of priorities
-                'agent_type': 'data_analyst',
-                'execution_time': 0.05
+                "id": f"task_{i:03d}",
+                "priority": i % 3,  # Mix of priorities
+                "agent_type": "data_analyst",
+                "execution_time": 0.05,
             }
             tasks.append(task)
 
@@ -803,22 +774,21 @@ def test_req_int_par_003_fair_resource_allocation():
         execution_time = time.time() - start_time
 
         # Assert: All tasks completed (no starvation)
-        assert len(results) == 10, \
-            "All tasks should complete eventually (no starvation)"
+        assert len(results) == 10, "All tasks should complete eventually (no starvation)"
 
         # Assert: Reasonable execution time (no indefinite waiting)
-        assert execution_time < 5.0, \
-            "Should complete within reasonable time"
+        assert execution_time < 5.0, "Should complete within reasonable time"
 
         # Assert: Low-priority tasks also executed
-        low_priority_results = [r for r in results if tasks[int(r.task_id.split('_')[1])]['priority'] == 0]
-        assert len(low_priority_results) > 0, \
-            "Low-priority tasks should also execute (fairness)"
+        low_priority_results = [
+            r for r in results if tasks[int(r.task_id.split("_")[1])]["priority"] == 0
+        ]
+        assert len(low_priority_results) > 0, "Low-priority tasks should also execute (fairness)"
 
     except (ImportError, AttributeError):
         # Fallback: Test fair scheduling
-        from queue import Queue
         import threading
+        from queue import Queue
 
         task_queue = Queue()
         completed_tasks = []
@@ -826,7 +796,7 @@ def test_req_int_par_003_fair_resource_allocation():
 
         # Add tasks
         for i in range(10):
-            task_queue.put({'id': f'task_{i}', 'priority': i % 3})
+            task_queue.put({"id": f"task_{i}", "priority": i % 3})
 
         def worker():
             while not task_queue.empty():
@@ -834,9 +804,9 @@ def test_req_int_par_003_fair_resource_allocation():
                     task = task_queue.get(timeout=0.1)
                     time.sleep(0.05)  # Simulate work
                     with lock:
-                        completed_tasks.append(task['id'])
+                        completed_tasks.append(task["id"])
                     task_queue.task_done()
-                except:
+                except Exception:
                     break
 
         # Start workers
@@ -857,6 +827,7 @@ def test_req_int_par_003_fair_resource_allocation():
 # REQ-INT-PAR-004: Complete Iteration Before Next (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-INT-PAR-004")
 @pytest.mark.priority("MUST")
 def test_req_int_par_004_complete_iteration_before_next():
@@ -876,47 +847,33 @@ def test_req_int_par_004_complete_iteration_before_next():
         manager = IterationManager()
 
         # Iteration 1: 5 parallel tasks
-        iteration_1_tasks = [
-            {'id': f'iter1_task_{i}', 'execution_time': 0.1}
-            for i in range(5)
-        ]
+        iteration_1_tasks = [{"id": f"iter1_task_{i}", "execution_time": 0.1} for i in range(5)]
 
         # Iteration 2: 5 parallel tasks
-        iteration_2_tasks = [
-            {'id': f'iter2_task_{i}', 'execution_time': 0.1}
-            for i in range(5)
-        ]
+        iteration_2_tasks = [{"id": f"iter2_task_{i}", "execution_time": 0.1} for i in range(5)]
 
         # Act: Execute iterations
-        iter1_results = manager.execute_iteration(
-            iteration_number=1,
-            tasks=iteration_1_tasks
-        )
+        iter1_results = manager.execute_iteration(iteration_number=1, tasks=iteration_1_tasks)
 
         # Assert: Iteration 1 completed
-        assert iter1_results.completed, \
-            "Iteration 1 should complete before starting iteration 2"
-        assert len(iter1_results.task_results) == 5, \
-            "All iteration 1 tasks should complete"
+        assert iter1_results.completed, "Iteration 1 should complete before starting iteration 2"
+        assert len(iter1_results.task_results) == 5, "All iteration 1 tasks should complete"
 
         # Record completion time
         iter1_end_time = iter1_results.end_time
 
         # Act: Execute iteration 2
-        iter2_results = manager.execute_iteration(
-            iteration_number=2,
-            tasks=iteration_2_tasks
-        )
+        iter2_results = manager.execute_iteration(iteration_number=2, tasks=iteration_2_tasks)
 
         # Assert: Iteration 2 started after iteration 1 completed
-        assert iter2_results.start_time >= iter1_end_time, \
-            "Iteration 2 should start after iteration 1 completes"
+        assert (
+            iter2_results.start_time >= iter1_end_time
+        ), "Iteration 2 should start after iteration 1 completes"
 
         # Assert: No task overlap
         iter1_task_ids = {r.task_id for r in iter1_results.task_results}
         iter2_task_ids = {r.task_id for r in iter2_results.task_results}
-        assert len(iter1_task_ids & iter2_task_ids) == 0, \
-            "No task overlap between iterations"
+        assert len(iter1_task_ids & iter2_task_ids) == 0, "No task overlap between iterations"
 
     except (ImportError, AttributeError):
         # Fallback: Test iteration synchronization
@@ -928,34 +885,32 @@ def test_req_int_par_004_complete_iteration_before_next():
             results = []
 
             with ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [
-                    executor.submit(time.sleep, 0.1)
-                    for _ in tasks
-                ]
+                futures = [executor.submit(time.sleep, 0.1) for _ in tasks]
 
                 # Wait for ALL tasks to complete
                 for future in as_completed(futures):
                     future.result()
-                    results.append({'completed': True})
+                    results.append({"completed": True})
 
             end_time = time.time()
             return {
-                'iteration': iteration_num,
-                'start_time': start_time,
-                'end_time': end_time,
-                'task_count': len(results)
+                "iteration": iteration_num,
+                "start_time": start_time,
+                "end_time": end_time,
+                "task_count": len(results),
             }
 
         # Execute two iterations
-        iter1 = execute_iteration(1, ['t1', 't2', 't3'])
-        iter2 = execute_iteration(2, ['t4', 't5', 't6'])
+        iter1 = execute_iteration(1, ["t1", "t2", "t3"])
+        iter2 = execute_iteration(2, ["t4", "t5", "t6"])
 
         # Assert: Iteration 1 fully completed
-        assert iter1['task_count'] == 3
+        assert iter1["task_count"] == 3
 
         # Assert: Iteration 2 started after iteration 1
-        assert iter2['start_time'] >= iter1['end_time'], \
-            "Iteration 2 must start after iteration 1 completes"
+        assert (
+            iter2["start_time"] >= iter1["end_time"]
+        ), "Iteration 2 must start after iteration 1 completes"
 
         # Assert: No overlap
-        assert iter2['start_time'] >= iter1['end_time']
+        assert iter2["start_time"] >= iter1["end_time"]

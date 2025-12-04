@@ -6,13 +6,19 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
+        exclude: '^kosmos-claude-scientific-skills/'
       - id: end-of-file-fixer
+        exclude: '^kosmos-claude-scientific-skills/'
       - id: check-yaml
+        args: ['--allow-multiple-documents']
+        exclude: '^kosmos-claude-scientific-skills/'
       - id: check-added-large-files
         args: ['--maxkb=1000']
       - id: check-merge-conflict
       - id: debug-statements
+        exclude: '^kosmos-claude-scientific-skills/'
       - id: check-toml
+        exclude: '^kosmos-claude-scientific-skills/'
 
   - repo: https://github.com/psf/black
     rev: 24.3.0
@@ -20,12 +26,14 @@ repos:
       - id: black
         language_version: python3.11
         args: ['--line-length=100']
+        exclude: '^kosmos-claude-scientific-skills/'
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.4
+    rev: v0.14.7
     hooks:
       - id: ruff
-        args: ['--fix', '--exit-non-zero-on-fix']
+        args: ['--fix', '--unsafe-fixes']
+        exclude: '^kosmos-claude-scientific-skills/'
 
   - repo: local
     hooks:

@@ -2,17 +2,18 @@
 Tests for kosmos.knowledge.concept_extractor module.
 """
 
-import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-from kosmos.knowledge.concept_extractor import ConceptExtractor, ExtractedConcept, ExtractedMethod
+import pytest
+
+from kosmos.knowledge.concept_extractor import ConceptExtractor, ExtractedConcept
 from kosmos.literature.base_client import PaperMetadata
 
 
 @pytest.fixture
 def concept_extractor(mock_llm_client):
     """Create ConceptExtractor with mocked LLM."""
-    with patch('kosmos.knowledge.concept_extractor.get_client', return_value=mock_llm_client):
+    with patch("kosmos.knowledge.concept_extractor.get_client", return_value=mock_llm_client):
         extractor = ConceptExtractor()
         extractor.llm_client = mock_llm_client
         return extractor
@@ -24,13 +25,13 @@ class TestConceptExtractorInit:
 
     def test_init_default(self, mock_llm_client):
         """Test default initialization."""
-        with patch('kosmos.knowledge.concept_extractor.get_client', return_value=mock_llm_client):
+        with patch("kosmos.knowledge.concept_extractor.get_client", return_value=mock_llm_client):
             extractor = ConceptExtractor()
             assert extractor.model == "claude-sonnet-4-5"
 
     def test_init_custom_model(self, mock_llm_client):
         """Test initialization with custom model."""
-        with patch('kosmos.knowledge.concept_extractor.get_client', return_value=mock_llm_client):
+        with patch("kosmos.knowledge.concept_extractor.get_client", return_value=mock_llm_client):
             extractor = ConceptExtractor(model="claude-opus-4")
             assert extractor.model == "claude-opus-4"
 
@@ -91,12 +92,10 @@ class TestConceptExtraction:
         # Return more concepts than limit
         concept_extractor.llm_client.generate_structured.return_value = {
             "concepts": [
-                {"name": f"Concept {i}", "category": "Test", "relevance": 0.5}
-                for i in range(20)
+                {"name": f"Concept {i}", "category": "Test", "relevance": 0.5} for i in range(20)
             ],
             "methods": [
-                {"name": f"Method {i}", "category": "Test", "relevance": 0.5}
-                for i in range(10)
+                {"name": f"Method {i}", "category": "Test", "relevance": 0.5} for i in range(10)
             ],
             "relationships": [],
         }
@@ -151,9 +150,7 @@ class TestPromptBuilding:
 
     def test_build_prompt_minimal_paper(self, concept_extractor):
         """Test building prompt for paper with minimal fields."""
-        paper = PaperMetadata(
-            title="Minimal", authors=[], abstract="", year=2023, source="test"
-        )
+        paper = PaperMetadata(title="Minimal", authors=[], abstract="", year=2023, source="test")
 
         prompt = concept_extractor._build_concept_extraction_prompt(paper)
 
@@ -176,9 +173,7 @@ class TestConceptFiltering:
             "relationships": [],
         }
 
-        result = concept_extractor.extract_from_paper(
-            sample_paper_metadata, min_relevance=0.5
-        )
+        result = concept_extractor.extract_from_paper(sample_paper_metadata, min_relevance=0.5)
 
         # Should only include high relevance concept
         assert len(result.concepts) == 1

@@ -5,11 +5,11 @@ These tests validate that the Data Analysis Agent can perform required
 analytical operations as specified in REQUIREMENTS.md.
 """
 
-import pytest
-import pandas as pd
 import numpy as np
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+import pandas as pd
+import pytest
+from sklearn.linear_model import LinearRegression
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -29,26 +29,28 @@ def test_req_daa_cap_001_exploratory_analysis():
 
     # Arrange: Create test dataset with known properties
     np.random.seed(42)
-    df = pd.DataFrame({
-        'numeric_col': np.random.randn(100),
-        'categorical_col': np.random.choice(['A', 'B', 'C'], 100),
-        'missing_col': [np.nan if i % 10 == 0 else i for i in range(100)]
-    })
+    df = pd.DataFrame(
+        {
+            "numeric_col": np.random.randn(100),
+            "categorical_col": np.random.choice(["A", "B", "C"], 100),
+            "missing_col": [np.nan if i % 10 == 0 else i for i in range(100)],
+        }
+    )
 
     # Act: Perform summary statistics
     summary = df.describe()
     missing_analysis = df.isnull().sum()
-    distributions = df['numeric_col'].hist(bins=10)
+    df["numeric_col"].hist(bins=10)
 
     # Assert: Verify exploratory analysis capabilities
-    assert 'numeric_col' in summary.columns
-    assert summary.loc['count', 'numeric_col'] == 100
-    assert missing_analysis['missing_col'] == 10
-    assert len(df['categorical_col'].value_counts()) == 3
+    assert "numeric_col" in summary.columns
+    assert summary.loc["count", "numeric_col"] == 100
+    assert missing_analysis["missing_col"] == 10
+    assert len(df["categorical_col"].value_counts()) == 3
 
     # Verify DataAnalyzer can compute basic statistics
-    mean_val = DataAnalyzer.compute_statistics(df, 'numeric_col')
-    assert 'mean' in mean_val or mean_val is not None
+    mean_val = DataAnalyzer.compute_statistics(df, "numeric_col")
+    assert "mean" in mean_val or mean_val is not None
 
 
 @pytest.mark.requirement("REQ-DAA-CAP-002")
@@ -58,25 +60,22 @@ def test_req_daa_cap_002_data_transformations():
     REQ-DAA-CAP-002: The Data Analysis Agent MUST successfully perform
     data transformations (normalization, log transformation, scaling).
     """
-    from kosmos.execution.data_analysis import DataAnalyzer
 
     # Arrange
     np.random.seed(42)
-    df = pd.DataFrame({
-        'value': np.random.exponential(10, 100)
-    })
+    df = pd.DataFrame({"value": np.random.exponential(10, 100)})
 
     # Act & Assert: Test normalization (z-score)
-    normalized = (df['value'] - df['value'].mean()) / df['value'].std()
+    normalized = (df["value"] - df["value"].mean()) / df["value"].std()
     assert abs(normalized.mean()) < 1e-10  # Mean should be ~0
     assert abs(normalized.std() - 1.0) < 1e-10  # Std should be ~1
 
     # Act & Assert: Test log transformation
-    log_transformed = np.log1p(df['value'])
+    log_transformed = np.log1p(df["value"])
     assert (log_transformed >= 0).all()  # All values should be non-negative
 
     # Act & Assert: Test min-max scaling
-    scaled = (df['value'] - df['value'].min()) / (df['value'].max() - df['value'].min())
+    scaled = (df["value"] - df["value"].min()) / (df["value"].max() - df["value"].min())
     assert scaled.min() == 0.0
     assert scaled.max() == 1.0
 
@@ -88,8 +87,9 @@ def test_req_daa_cap_003_statistical_tests():
     REQ-DAA-CAP-003: The Data Analysis Agent MUST successfully perform
     statistical tests (t-tests, ANOVA, chi-square, correlation analysis).
     """
-    from kosmos.execution.data_analysis import DataAnalyzer
     from scipy import stats
+
+    from kosmos.execution.data_analysis import DataAnalyzer
 
     # Arrange
     np.random.seed(42)
@@ -100,31 +100,30 @@ def test_req_daa_cap_003_statistical_tests():
     t_stat, p_value = stats.ttest_ind(group1, group2)
 
     # Assert: T-test results are valid
-    assert isinstance(t_stat, (float, np.floating))
-    assert isinstance(p_value, (float, np.floating))
+    assert isinstance(t_stat, float | np.floating)
+    assert isinstance(p_value, float | np.floating)
     assert 0 <= p_value <= 1
     assert p_value < 0.05  # Should detect the difference
 
     # Act & Assert: Correlation analysis
-    df = pd.DataFrame({'x': group1[:30], 'y': group1[:30] + np.random.randn(30) * 0.5})
-    corr = df['x'].corr(df['y'])
+    df = pd.DataFrame({"x": group1[:30], "y": group1[:30] + np.random.randn(30) * 0.5})
+    corr = df["x"].corr(df["y"])
     assert -1 <= corr <= 1
     assert corr > 0.5  # Should be positively correlated
 
     # Act & Assert: Chi-square test
     observed = np.array([[10, 10, 20], [20, 20, 10]])
     chi2, p, dof, expected = stats.chi2_contingency(observed)
-    assert isinstance(chi2, (float, np.floating))
+    assert isinstance(chi2, float | np.floating)
     assert 0 <= p <= 1
 
     # Test DataAnalyzer wrapper method
-    df_test = pd.DataFrame({
-        'group': ['A'] * 50 + ['B'] * 50,
-        'value': np.concatenate([group1, group2])
-    })
-    result = DataAnalyzer.ttest_comparison(df_test, 'group', 'value', ('A', 'B'))
-    assert 'p_value' in result
-    assert result['p_value'] < 0.05
+    df_test = pd.DataFrame(
+        {"group": ["A"] * 50 + ["B"] * 50, "value": np.concatenate([group1, group2])}
+    )
+    result = DataAnalyzer.ttest_comparison(df_test, "group", "value", ("A", "B"))
+    assert "p_value" in result
+    assert result["p_value"] < 0.05
 
 
 @pytest.mark.requirement("REQ-DAA-CAP-004")
@@ -135,7 +134,7 @@ def test_req_daa_cap_004_regression_analysis():
     regression analysis (linear, logistic, multivariate).
     """
     from sklearn.linear_model import LinearRegression, LogisticRegression
-    from sklearn.metrics import r2_score, accuracy_score
+    from sklearn.metrics import accuracy_score, r2_score
 
     # Arrange: Linear regression data
     np.random.seed(42)
@@ -168,8 +167,14 @@ def test_req_daa_cap_004_regression_analysis():
 
     # Arrange: Multivariate regression
     X_multi = np.random.randn(100, 5)
-    y_multi = (2 * X_multi[:, 0] + 3 * X_multi[:, 1] - X_multi[:, 2] +
-               1.5 * X_multi[:, 3] + 0.5 * X_multi[:, 4] + np.random.randn(100) * 0.5)
+    y_multi = (
+        2 * X_multi[:, 0]
+        + 3 * X_multi[:, 1]
+        - X_multi[:, 2]
+        + 1.5 * X_multi[:, 3]
+        + 0.5 * X_multi[:, 4]
+        + np.random.randn(100) * 0.5
+    )
 
     # Act: Multivariate regression
     mlr = LinearRegression()
@@ -192,12 +197,13 @@ def test_req_daa_cap_005_advanced_analyses():
 
     Test: SHAP feature importance
     """
-    from sklearn.ensemble import RandomForestClassifier
     from sklearn.datasets import make_classification
+    from sklearn.ensemble import RandomForestClassifier
 
     # Arrange
-    X, y = make_classification(n_samples=100, n_features=10, n_informative=5,
-                               n_redundant=2, random_state=42)
+    X, y = make_classification(
+        n_samples=100, n_features=10, n_informative=5, n_redundant=2, random_state=42
+    )
     model = RandomForestClassifier(n_estimators=50, random_state=42)
     model.fit(X, y)
 
@@ -256,27 +262,29 @@ def test_req_daa_cap_006_publication_visualizations():
 
     # Arrange
     np.random.seed(42)
-    df = pd.DataFrame({
-        'x': np.random.randn(100),
-        'y': np.random.randn(100),
-        'group': np.random.choice(['A', 'B', 'C'], 100),
-        'value': np.random.randn(100)
-    })
+    df = pd.DataFrame(
+        {
+            "x": np.random.randn(100),
+            "y": np.random.randn(100),
+            "group": np.random.choice(["A", "B", "C"], 100),
+            "value": np.random.randn(100),
+        }
+    )
 
     # Act & Assert: Scatter plot
     fig, ax = plt.subplots()
-    ax.scatter(df['x'], df['y'])
+    ax.scatter(df["x"], df["y"])
     assert len(ax.collections) > 0  # Check that scatter plot was created
     plt.close()
 
     # Act & Assert: Box plot
     fig, ax = plt.subplots()
-    df.boxplot(column='value', by='group', ax=ax)
+    df.boxplot(column="value", by="group", ax=ax)
     assert len(ax.patches) > 0 or len(ax.lines) > 0  # Check boxes were drawn
     plt.close()
 
     # Act & Assert: Heatmap
-    corr_matrix = df[['x', 'y', 'value']].corr()
+    corr_matrix = df[["x", "y", "value"]].corr()
     fig, ax = plt.subplots()
     sns.heatmap(corr_matrix, annot=True, ax=ax)
     assert len(ax.collections) > 0  # Check heatmap was created
@@ -284,15 +292,15 @@ def test_req_daa_cap_006_publication_visualizations():
 
     # Act & Assert: Distribution plot
     fig, ax = plt.subplots()
-    ax.hist(df['value'], bins=20)
+    ax.hist(df["value"], bins=20)
     assert len(ax.patches) == 20  # Check histogram bins
     plt.close()
 
     # Verify plots can be saved
     fig, ax = plt.subplots()
-    ax.scatter(df['x'], df['y'])
+    ax.scatter(df["x"], df["y"])
     assert fig is not None
-    plt.close('all')
+    plt.close("all")
 
 
 @pytest.mark.requirement("REQ-DAA-CAP-007")
@@ -321,7 +329,7 @@ def test_req_daa_cap_007_statistical_validity():
     # Act: Calculate confidence interval
     mean = np.mean(sample1)
     sem = stats.sem(sample1)
-    ci = stats.t.interval(0.95, len(sample1)-1, loc=mean, scale=sem)
+    ci = stats.t.interval(0.95, len(sample1) - 1, loc=mean, scale=sem)
 
     # Assert: Confidence interval validation
     assert len(ci) == 2, "CI must have lower and upper bounds"
@@ -330,9 +338,13 @@ def test_req_daa_cap_007_statistical_validity():
     assert ci[0] < ci[1], "Lower bound must be less than upper bound"
 
     # Test effect size calculation (Cohen's d)
-    pooled_std = np.sqrt(((len(sample1)-1) * np.var(sample1, ddof=1) +
-                          (len(sample2)-1) * np.var(sample2, ddof=1)) /
-                         (len(sample1) + len(sample2) - 2))
+    pooled_std = np.sqrt(
+        (
+            (len(sample1) - 1) * np.var(sample1, ddof=1)
+            + (len(sample2) - 1) * np.var(sample2, ddof=1)
+        )
+        / (len(sample1) + len(sample2) - 2)
+    )
     cohens_d = (np.mean(sample2) - np.mean(sample1)) / pooled_std
 
     # Assert: Effect size is reasonable
@@ -358,13 +370,10 @@ def test_req_daa_cap_008_pathway_enrichment():
     import gseapy as gp
 
     # Arrange: Mock gene list (would be real genes in production)
-    gene_list = ['TP53', 'BRCA1', 'EGFR', 'KRAS', 'MYC',
-                 'PIK3CA', 'PTEN', 'RB1', 'VEGFA', 'ERBB2']
-
     # Act: Verify gseapy is available and can be called
     # In real usage, this would call gp.enrichr() with actual database
-    assert hasattr(gp, 'enrichr'), "gseapy must have enrichr function"
-    assert hasattr(gp, 'gsea'), "gseapy must have gsea function"
+    assert hasattr(gp, "enrichr"), "gseapy must have enrichr function"
+    assert hasattr(gp, "gsea"), "gseapy must have gsea function"
 
     # Test that the basic structure is available
     # Full integration test would require network access and databases
@@ -373,7 +382,7 @@ def test_req_daa_cap_008_pathway_enrichment():
 
     # Verify key databases are recognized
     libraries = gp.get_library_name()
-    assert 'KEGG_2021_Human' in libraries or 'GO_Biological_Process_2021' in libraries
+    assert "KEGG_2021_Human" in libraries or "GO_Biological_Process_2021" in libraries
 
 
 @pytest.mark.requirement("REQ-DAA-CAP-009")
@@ -388,25 +397,30 @@ def test_req_daa_cap_009_novel_metrics():
     """
     # Arrange: Create dataset for custom metric
     np.random.seed(42)
-    df = pd.DataFrame({
-        'feature1': np.random.randn(100),
-        'feature2': np.random.randn(100),
-        'feature3': np.random.exponential(1, 100),
-        'target': np.random.choice([0, 1], 100)
-    })
+    df = pd.DataFrame(
+        {
+            "feature1": np.random.randn(100),
+            "feature2": np.random.randn(100),
+            "feature3": np.random.exponential(1, 100),
+            "target": np.random.choice([0, 1], 100),
+        }
+    )
 
     # Act: Define novel composite metric (e.g., Mechanistic Ranking Score)
     # This mimics the paper's Discovery 5 metric
-    weights = {'feature1': 0.4, 'feature2': 0.3, 'feature3': 0.3}
+    weights = {"feature1": 0.4, "feature2": 0.3, "feature3": 0.3}
 
     # Normalize features first
-    df_norm = (df[['feature1', 'feature2', 'feature3']] -
-               df[['feature1', 'feature2', 'feature3']].mean()) / df[['feature1', 'feature2', 'feature3']].std()
+    df_norm = (
+        df[["feature1", "feature2", "feature3"]] - df[["feature1", "feature2", "feature3"]].mean()
+    ) / df[["feature1", "feature2", "feature3"]].std()
 
     # Compute composite score
-    composite_score = (weights['feature1'] * df_norm['feature1'] +
-                       weights['feature2'] * df_norm['feature2'] +
-                       weights['feature3'] * df_norm['feature3'])
+    composite_score = (
+        weights["feature1"] * df_norm["feature1"]
+        + weights["feature2"] * df_norm["feature2"]
+        + weights["feature3"] * df_norm["feature3"]
+    )
 
     # Assert: Composite metric is valid
     assert len(composite_score) == 100
@@ -419,7 +433,7 @@ def test_req_daa_cap_009_novel_metrics():
     # Sort by composite score
     sorted_idx = composite_score.argsort()
     sorted_composite = composite_score.iloc[sorted_idx].values
-    sorted_target = df['target'].iloc[sorted_idx].values
+    sorted_target = df["target"].iloc[sorted_idx].values
 
     # Fit different models to different segments
     mid_point = len(sorted_composite) // 2

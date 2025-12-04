@@ -10,14 +10,11 @@ Based on patterns from docs/integration-plan.md.
 """
 
 import ast
-from typing import Dict, List, Optional, Any, Callable
 import logging
-from pathlib import Path
 
-from kosmos.models.experiment import ExperimentProtocol, ProtocolStep, ExperimentType
-from kosmos.models.hypothesis import Hypothesis
 from kosmos.core.llm import ClaudeClient
-from kosmos.core.prompts import EXPERIMENT_DESIGNER
+from kosmos.models.experiment import ExperimentProtocol, ExperimentType
+
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +57,10 @@ class TTestComparisonCodeTemplate(CodeTemplate):
 
         # Check for t-test in statistical tests
         for test in protocol.statistical_tests:
-            test_type_str = test.test_type.value if hasattr(test.test_type, 'value') else str(test.test_type)
-            if 't_test' in test_type_str.lower() or 't-test' in test_type_str.lower():
+            test_type_str = (
+                test.test_type.value if hasattr(test.test_type, "value") else str(test.test_type)
+            )
+            if "t_test" in test_type_str.lower() or "t-test" in test_type_str.lower():
                 return True
 
         return False
@@ -69,17 +68,17 @@ class TTestComparisonCodeTemplate(CodeTemplate):
     def generate(self, protocol: ExperimentProtocol) -> str:
         """Generate t-test comparison code."""
         # Extract variable information
-        indep_vars = [v for v in protocol.variables.values() if v.type.value == 'independent']
-        dep_vars = [v for v in protocol.variables.values() if v.type.value == 'dependent']
+        indep_vars = [v for v in protocol.variables.values() if v.type.value == "independent"]
+        dep_vars = [v for v in protocol.variables.values() if v.type.value == "dependent"]
 
-        group_var = indep_vars[0].name if indep_vars else 'group'
-        measure_var = dep_vars[0].name if dep_vars else 'measurement'
+        group_var = indep_vars[0].name if indep_vars else "group"
+        measure_var = dep_vars[0].name if dep_vars else "measurement"
 
         # Get groups from control groups
         groups = []
         if protocol.control_groups:
             groups.append(protocol.control_groups[0].name)
-        groups.append('experimental')  # Default experimental group
+        groups.append("experimental")  # Default experimental group
 
         code_lines = [
             "# T-Test Comparison Analysis",
@@ -99,7 +98,7 @@ class TTestComparisonCodeTemplate(CodeTemplate):
             "",
             "# Perform t-test comparison",
             "analyzer = DataAnalyzer()",
-            f"result = analyzer.ttest_comparison(",
+            "result = analyzer.ttest_comparison(",
             f"    df, '{group_var}', '{measure_var}',",
             f"    groups=('{groups[1]}', '{groups[0]}'),",
             f"    log_transform={'True' if any('log' in str(s.action).lower() for s in protocol.steps) else 'False'}",
@@ -112,7 +111,7 @@ class TTestComparisonCodeTemplate(CodeTemplate):
             "print(f\"Mean difference: {{result['mean_difference']:.4f}}\")",
             "",
             "# Return results for collection",
-            "results = result"
+            "results = result",
         ]
 
         return "\n".join(code_lines)
@@ -133,25 +132,29 @@ class CorrelationAnalysisCodeTemplate(CodeTemplate):
 
         # Check for correlation in statistical tests or protocol name
         for test in protocol.statistical_tests:
-            test_type_str = test.test_type.value if hasattr(test.test_type, 'value') else str(test.test_type)
-            if 'correlation' in test_type_str.lower() or 'regression' in test_type_str.lower():
+            test_type_str = (
+                test.test_type.value if hasattr(test.test_type, "value") else str(test.test_type)
+            )
+            if "correlation" in test_type_str.lower() or "regression" in test_type_str.lower():
                 return True
 
-        return 'correlation' in protocol.name.lower()
+        return "correlation" in protocol.name.lower()
 
     def generate(self, protocol: ExperimentProtocol) -> str:
         """Generate correlation analysis code."""
         # Get variables
         vars_list = list(protocol.variables.keys())
-        x_var = vars_list[0] if len(vars_list) > 0 else 'x'
-        y_var = vars_list[1] if len(vars_list) > 1 else 'y'
+        x_var = vars_list[0] if len(vars_list) > 0 else "x"
+        y_var = vars_list[1] if len(vars_list) > 1 else "y"
 
         # Determine correlation method
-        method = 'pearson'
+        method = "pearson"
         for test in protocol.statistical_tests:
-            test_type_str = test.test_type.value if hasattr(test.test_type, 'value') else str(test.test_type)
-            if 'spearman' in test_type_str.lower():
-                method = 'spearman'
+            test_type_str = (
+                test.test_type.value if hasattr(test.test_type, "value") else str(test.test_type)
+            )
+            if "spearman" in test_type_str.lower():
+                method = "spearman"
                 break
 
         code_lines = [
@@ -172,7 +175,7 @@ class CorrelationAnalysisCodeTemplate(CodeTemplate):
             "",
             "# Perform correlation analysis",
             "analyzer = DataAnalyzer()",
-            f"result = analyzer.correlation_analysis(",
+            "result = analyzer.correlation_analysis(",
             f"    df, '{x_var}', '{y_var}',",
             f"    method='{method}'",
             ")",
@@ -185,7 +188,7 @@ class CorrelationAnalysisCodeTemplate(CodeTemplate):
             "print(f\"Regression equation: {{result['equation']}}\")",
             "",
             "# Return results",
-            "results = result"
+            "results = result",
         ]
 
         return "\n".join(code_lines)
@@ -202,7 +205,7 @@ class LogLogScalingCodeTemplate(CodeTemplate):
     def matches(self, protocol: ExperimentProtocol) -> bool:
         """Check if protocol needs log-log scaling analysis."""
         # Check for keywords in name or description
-        keywords = ['scaling', 'power law', 'log-log', 'power-law']
+        keywords = ["scaling", "power law", "log-log", "power-law"]
 
         text = f"{protocol.name} {protocol.description}".lower()
 
@@ -211,8 +214,8 @@ class LogLogScalingCodeTemplate(CodeTemplate):
     def generate(self, protocol: ExperimentProtocol) -> str:
         """Generate log-log scaling analysis code."""
         vars_list = list(protocol.variables.keys())
-        x_var = vars_list[0] if len(vars_list) > 0 else 'x'
-        y_var = vars_list[1] if len(vars_list) > 1 else 'y'
+        x_var = vars_list[0] if len(vars_list) > 0 else "x"
+        y_var = vars_list[1] if len(vars_list) > 1 else "y"
 
         code_lines = [
             "# Log-Log Scaling Analysis",
@@ -242,7 +245,7 @@ class LogLogScalingCodeTemplate(CodeTemplate):
             "print(f\"R-squared: {{result['r_squared']:.4f}}\")",
             "",
             "# Return results",
-            "results = result"
+            "results = result",
         ]
 
         return "\n".join(code_lines)
@@ -256,7 +259,7 @@ class MLExperimentCodeTemplate(CodeTemplate):
 
     def matches(self, protocol: ExperimentProtocol) -> bool:
         """Check if protocol is ML experiment."""
-        keywords = ['machine learning', 'classification', 'regression', 'cross-validation', 'model']
+        keywords = ["machine learning", "classification", "regression", "cross-validation", "model"]
 
         text = f"{protocol.name} {protocol.description}".lower()
 
@@ -301,7 +304,7 @@ class MLExperimentCodeTemplate(CodeTemplate):
             "print(f\"F1 Score: {{results['train_test_results']['f1_score']:.4f}}\")",
             "",
             "# Return results",
-            "results = results"
+            "results = results",
         ]
 
         return "\n".join(code_lines)
@@ -322,7 +325,7 @@ class ExperimentCodeGenerator:
         use_templates: bool = True,
         use_llm: bool = True,
         llm_enhance_templates: bool = False,
-        llm_client: Optional[ClaudeClient] = None
+        llm_client: ClaudeClient | None = None,
     ):
         """
         Initialize code generator.
@@ -342,14 +345,16 @@ class ExperimentCodeGenerator:
             try:
                 self.llm_client = ClaudeClient()
             except (ValueError, Exception) as e:
-                logger.warning(f"Failed to initialize ClaudeClient: {e}. LLM generation will be disabled.")
+                logger.warning(
+                    f"Failed to initialize ClaudeClient: {e}. LLM generation will be disabled."
+                )
                 self.llm_client = None
                 self.use_llm = False
         else:
             self.llm_client = llm_client if use_llm else None
 
         # Initialize templates
-        self.templates: List[CodeTemplate] = []
+        self.templates: list[CodeTemplate] = []
         if use_templates:
             self._register_templates()
 
@@ -359,7 +364,7 @@ class ExperimentCodeGenerator:
             TTestComparisonCodeTemplate(),
             CorrelationAnalysisCodeTemplate(),
             LogLogScalingCodeTemplate(),
-            MLExperimentCodeTemplate()
+            MLExperimentCodeTemplate(),
         ]
 
         logger.info(f"Registered {len(self.templates)} code templates")
@@ -402,7 +407,7 @@ class ExperimentCodeGenerator:
 
         return code
 
-    def _match_template(self, protocol: ExperimentProtocol) -> Optional[CodeTemplate]:
+    def _match_template(self, protocol: ExperimentProtocol) -> CodeTemplate | None:
         """Find best matching template for protocol."""
         for template in self.templates:
             if template.matches(protocol):
@@ -427,20 +432,20 @@ class ExperimentCodeGenerator:
 
     def _create_code_generation_prompt(self, protocol: ExperimentProtocol) -> str:
         """Create prompt for LLM code generation."""
-        steps_text = "\n".join([
-            f"{i+1}. {step.title}: {step.action}"
-            for i, step in enumerate(protocol.steps)
-        ])
+        steps_text = "\n".join(
+            [f"{i+1}. {step.title}: {step.action}" for i, step in enumerate(protocol.steps)]
+        )
 
-        variables_text = "\n".join([
-            f"- {name} ({var.type.value}): {var.description}"
-            for name, var in protocol.variables.items()
-        ])
+        variables_text = "\n".join(
+            [
+                f"- {name} ({var.type.value}): {var.description}"
+                for name, var in protocol.variables.items()
+            ]
+        )
 
-        tests_text = "\n".join([
-            f"- {test.test_type}: {test.description}"
-            for test in protocol.statistical_tests
-        ])
+        tests_text = "\n".join(
+            [f"- {test.test_type}: {test.description}" for test in protocol.statistical_tests]
+        )
 
         prompt = f"""Generate executable Python code for this experiment:
 
@@ -533,14 +538,14 @@ Return the enhanced Python code only."""
             "# Process data",
             "df = df.dropna()",
             "",
-            "print(f\"Loaded {len(df)} samples\")",
-            "print(f\"Columns: {list(df.columns)}\")",
+            'print(f"Loaded {len(df)} samples")',
+            'print(f"Columns: {list(df.columns)}")',
             "",
             "# Basic statistics",
             "print(df.describe())",
             "",
             "# Return data",
-            "results = {'data': df.to_dict(), 'shape': df.shape}"
+            "results = {'data': df.to_dict(), 'shape': df.shape}",
         ]
 
         return "\n".join(code_lines)
@@ -553,10 +558,10 @@ Return the enhanced Python code only."""
             logger.info("Code syntax validation passed")
         except SyntaxError as e:
             logger.error(f"Generated code has syntax error: {e}")
-            raise ValueError(f"Invalid Python syntax in generated code: {e}")
+            raise ValueError(f"Invalid Python syntax in generated code: {e}") from e
 
     def save_code(self, code: str, file_path: str) -> None:
         """Save generated code to file."""
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             f.write(code)
         logger.info(f"Saved generated code to {file_path}")

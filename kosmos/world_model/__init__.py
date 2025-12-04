@@ -125,23 +125,14 @@ HISTORY:
 - Phase 4 (Week 14-19): Production Mode (polyglot architecture)
 """
 
-from kosmos.world_model.interface import (
-    EntityManager,
-    ProvenanceTracker,
-    WorldModelStorage,
-)
-from kosmos.world_model.models import (
-    EXPORT_FORMAT_VERSION,
-    Annotation,
-    Entity,
-    Relationship,
-)
+# Artifact State Manager (Gap 1)
+from kosmos.world_model.artifacts import ArtifactStateManager, Finding, Hypothesis
 
 # Factory (Day 5 - COMPLETE)
 from kosmos.world_model.factory import get_world_model, reset_world_model
+from kosmos.world_model.interface import EntityManager, ProvenanceTracker, WorldModelStorage
+from kosmos.world_model.models import EXPORT_FORMAT_VERSION, Annotation, Entity, Relationship
 
-# Artifact State Manager (Gap 1)
-from kosmos.world_model.artifacts import ArtifactStateManager, Finding, Hypothesis
 
 __all__ = [
     # Interfaces

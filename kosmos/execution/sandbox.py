@@ -5,17 +5,17 @@ Provides Docker-based isolated execution with resource limits, security constrai
 and monitoring capabilities for running generated experiment code safely.
 """
 
-import docker
-import os
-import tempfile
-import shutil
-import time
-import logging
-import threading
-from pathlib import Path
-from typing import Dict, Any, Optional, List
-from datetime import datetime
 import json
+import logging
+import shutil
+import tempfile
+import threading
+import time
+from pathlib import Path
+from typing import Any
+
+import docker
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +29,12 @@ class SandboxExecutionResult:
         return_value: Any = None,
         stdout: str = "",
         stderr: str = "",
-        error: Optional[str] = None,
-        error_type: Optional[str] = None,
+        error: str | None = None,
+        error_type: str | None = None,
         execution_time: float = 0.0,
-        exit_code: Optional[int] = None,
+        exit_code: int | None = None,
         timeout_occurred: bool = False,
-        resource_stats: Optional[Dict[str, Any]] = None
+        resource_stats: dict[str, Any] | None = None,
     ):
         self.success = success
         self.return_value = return_value
@@ -47,19 +47,19 @@ class SandboxExecutionResult:
         self.timeout_occurred = timeout_occurred
         self.resource_stats = resource_stats or {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'success': self.success,
-            'return_value': self.return_value,
-            'stdout': self.stdout,
-            'stderr': self.stderr,
-            'error': self.error,
-            'error_type': self.error_type,
-            'execution_time': self.execution_time,
-            'exit_code': self.exit_code,
-            'timeout_occurred': self.timeout_occurred,
-            'resource_stats': self.resource_stats
+            "success": self.success,
+            "return_value": self.return_value,
+            "stdout": self.stdout,
+            "stderr": self.stderr,
+            "error": self.error,
+            "error_type": self.error_type,
+            "execution_time": self.execution_time,
+            "exit_code": self.exit_code,
+            "timeout_occurred": self.timeout_occurred,
+            "resource_stats": self.resource_stats,
         }
 
 
@@ -91,7 +91,7 @@ class DockerSandbox:
         timeout: int = DEFAULT_TIMEOUT,
         network_disabled: bool = True,
         read_only: bool = True,
-        enable_monitoring: bool = True
+        enable_monitoring: bool = True,
     ):
         """
         Initialize Docker sandbox.
@@ -119,7 +119,7 @@ class DockerSandbox:
             logger.info("Docker client initialized successfully")
         except docker.errors.DockerException as e:
             logger.error(f"Failed to initialize Docker client: {e}")
-            raise RuntimeError(f"Docker not available: {e}")
+            raise RuntimeError(f"Docker not available: {e}") from e
 
         # Verify image exists
         self._verify_image()
@@ -144,27 +144,24 @@ class DockerSandbox:
 
         try:
             image, build_logs = self.client.images.build(
-                path=str(dockerfile_path),
-                tag=self.image,
-                rm=True,
-                pull=True
+                path=str(dockerfile_path), tag=self.image, rm=True, pull=True
             )
 
             for log in build_logs:
-                if 'stream' in log:
-                    logger.debug(log['stream'].strip())
+                if "stream" in log:
+                    logger.debug(log["stream"].strip())
 
             logger.info(f"Successfully built image '{self.image}'")
 
         except docker.errors.BuildError as e:
             logger.error(f"Failed to build Docker image: {e}")
-            raise RuntimeError(f"Docker build failed: {e}")
+            raise RuntimeError(f"Docker build failed: {e}") from e
 
     def execute(
         self,
         code: str,
-        data_files: Optional[Dict[str, str]] = None,
-        environment: Optional[Dict[str, str]] = None
+        data_files: dict[str, str] | None = None,
+        environment: dict[str, str] | None = None,
     ) -> SandboxExecutionResult:
         """
         Execute code in sandboxed Docker container.
@@ -200,10 +197,7 @@ class DockerSandbox:
             output_dir.mkdir(exist_ok=True)
 
             # Execute in container
-            result = self._run_container(
-                temp_dir=temp_dir,
-                environment=environment or {}
-            )
+            result = self._run_container(temp_dir=temp_dir, environment=environment or {})
 
             return result
 
@@ -214,11 +208,7 @@ class DockerSandbox:
             except Exception as e:
                 logger.warning(f"Failed to cleanup temp directory {temp_dir}: {e}")
 
-    def _run_container(
-        self,
-        temp_dir: str,
-        environment: Dict[str, str]
-    ) -> SandboxExecutionResult:
+    def _run_container(self, temp_dir: str, environment: dict[str, str]) -> SandboxExecutionResult:
         """Run code in Docker container with resource limits and monitoring."""
 
         # Prepare volume mounts
@@ -228,47 +218,44 @@ class DockerSandbox:
         def docker_path(path):
             """Convert path for Docker volume mounting on Windows."""
             path_str = str(path)
-            if platform.system() == 'Windows':
+            if platform.system() == "Windows":
                 # Convert Windows paths like C:\path to /c/path for Docker
                 import re
-                path_str = re.sub(r'^([A-Za-z]):', r'/\1', path_str.replace('\\', '/'))
+
+                path_str = re.sub(r"^([A-Za-z]):", r"/\1", path_str.replace("\\", "/"))
             return path_str
 
         code_dir = Path(temp_dir) / "code"
         output_dir = Path(temp_dir) / "output"
 
         volumes = {
-            docker_path(code_dir): {'bind': '/workspace/code', 'mode': 'ro'},
-            docker_path(output_dir): {'bind': '/workspace/output', 'mode': 'rw'}
+            docker_path(code_dir): {"bind": "/workspace/code", "mode": "ro"},
+            docker_path(output_dir): {"bind": "/workspace/output", "mode": "rw"},
         }
 
         # Add data volume if exists
         data_dir = Path(temp_dir) / "data"
         if data_dir.exists():
-            volumes[docker_path(data_dir)] = {'bind': '/workspace/data', 'mode': 'ro'}
+            volumes[docker_path(data_dir)] = {"bind": "/workspace/data", "mode": "ro"}
 
         # Prepare environment variables
-        env = {
-            'PYTHONUNBUFFERED': '1',
-            'MPLBACKEND': 'Agg',
-            **environment
-        }
+        env = {"PYTHONUNBUFFERED": "1", "MPLBACKEND": "Agg", **environment}
 
         # Container configuration
         # Note: 'remove' is not valid for containers.create(), only for containers.run()
         container_config = {
-            'image': self.image,
-            'command': ['python3', '/workspace/code/experiment.py'],
-            'volumes': volumes,
-            'environment': env,
-            'detach': True,
-            'mem_limit': self.memory_limit,
-            'nano_cpus': int(self.cpu_limit * 1e9),  # Convert to nano CPUs
-            'network_disabled': self.network_disabled,
-            'read_only': self.read_only,
-            'tmpfs': {'/tmp': 'rw,noexec,nosuid,size=100m'},
-            'security_opt': ['no-new-privileges'],
-            'working_dir': '/workspace'
+            "image": self.image,
+            "command": ["python3", "/workspace/code/experiment.py"],
+            "volumes": volumes,
+            "environment": env,
+            "detach": True,
+            "mem_limit": self.memory_limit,
+            "nano_cpus": int(self.cpu_limit * 1e9),  # Convert to nano CPUs
+            "network_disabled": self.network_disabled,
+            "read_only": self.read_only,
+            "tmpfs": {"/tmp": "rw,noexec,nosuid,size=100m"},
+            "security_opt": ["no-new-privileges"],
+            "working_dir": "/workspace",
         }
 
         container = None
@@ -284,9 +271,7 @@ class DockerSandbox:
             monitor_thread = None
             if self.enable_monitoring:
                 monitor_thread = threading.Thread(
-                    target=self._monitor_container,
-                    args=(container, resource_stats),
-                    daemon=True
+                    target=self._monitor_container, args=(container, resource_stats), daemon=True
                 )
                 monitor_thread.start()
 
@@ -307,10 +292,10 @@ class DockerSandbox:
                     # Try graceful shutdown
                     try:
                         container.stop(timeout=5)
-                    except:
+                    except Exception:
                         container.kill()
 
-                    exit_status = {'StatusCode': -1}
+                    exit_status = {"StatusCode": -1}
                 else:
                     logger.error(f"Docker API error: {e}")
                     raise
@@ -322,11 +307,11 @@ class DockerSandbox:
             execution_time = time.time() - start_time
 
             # Get logs
-            stdout = container.logs(stdout=True, stderr=False).decode('utf-8', errors='replace')
-            stderr = container.logs(stdout=False, stderr=True).decode('utf-8', errors='replace')
+            stdout = container.logs(stdout=True, stderr=False).decode("utf-8", errors="replace")
+            stderr = container.logs(stdout=False, stderr=True).decode("utf-8", errors="replace")
 
             # Parse exit code
-            exit_code = exit_status.get('StatusCode', -1)
+            exit_code = exit_status.get("StatusCode", -1)
             success = (exit_code == 0) and not timeout_occurred
 
             # Extract return value from output if execution was successful
@@ -355,7 +340,7 @@ class DockerSandbox:
                 execution_time=execution_time,
                 exit_code=exit_code,
                 timeout_occurred=timeout_occurred,
-                resource_stats=resource_stats
+                resource_stats=resource_stats,
             )
 
         except docker.errors.ContainerError as e:
@@ -369,7 +354,7 @@ class DockerSandbox:
                 error=str(e),
                 error_type="ContainerError",
                 execution_time=execution_time,
-                resource_stats=resource_stats
+                resource_stats=resource_stats,
             )
 
         except Exception as e:
@@ -381,7 +366,7 @@ class DockerSandbox:
                 error=str(e),
                 error_type=type(e).__name__,
                 execution_time=execution_time,
-                resource_stats=resource_stats
+                resource_stats=resource_stats,
             )
 
         finally:
@@ -393,37 +378,50 @@ class DockerSandbox:
                 except Exception as e:
                     logger.warning(f"Failed to remove container: {e}")
 
-    def _monitor_container(self, container, stats_dict: Dict[str, Any]):
+    def _monitor_container(self, container, stats_dict: dict[str, Any]):
         """Monitor container resource usage."""
         try:
             for stats in container.stats(stream=True, decode=True):
                 # Extract CPU usage
-                cpu_delta = stats['cpu_stats']['cpu_usage']['total_usage'] - \
-                           stats['precpu_stats']['cpu_usage']['total_usage']
-                system_delta = stats['cpu_stats']['system_cpu_usage'] - \
-                              stats['precpu_stats']['system_cpu_usage']
+                cpu_delta = (
+                    stats["cpu_stats"]["cpu_usage"]["total_usage"]
+                    - stats["precpu_stats"]["cpu_usage"]["total_usage"]
+                )
+                system_delta = (
+                    stats["cpu_stats"]["system_cpu_usage"]
+                    - stats["precpu_stats"]["system_cpu_usage"]
+                )
 
                 if system_delta > 0:
-                    cpu_percent = (cpu_delta / system_delta) * len(stats['cpu_stats']['cpu_usage']['percpu_usage']) * 100.0
+                    cpu_percent = (
+                        (cpu_delta / system_delta)
+                        * len(stats["cpu_stats"]["cpu_usage"]["percpu_usage"])
+                        * 100.0
+                    )
                 else:
                     cpu_percent = 0.0
 
                 # Extract memory usage
-                memory_usage = stats['memory_stats'].get('usage', 0)
-                memory_limit = stats['memory_stats'].get('limit', 1)
+                memory_usage = stats["memory_stats"].get("usage", 0)
+                memory_limit = stats["memory_stats"].get("limit", 1)
                 memory_percent = (memory_usage / memory_limit) * 100.0 if memory_limit > 0 else 0.0
 
                 # Update stats (keep max values)
-                if 'cpu_percent_max' not in stats_dict or cpu_percent > stats_dict['cpu_percent_max']:
-                    stats_dict['cpu_percent_max'] = cpu_percent
+                if (
+                    "cpu_percent_max" not in stats_dict
+                    or cpu_percent > stats_dict["cpu_percent_max"]
+                ):
+                    stats_dict["cpu_percent_max"] = cpu_percent
 
-                if 'memory_mb_max' not in stats_dict or memory_usage > stats_dict.get('memory_bytes_max', 0):
-                    stats_dict['memory_bytes_max'] = memory_usage
-                    stats_dict['memory_mb_max'] = memory_usage / (1024 * 1024)
-                    stats_dict['memory_percent_max'] = memory_percent
+                if "memory_mb_max" not in stats_dict or memory_usage > stats_dict.get(
+                    "memory_bytes_max", 0
+                ):
+                    stats_dict["memory_bytes_max"] = memory_usage
+                    stats_dict["memory_mb_max"] = memory_usage / (1024 * 1024)
+                    stats_dict["memory_percent_max"] = memory_percent
 
                 # Check if container stopped
-                if container.status != 'running':
+                if container.status != "running":
                     break
 
         except Exception as e:
@@ -433,8 +431,8 @@ class DockerSandbox:
     def _extract_return_value(stdout: str) -> Any:
         """Extract return value from stdout (look for JSON result marker)."""
         # Look for lines containing "RESULT:" marker
-        for line in stdout.split('\n'):
-            if line.startswith('RESULT:'):
+        for line in stdout.split("\n"):
+            if line.startswith("RESULT:"):
                 try:
                     result_str = line[7:].strip()  # Remove "RESULT:" prefix
                     return json.loads(result_str)
@@ -454,11 +452,11 @@ class DockerSandbox:
 
 def execute_in_sandbox(
     code: str,
-    data_files: Optional[Dict[str, str]] = None,
+    data_files: dict[str, str] | None = None,
     cpu_limit: float = DockerSandbox.DEFAULT_CPU_LIMIT,
     memory_limit: str = DockerSandbox.DEFAULT_MEMORY_LIMIT,
-    timeout: int = DockerSandbox.DEFAULT_TIMEOUT
-) -> Dict[str, Any]:
+    timeout: int = DockerSandbox.DEFAULT_TIMEOUT,
+) -> dict[str, Any]:
     """
     Convenience function to execute code in sandbox.
 
@@ -472,11 +470,7 @@ def execute_in_sandbox(
     Returns:
         Dictionary with execution results
     """
-    sandbox = DockerSandbox(
-        cpu_limit=cpu_limit,
-        memory_limit=memory_limit,
-        timeout=timeout
-    )
+    sandbox = DockerSandbox(cpu_limit=cpu_limit, memory_limit=memory_limit, timeout=timeout)
 
     try:
         result = sandbox.execute(code, data_files=data_files)

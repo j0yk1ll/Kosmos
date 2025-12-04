@@ -5,30 +5,32 @@ Manage knowledge graphs - view stats, export/import, reset.
 """
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.panel import Panel
-from rich.text import Text
 
 from kosmos.cli.utils import (
+    confirm_action,
     console,
-    print_success,
-    print_error,
-    print_info,
-    get_icon,
     create_table,
     format_size,
-    confirm_action,
+    get_icon,
+    print_error,
+    print_info,
+    print_success,
 )
 
 
 def manage_graph(
     stats: bool = typer.Option(False, "--stats", "-s", help="Show knowledge graph statistics"),
-    info: bool = typer.Option(False, "--info", "-i", help="Show knowledge graph statistics (alias for --stats)"),
-    export: Optional[str] = typer.Option(None, "--export", "-e", help="Export graph to JSON file"),
-    import_file: Optional[str] = typer.Option(None, "--import", help="Import graph from JSON file"),
-    clear: bool = typer.Option(False, "--clear", "-c", help="Clear graph before import (use with --import)"),
+    info: bool = typer.Option(
+        False, "--info", "-i", help="Show knowledge graph statistics (alias for --stats)"
+    ),
+    export: str | None = typer.Option(None, "--export", "-e", help="Export graph to JSON file"),
+    import_file: str | None = typer.Option(None, "--import", help="Import graph from JSON file"),
+    clear: bool = typer.Option(
+        False, "--clear", "-c", help="Clear graph before import (use with --import)"
+    ),
     reset: bool = typer.Option(False, "--reset", "-r", help="Clear all graph data (DANGEROUS)"),
 ):
     """
@@ -79,11 +81,11 @@ def manage_graph(
 
     except KeyboardInterrupt:
         console.print("\n[warning]Graph operation cancelled[/warning]")
-        raise typer.Exit(130)
+        raise typer.Exit(130) from None
 
     except Exception as e:
         print_error(f"Graph operation failed: {str(e)}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def display_graph_stats(wm):
@@ -110,7 +112,7 @@ def display_graph_stats(wm):
     console.print()
 
     # Entity types breakdown
-    entity_types = stats.get('entity_types', {})
+    entity_types = stats.get("entity_types", {})
     if entity_types:
         types_table = create_table(
             title="Entity Types",
@@ -125,7 +127,7 @@ def display_graph_stats(wm):
         console.print()
 
     # Relationship types breakdown
-    relationship_types = stats.get('relationship_types', {})
+    relationship_types = stats.get("relationship_types", {})
     if relationship_types:
         rel_table = create_table(
             title="Relationship Types",
@@ -140,8 +142,10 @@ def display_graph_stats(wm):
         console.print()
 
     # Additional info
-    if stats.get('entity_count', 0) == 0:
-        console.print("[muted]No entities in graph. Run research queries to build knowledge.[/muted]")
+    if stats.get("entity_count", 0) == 0:
+        console.print(
+            "[muted]No entities in graph. Run research queries to build knowledge.[/muted]"
+        )
         console.print()
 
 
@@ -154,16 +158,18 @@ def export_graph(wm, filepath: str):
     path = Path(filepath)
 
     # Create parent directory if needed
-    if path.parent != Path('.'):
+    if path.parent != Path("."):
         path.parent.mkdir(parents=True, exist_ok=True)
 
     # Get stats before export
     stats = wm.get_statistics()
-    entity_count = stats.get('entity_count', 0)
-    relationship_count = stats.get('relationship_count', 0)
+    entity_count = stats.get("entity_count", 0)
+    relationship_count = stats.get("relationship_count", 0)
 
     # Export
-    with console.status(f"[cyan]Exporting {entity_count:,} entities and {relationship_count:,} relationships...[/cyan]"):
+    with console.status(
+        f"[cyan]Exporting {entity_count:,} entities and {relationship_count:,} relationships...[/cyan]"
+    ):
         wm.export_graph(str(path))
 
     # Get file size
@@ -183,10 +189,7 @@ def export_graph(wm, filepath: str):
     console.print(success_panel)
     console.print()
 
-    print_info(
-        f"Use 'kosmos graph --import {filepath}' to restore this graph",
-        title="Next Steps"
-    )
+    print_info(f"Use 'kosmos graph --import {filepath}' to restore this graph", title="Next Steps")
 
 
 def import_graph(wm, filepath: str, clear: bool = False):
@@ -217,7 +220,7 @@ def import_graph(wm, filepath: str, clear: bool = False):
 
     # Get current stats
     current_stats = wm.get_statistics()
-    current_entities = current_stats.get('entity_count', 0)
+    current_entities = current_stats.get("entity_count", 0)
 
     # Import
     mode_str = "Clearing and importing" if clear else "Importing"
@@ -226,8 +229,8 @@ def import_graph(wm, filepath: str, clear: bool = False):
 
     # Get new stats
     new_stats = wm.get_statistics()
-    new_entities = new_stats.get('entity_count', 0)
-    new_relationships = new_stats.get('relationship_count', 0)
+    new_entities = new_stats.get("entity_count", 0)
+    new_relationships = new_stats.get("relationship_count", 0)
 
     # Calculate delta
     if clear:
@@ -260,8 +263,8 @@ def reset_graph(wm):
 
     # Get current stats
     stats = wm.get_statistics()
-    entity_count = stats.get('entity_count', 0)
-    relationship_count = stats.get('relationship_count', 0)
+    entity_count = stats.get("entity_count", 0)
+    relationship_count = stats.get("relationship_count", 0)
 
     if entity_count == 0:
         console.print("[muted]Graph is already empty.[/muted]")
@@ -269,7 +272,7 @@ def reset_graph(wm):
         return
 
     # Confirmation
-    console.print(f"[warning]This will DELETE:[/warning]")
+    console.print("[warning]This will DELETE:[/warning]")
     console.print(f"  • {entity_count:,} entities")
     console.print(f"  • {relationship_count:,} relationships")
     console.print()
@@ -281,9 +284,7 @@ def reset_graph(wm):
         return
 
     # Double confirmation for safety
-    if not confirm_action(
-        "⚠️  FINAL WARNING: Delete all graph data permanently?"
-    ):
+    if not confirm_action("⚠️  FINAL WARNING: Delete all graph data permanently?"):
         console.print("[warning]Reset cancelled[/warning]")
         return
 
@@ -294,14 +295,11 @@ def reset_graph(wm):
     # Success
     print_success(
         f"Deleted {entity_count:,} entities and {relationship_count:,} relationships",
-        title="Reset Complete"
+        title="Reset Complete",
     )
 
     console.print()
-    print_info(
-        "Graph is now empty. Run research queries to rebuild knowledge.",
-        title="Next Steps"
-    )
+    print_info("Graph is now empty. Run research queries to rebuild knowledge.", title="Next Steps")
 
 
 if __name__ == "__main__":

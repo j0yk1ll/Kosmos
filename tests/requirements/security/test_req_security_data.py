@@ -5,14 +5,15 @@ These tests validate sensitive data handling, encryption, anonymization,
 and compliance as specified in REQUIREMENTS.md Section 11.2.
 """
 
-import pytest
-import os
 import json
-import tempfile
 import logging
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+import os
 import re
+import tempfile
+from datetime import datetime, timedelta
+
+import pytest
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -36,11 +37,10 @@ def test_req_sec_data_001_no_api_keys_in_logs():
     - Credentials are not logged
     - Sensitive configuration is masked
     """
-    from kosmos.config import get_config
 
     # Arrange: Create logger and capture output
     logger = logging.getLogger("test_security")
-    handler = logging.StreamHandler()
+    logging.StreamHandler()
     log_capture = []
 
     class LogCapture(logging.Handler):
@@ -130,17 +130,17 @@ def test_req_sec_data_001_no_pii_in_outputs():
 
     # Arrange: Sample data with PII
     pii_patterns = {
-        'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-        'phone': r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b',
-        'ssn': r'\b\d{3}-\d{2}-\d{4}\b',
-        'credit_card': r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b',
+        "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
+        "phone": r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b",
+        "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
+        "credit_card": r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b",
     }
 
     test_data = {
-        'email': 'user@example.com',
-        'phone': '555-123-4567',
-        'ssn': '123-45-6789',
-        'credit_card': '4532-1234-5678-9010',
+        "email": "user@example.com",
+        "phone": "555-123-4567",
+        "ssn": "123-45-6789",
+        "credit_card": "4532-1234-5678-9010",
     }
 
     # Helper function to check for PII
@@ -158,8 +158,8 @@ def test_req_sec_data_001_no_pii_in_outputs():
     pii_found = contains_pii(test_output)
 
     # Assert: PII detection works
-    assert 'email' in pii_found, "Should detect email addresses"
-    assert 'phone' in pii_found, "Should detect phone numbers"
+    assert "email" in pii_found, "Should detect email addresses"
+    assert "phone" in pii_found, "Should detect phone numbers"
 
     # Note: Actual PII redaction should be implemented in output handlers
     # This test provides the detection mechanism
@@ -196,8 +196,9 @@ def test_req_sec_data_001_config_secrets_not_logged():
             )
 
         # If we get here, masking is working
-        assert "sk-ant-test-key" not in config_str, \
-            "API key should be masked in string representation"
+        assert (
+            "sk-ant-test-key" not in config_str
+        ), "API key should be masked in string representation"
 
     except Exception as e:
         # Config validation may fail with test key
@@ -217,18 +218,29 @@ def test_req_sec_data_002_data_anonymization():
     - Data can be processed after anonymization
     """
     import pandas as pd
-    import numpy as np
 
     # Arrange: Create dataset with PII
-    df = pd.DataFrame({
-        'patient_id': [1, 2, 3, 4, 5],
-        'name': ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Brown', 'Charlie Davis'],
-        'email': ['john@example.com', 'jane@example.com', 'bob@example.com',
-                 'alice@example.com', 'charlie@example.com'],
-        'age': [45, 32, 56, 28, 41],
-        'diagnosis': ['Type 2 Diabetes', 'Hypertension', 'Type 2 Diabetes',
-                     'Healthy', 'Hypertension']
-    })
+    df = pd.DataFrame(
+        {
+            "patient_id": [1, 2, 3, 4, 5],
+            "name": ["John Doe", "Jane Smith", "Bob Johnson", "Alice Brown", "Charlie Davis"],
+            "email": [
+                "john@example.com",
+                "jane@example.com",
+                "bob@example.com",
+                "alice@example.com",
+                "charlie@example.com",
+            ],
+            "age": [45, 32, 56, 28, 41],
+            "diagnosis": [
+                "Type 2 Diabetes",
+                "Hypertension",
+                "Type 2 Diabetes",
+                "Healthy",
+                "Hypertension",
+            ],
+        }
+    )
 
     # Act: Implement basic anonymization
     def anonymize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -238,43 +250,36 @@ def test_req_sec_data_002_data_anonymization():
         df_anon = df.copy()
 
         # Hash patient IDs
-        if 'patient_id' in df_anon.columns:
-            df_anon['patient_id'] = df_anon['patient_id'].apply(
-                lambda x: hash(str(x)) % 100000
-            )
+        if "patient_id" in df_anon.columns:
+            df_anon["patient_id"] = df_anon["patient_id"].apply(lambda x: hash(str(x)) % 100000)
 
         # Remove names
-        if 'name' in df_anon.columns:
-            df_anon = df_anon.drop('name', axis=1)
+        if "name" in df_anon.columns:
+            df_anon = df_anon.drop("name", axis=1)
 
         # Remove emails
-        if 'email' in df_anon.columns:
-            df_anon = df_anon.drop('email', axis=1)
+        if "email" in df_anon.columns:
+            df_anon = df_anon.drop("email", axis=1)
 
         return df_anon
 
     df_anonymized = anonymize_dataframe(df)
 
     # Assert: PII should be removed
-    assert 'name' not in df_anonymized.columns, \
-        "Names should be removed during anonymization"
+    assert "name" not in df_anonymized.columns, "Names should be removed during anonymization"
 
-    assert 'email' not in df_anonymized.columns, \
-        "Emails should be removed during anonymization"
+    assert "email" not in df_anonymized.columns, "Emails should be removed during anonymization"
 
     # Assert: Non-PII data should be preserved
-    assert 'age' in df_anonymized.columns, \
-        "Non-PII columns should be preserved"
+    assert "age" in df_anonymized.columns, "Non-PII columns should be preserved"
 
-    assert 'diagnosis' in df_anonymized.columns, \
-        "Clinical data should be preserved"
+    assert "diagnosis" in df_anonymized.columns, "Clinical data should be preserved"
 
     # Assert: Data should still be analyzable
-    assert len(df_anonymized) == len(df), \
-        "Should preserve number of records"
+    assert len(df_anonymized) == len(df), "Should preserve number of records"
 
     # Statistical analysis should still work
-    avg_age = df_anonymized['age'].mean()
+    avg_age = df_anonymized["age"].mean()
     assert 30 < avg_age < 50, "Should be able to compute statistics"
 
 
@@ -292,22 +297,33 @@ def test_req_sec_data_002_pii_detection():
     import pandas as pd
 
     # Arrange: Dataset with various column types
-    df = pd.DataFrame({
-        'id': [1, 2, 3],
-        'patient_name': ['Alice', 'Bob', 'Charlie'],
-        'social_security_number': ['123-45-6789', '987-65-4321', '555-55-5555'],
-        'email_address': ['alice@test.com', 'bob@test.com', 'charlie@test.com'],
-        'age': [25, 30, 35],
-        'measurement': [1.2, 3.4, 5.6]
-    })
+    df = pd.DataFrame(
+        {
+            "id": [1, 2, 3],
+            "patient_name": ["Alice", "Bob", "Charlie"],
+            "social_security_number": ["123-45-6789", "987-65-4321", "555-55-5555"],
+            "email_address": ["alice@test.com", "bob@test.com", "charlie@test.com"],
+            "age": [25, 30, 35],
+            "measurement": [1.2, 3.4, 5.6],
+        }
+    )
 
     # Act: Detect PII columns
     def detect_pii_columns(df: pd.DataFrame) -> list:
         """Detect columns that likely contain PII."""
         pii_keywords = [
-            'name', 'email', 'phone', 'address', 'ssn',
-            'social_security', 'credit_card', 'password',
-            'dob', 'birth', 'zip', 'postal'
+            "name",
+            "email",
+            "phone",
+            "address",
+            "ssn",
+            "social_security",
+            "credit_card",
+            "password",
+            "dob",
+            "birth",
+            "zip",
+            "postal",
         ]
 
         pii_columns = []
@@ -321,13 +337,13 @@ def test_req_sec_data_002_pii_detection():
     pii_cols = detect_pii_columns(df)
 
     # Assert: PII columns should be detected
-    assert 'patient_name' in pii_cols, "Should detect name column"
-    assert 'social_security_number' in pii_cols, "Should detect SSN column"
-    assert 'email_address' in pii_cols, "Should detect email column"
+    assert "patient_name" in pii_cols, "Should detect name column"
+    assert "social_security_number" in pii_cols, "Should detect SSN column"
+    assert "email_address" in pii_cols, "Should detect email column"
 
     # Assert: Non-PII columns should not be flagged
-    assert 'age' not in pii_cols, "Age should not be flagged as PII"
-    assert 'measurement' not in pii_cols, "Measurement should not be flagged"
+    assert "age" not in pii_cols, "Age should not be flagged as PII"
+    assert "measurement" not in pii_cols, "Measurement should not be flagged"
 
 
 @pytest.mark.requirement("REQ-SEC-DATA-003")
@@ -346,9 +362,9 @@ def test_req_sec_data_003_artifact_encryption():
 
     # Arrange: Create sensitive artifact
     sensitive_data = {
-        'experiment_id': 'exp_001',
-        'results': [1.2, 3.4, 5.6],
-        'patient_data': 'SENSITIVE INFORMATION'
+        "experiment_id": "exp_001",
+        "results": [1.2, 3.4, 5.6],
+        "patient_data": "SENSITIVE INFORMATION",
     }
 
     artifact_content = json.dumps(sensitive_data)
@@ -373,24 +389,25 @@ def test_req_sec_data_003_artifact_encryption():
     encrypted_artifact = encrypt_artifact(artifact_content, encryption_key)
 
     # Assert: Encrypted data should be different from original
-    assert encrypted_artifact != artifact_content.encode(), \
-        "Encrypted content should differ from original"
+    assert (
+        encrypted_artifact != artifact_content.encode()
+    ), "Encrypted content should differ from original"
 
     # Assert: Original content should not be readable
-    assert b'SENSITIVE INFORMATION' not in encrypted_artifact, \
-        "Sensitive data should not be readable in encrypted form"
+    assert (
+        b"SENSITIVE INFORMATION" not in encrypted_artifact
+    ), "Sensitive data should not be readable in encrypted form"
 
     # Act: Decrypt
     decrypted_content = decrypt_artifact(encrypted_artifact, encryption_key)
     decrypted_data = json.loads(decrypted_content)
 
     # Assert: Decrypted data should match original
-    assert decrypted_data == sensitive_data, \
-        "Decrypted data should match original"
+    assert decrypted_data == sensitive_data, "Decrypted data should match original"
 
     # Assert: Wrong key should fail
     wrong_key = Fernet.generate_key()
-    with pytest.raises(Exception):
+    with pytest.raises((ValueError, TypeError, Exception)):
         decrypt_artifact(encrypted_artifact, wrong_key)
 
 
@@ -408,15 +425,15 @@ def test_req_sec_data_003_secure_storage():
     import stat
 
     # Arrange: Create temporary sensitive file
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
         temp_path = f.name
-        sensitive_data = {'api_key': 'secret123', 'password': 'pass456'}
+        sensitive_data = {"api_key": "secret123", "password": "pass456"}
         json.dump(sensitive_data, f)
 
     try:
         # Act: Check file permissions
         file_stat = os.stat(temp_path)
-        file_mode = stat.filemode(file_stat.st_mode)
+        stat.filemode(file_stat.st_mode)
 
         # Assert: File should exist
         assert os.path.exists(temp_path), "Temporary file should exist"
@@ -426,10 +443,10 @@ def test_req_sec_data_003_secure_storage():
         # This documents the requirement for secure file creation
 
         # Act: Read content to verify it's there
-        with open(temp_path, 'r') as f:
+        with open(temp_path) as f:
             content = json.load(f)
 
-        assert content['api_key'] == 'secret123', "Content should be intact"
+        assert content["api_key"] == "secret123", "Content should be intact"
 
     finally:
         # Cleanup: Remove temporary file
@@ -437,8 +454,7 @@ def test_req_sec_data_003_secure_storage():
             os.remove(temp_path)
 
         # Assert: File should be deleted
-        assert not os.path.exists(temp_path), \
-            "Sensitive temporary files should be cleaned up"
+        assert not os.path.exists(temp_path), "Sensitive temporary files should be cleaned up"
 
 
 @pytest.mark.requirement("REQ-SEC-DATA-004")
@@ -487,20 +503,19 @@ def test_req_sec_data_004_gdpr_compliance_considerations():
     user_id = "user_12345"
 
     # Store data
-    store.store_user_data(user_id, {
-        'name': 'Test User',
-        'experiments': ['exp_1', 'exp_2'],
-        'created_at': '2024-01-01'
-    })
+    store.store_user_data(
+        user_id,
+        {"name": "Test User", "experiments": ["exp_1", "exp_2"], "created_at": "2024-01-01"},
+    )
 
     # Assert: Can retrieve data
     user_data = store.get_user_data(user_id)
-    assert user_data['name'] == 'Test User', "Should retrieve user data"
+    assert user_data["name"] == "Test User", "Should retrieve user data"
 
     # Assert: Can export data
     exported = store.export_user_data(user_id)
-    assert 'Test User' in exported, "Should export data in readable format"
-    assert 'exp_1' in exported, "Should include all user data"
+    assert "Test User" in exported, "Should export data in readable format"
+    assert "exp_1" in exported, "Should include all user data"
 
     # Assert: Can delete data
     deleted = store.delete_user_data(user_id)
@@ -522,7 +537,7 @@ def test_req_sec_data_004_data_retention_policy():
     - Expired data can be identified
     - Automated deletion is possible
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     # Arrange: Data with retention metadata
     class DataRecord:
@@ -542,28 +557,17 @@ def test_req_sec_data_004_data_retention_policy():
             return max(0, delta.days)
 
     # Act: Create records with different retention periods
-    short_retention = DataRecord(
-        data={'type': 'temporary', 'value': 123},
-        retention_days=7
-    )
+    short_retention = DataRecord(data={"type": "temporary", "value": 123}, retention_days=7)
 
-    long_retention = DataRecord(
-        data={'type': 'important', 'value': 456},
-        retention_days=365
-    )
+    long_retention = DataRecord(data={"type": "important", "value": 456}, retention_days=365)
 
     # Assert: Retention tracking works
-    assert short_retention.days_until_expiry() <= 7, \
-        "Short retention should be 7 days or less"
+    assert short_retention.days_until_expiry() <= 7, "Short retention should be 7 days or less"
 
-    assert long_retention.days_until_expiry() > 300, \
-        "Long retention should be close to 365 days"
+    assert long_retention.days_until_expiry() > 300, "Long retention should be close to 365 days"
 
     # Simulate expired record
-    expired_record = DataRecord(
-        data={'type': 'old', 'value': 789},
-        retention_days=0
-    )
+    expired_record = DataRecord(data={"type": "old", "value": 789}, retention_days=0)
     expired_record.created_at = datetime.now() - timedelta(days=1)
     expired_record.expires_at = datetime.now() - timedelta(days=1)
 
@@ -592,50 +596,50 @@ def test_req_sec_data_004_audit_trail():
         def log_access(self, user_id: str, resource: str, action: str):
             """Log data access event."""
             entry = {
-                'timestamp': datetime.now().isoformat(),
-                'user_id': user_id,
-                'resource': resource,
-                'action': action,
-                'event_type': 'access'
+                "timestamp": datetime.now().isoformat(),
+                "user_id": user_id,
+                "resource": resource,
+                "action": action,
+                "event_type": "access",
             }
             self.logs.append(entry)
 
         def log_modification(self, user_id: str, resource: str, changes: dict):
             """Log data modification event."""
             entry = {
-                'timestamp': datetime.now().isoformat(),
-                'user_id': user_id,
-                'resource': resource,
-                'action': 'modify',
-                'changes': changes,
-                'event_type': 'modification'
+                "timestamp": datetime.now().isoformat(),
+                "user_id": user_id,
+                "resource": resource,
+                "action": "modify",
+                "changes": changes,
+                "event_type": "modification",
             }
             self.logs.append(entry)
 
         def get_audit_trail(self, resource: str) -> list:
             """Get audit trail for a resource."""
-            return [log for log in self.logs if log['resource'] == resource]
+            return [log for log in self.logs if log["resource"] == resource]
 
     # Act: Perform audited operations
     audit = AuditLog()
 
-    audit.log_access('user_1', 'dataset_123', 'read')
-    audit.log_access('user_2', 'dataset_123', 'read')
-    audit.log_modification('user_1', 'dataset_123', {
-        'field': 'status',
-        'old_value': 'pending',
-        'new_value': 'processed'
-    })
+    audit.log_access("user_1", "dataset_123", "read")
+    audit.log_access("user_2", "dataset_123", "read")
+    audit.log_modification(
+        "user_1",
+        "dataset_123",
+        {"field": "status", "old_value": "pending", "new_value": "processed"},
+    )
 
     # Assert: Audit trail is created
-    trail = audit.get_audit_trail('dataset_123')
+    trail = audit.get_audit_trail("dataset_123")
     assert len(trail) == 3, "Should have 3 audit entries"
 
     # Assert: Audit entries are ordered and complete
-    assert trail[0]['action'] == 'read', "First action should be read"
-    assert trail[2]['event_type'] == 'modification', "Last action should be modification"
+    assert trail[0]["action"] == "read", "First action should be read"
+    assert trail[2]["event_type"] == "modification", "Last action should be modification"
 
     # Assert: Can track who accessed data
-    users_who_accessed = {log['user_id'] for log in trail}
-    assert 'user_1' in users_who_accessed, "Should track user 1"
-    assert 'user_2' in users_who_accessed, "Should track user 2"
+    users_who_accessed = {log["user_id"] for log in trail}
+    assert "user_1" in users_who_accessed, "Should track user 1"
+    assert "user_2" in users_who_accessed, "Should track user 2"

@@ -7,22 +7,22 @@ Tests:
 - ContextCompressor: compress_cycle_results, hierarchical compression
 """
 
-import json
+from unittest.mock import Mock
+
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
 
 from kosmos.compression.compressor import (
     CompressedContext,
-    NotebookCompressor,
+    ContextCompressor,
     LiteratureCompressor,
-    ContextCompressor
+    NotebookCompressor,
 )
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def sample_notebook_content():
@@ -96,25 +96,25 @@ def sample_papers():
     """Sample paper list for LiteratureCompressor."""
     return [
         {
-            'title': 'KRAS Mutations in Cancer',
-            'abstract': 'We studied KRAS mutations in 500 cancer patients. p < 0.001.',
-            'findings': 'KRAS G12D mutation associated with poor prognosis (HR=2.5, p<0.001).',
-            'authors': ['Smith, J.', 'Jones, M.'],
-            'year': 2023,
-            'journal': 'Nature Cancer',
-            'paper_id': 'paper_001',
-            'relevance_score': 0.95
+            "title": "KRAS Mutations in Cancer",
+            "abstract": "We studied KRAS mutations in 500 cancer patients. p < 0.001.",
+            "findings": "KRAS G12D mutation associated with poor prognosis (HR=2.5, p<0.001).",
+            "authors": ["Smith, J.", "Jones, M."],
+            "year": 2023,
+            "journal": "Nature Cancer",
+            "paper_id": "paper_001",
+            "relevance_score": 0.95,
         },
         {
-            'title': 'Targeted Therapy for KRAS',
-            'abstract': 'Novel inhibitor shows efficacy in KRAS mutant tumors.',
-            'findings': 'Response rate 45% (n=120). Median PFS 8.2 months.',
-            'authors': ['Lee, A.'],
-            'year': 2024,
-            'journal': 'Cell',
-            'paper_id': 'paper_002',
-            'relevance_score': 0.88
-        }
+            "title": "Targeted Therapy for KRAS",
+            "abstract": "Novel inhibitor shows efficacy in KRAS mutant tumors.",
+            "findings": "Response rate 45% (n=120). Median PFS 8.2 months.",
+            "authors": ["Lee, A."],
+            "year": 2024,
+            "journal": "Cell",
+            "paper_id": "paper_002",
+            "relevance_score": 0.88,
+        },
     ]
 
 
@@ -123,23 +123,23 @@ def sample_task_results():
     """Sample task results for cycle compression."""
     return [
         {
-            'type': 'data_analysis',
-            'notebook_path': '/path/to/notebook1.ipynb',
-            'notebook_content': 'Analysis results: p = 0.02, n = 100'
+            "type": "data_analysis",
+            "notebook_path": "/path/to/notebook1.ipynb",
+            "notebook_content": "Analysis results: p = 0.02, n = 100",
         },
         {
-            'type': 'literature_review',
-            'papers': [
+            "type": "literature_review",
+            "papers": [
                 {
-                    'title': 'Paper 1',
-                    'abstract': 'Important findings.',
-                    'findings': 'Key result: p < 0.05',
-                    'paper_id': 'p1',
-                    'relevance_score': 0.9,
-                    'authors': ['Smith']
+                    "title": "Paper 1",
+                    "abstract": "Important findings.",
+                    "findings": "Key result: p < 0.05",
+                    "paper_id": "p1",
+                    "relevance_score": 0.9,
+                    "authors": ["Smith"],
                 }
-            ]
-        }
+            ],
+        },
     ]
 
 
@@ -155,17 +155,15 @@ def mock_anthropic_response():
 # CompressedContext Tests
 # ============================================================================
 
+
 class TestCompressedContext:
     """Tests for CompressedContext dataclass."""
 
     def test_basic_creation(self):
         """Test basic CompressedContext creation."""
-        ctx = CompressedContext(
-            summary="Test summary",
-            statistics={'p_value': 0.05}
-        )
+        ctx = CompressedContext(summary="Test summary", statistics={"p_value": 0.05})
         assert ctx.summary == "Test summary"
-        assert ctx.statistics == {'p_value': 0.05}
+        assert ctx.statistics == {"p_value": 0.05}
         assert ctx.full_content_path is None
         assert ctx.metadata is None
 
@@ -173,17 +171,18 @@ class TestCompressedContext:
         """Test CompressedContext with all fields."""
         ctx = CompressedContext(
             summary="Full summary",
-            statistics={'p_value': 0.01, 'n': 100},
+            statistics={"p_value": 0.01, "n": 100},
             full_content_path="/path/to/notebook.ipynb",
-            metadata={'type': 'jupyter', 'cycle': 1}
+            metadata={"type": "jupyter", "cycle": 1},
         )
         assert ctx.full_content_path == "/path/to/notebook.ipynb"
-        assert ctx.metadata['type'] == 'jupyter'
+        assert ctx.metadata["type"] == "jupyter"
 
 
 # ============================================================================
 # NotebookCompressor Tests
 # ============================================================================
+
 
 class TestNotebookCompressor:
     """Tests for NotebookCompressor class."""
@@ -205,41 +204,41 @@ class TestNotebookCompressor:
         compressor = NotebookCompressor()
         stats = compressor._extract_statistics(sample_notebook_text)
 
-        assert 'p_value' in stats
-        assert stats['p_value'] == 0.001  # Most significant
-        assert stats['p_value_count'] >= 1
+        assert "p_value" in stats
+        assert stats["p_value"] == 0.001  # Most significant
+        assert stats["p_value_count"] >= 1
 
     def test_extract_correlations(self, sample_notebook_text):
         """Test correlation extraction."""
         compressor = NotebookCompressor()
         stats = compressor._extract_statistics(sample_notebook_text)
 
-        assert 'correlation' in stats
-        assert stats['correlation'] == 0.82
+        assert "correlation" in stats
+        assert stats["correlation"] == 0.82
 
     def test_extract_sample_sizes(self, sample_notebook_text):
         """Test sample size extraction."""
         compressor = NotebookCompressor()
         stats = compressor._extract_statistics(sample_notebook_text)
 
-        assert 'sample_size' in stats
-        assert stats['sample_size'] == 150
+        assert "sample_size" in stats
+        assert stats["sample_size"] == 150
 
     def test_extract_gene_counts(self, sample_notebook_text):
         """Test gene count extraction."""
         compressor = NotebookCompressor()
         stats = compressor._extract_statistics(sample_notebook_text)
 
-        assert 'n_genes' in stats
-        assert stats['n_genes'] == 42
+        assert "n_genes" in stats
+        assert stats["n_genes"] == 42
 
     def test_extract_cohens_d(self, sample_notebook_text):
         """Test Cohen's d extraction."""
         compressor = NotebookCompressor()
         stats = compressor._extract_statistics(sample_notebook_text)
 
-        assert 'cohens_d' in stats
-        assert stats['cohens_d'] == 0.65
+        assert "cohens_d" in stats
+        assert stats["cohens_d"] == 0.65
 
     def test_is_valid_p_value(self):
         """Test p-value validation."""
@@ -261,7 +260,7 @@ class TestNotebookCompressor:
 
         assert len(summary) > 0
         # Should contain findings or statistics
-        assert any(word in summary.lower() for word in ['found', 'gene', 'analysis'])
+        assert any(word in summary.lower() for word in ["found", "gene", "analysis"])
 
     def test_compress_notebook_from_content(self, sample_notebook_text, temp_dir):
         """Test compress_notebook with provided content."""
@@ -269,13 +268,12 @@ class TestNotebookCompressor:
         notebook_path = temp_dir / "test.ipynb"
 
         result = compressor.compress_notebook(
-            str(notebook_path),
-            notebook_content=sample_notebook_text
+            str(notebook_path), notebook_content=sample_notebook_text
         )
 
         assert isinstance(result, CompressedContext)
         assert len(result.summary) > 0
-        assert 'p_value' in result.statistics
+        assert "p_value" in result.statistics
         assert result.full_content_path == str(notebook_path)
 
     def test_compress_notebook_from_file(self, sample_notebook_text, temp_dir):
@@ -305,8 +303,7 @@ class TestNotebookCompressor:
 
         compressor = NotebookCompressor(anthropic_client=mock_client)
         result = compressor.compress_notebook(
-            "/path/to/notebook.ipynb",
-            notebook_content=sample_notebook_text
+            "/path/to/notebook.ipynb", notebook_content=sample_notebook_text
         )
 
         assert isinstance(result, CompressedContext)
@@ -333,6 +330,7 @@ class TestNotebookCompressor:
 # ============================================================================
 # LiteratureCompressor Tests
 # ============================================================================
+
 
 class TestLiteratureCompressor:
     """Tests for LiteratureCompressor class."""
@@ -362,13 +360,15 @@ class TestLiteratureCompressor:
         compressor = LiteratureCompressor()
 
         # Add a low-relevance paper
-        papers = sample_papers + [{
-            'title': 'Low Relevance Paper',
-            'abstract': 'Not very relevant.',
-            'paper_id': 'paper_low',
-            'relevance_score': 0.1,
-            'authors': ['Nobody']
-        }]
+        papers = sample_papers + [
+            {
+                "title": "Low Relevance Paper",
+                "abstract": "Not very relevant.",
+                "paper_id": "paper_low",
+                "relevance_score": 0.1,
+                "authors": ["Nobody"],
+            }
+        ]
 
         results = compressor.compress_papers(papers, max_papers=2)
 
@@ -381,22 +381,23 @@ class TestLiteratureCompressor:
         result = compressor._compress_single_paper(sample_papers[0])
 
         assert isinstance(result, CompressedContext)
-        assert 'KRAS' in result.summary
-        assert result.metadata['paper_id'] == 'paper_001'
-        assert result.metadata['year'] == 2023
+        assert "KRAS" in result.summary
+        assert result.metadata["paper_id"] == "paper_001"
+        assert result.metadata["year"] == 2023
 
     def test_extract_paper_statistics(self, sample_papers):
         """Test statistics extraction from paper text."""
         compressor = LiteratureCompressor()
-        text = sample_papers[0]['findings']
+        text = sample_papers[0]["findings"]
         stats = compressor._extract_paper_statistics(text)
 
-        assert 'p_value' in stats or len(stats) >= 0  # May or may not find p-value
+        assert "p_value" in stats or len(stats) >= 0  # May or may not find p-value
 
 
 # ============================================================================
 # ContextCompressor Tests
 # ============================================================================
+
 
 class TestContextCompressor:
     """Tests for ContextCompressor class."""
@@ -425,30 +426,24 @@ class TestContextCompressor:
         notebook_path = temp_dir / "analysis.ipynb"
         notebook_path.write_text("Analysis: p = 0.01, n = 50")
 
-        task_results = [{
-            'type': 'data_analysis',
-            'notebook_path': str(notebook_path)
-        }]
+        task_results = [{"type": "data_analysis", "notebook_path": str(notebook_path)}]
 
         result = compressor.compress_cycle_results(cycle=1, task_results=task_results)
 
         assert isinstance(result, CompressedContext)
-        assert result.metadata['cycle'] == 1
-        assert result.metadata['n_tasks'] == 1
+        assert result.metadata["cycle"] == 1
+        assert result.metadata["n_tasks"] == 1
 
     def test_compress_cycle_results_literature(self, sample_papers):
         """Test compressing literature review task results."""
         compressor = ContextCompressor()
 
-        task_results = [{
-            'type': 'literature_review',
-            'papers': sample_papers
-        }]
+        task_results = [{"type": "literature_review", "papers": sample_papers}]
 
         result = compressor.compress_cycle_results(cycle=2, task_results=task_results)
 
         assert isinstance(result, CompressedContext)
-        assert result.metadata['cycle'] == 2
+        assert result.metadata["cycle"] == 2
 
     def test_compress_cycle_results_mixed(self, sample_papers, temp_dir):
         """Test compressing mixed task types."""
@@ -459,28 +454,22 @@ class TestContextCompressor:
         notebook_path.write_text("Analysis: p = 0.02")
 
         task_results = [
-            {
-                'type': 'data_analysis',
-                'notebook_path': str(notebook_path)
-            },
-            {
-                'type': 'literature_review',
-                'papers': sample_papers
-            }
+            {"type": "data_analysis", "notebook_path": str(notebook_path)},
+            {"type": "literature_review", "papers": sample_papers},
         ]
 
         result = compressor.compress_cycle_results(cycle=3, task_results=task_results)
 
-        assert result.metadata['n_tasks'] == 2
-        assert result.metadata['n_compressed_tasks'] >= 1
+        assert result.metadata["n_tasks"] == 2
+        assert result.metadata["n_compressed_tasks"] >= 1
 
     def test_synthesize_cycle_summary(self):
         """Test cycle summary synthesis."""
         compressor = ContextCompressor()
 
         compressed_tasks = [
-            CompressedContext(summary="Found 10 genes", statistics={'p_value': 0.01}),
-            CompressedContext(summary="Literature supports hypothesis", statistics={})
+            CompressedContext(summary="Found 10 genes", statistics={"p_value": 0.01}),
+            CompressedContext(summary="Literature supports hypothesis", statistics={}),
         ]
 
         summary = compressor._synthesize_cycle_summary(cycle=5, compressed_tasks=compressed_tasks)
@@ -494,27 +483,26 @@ class TestContextCompressor:
 
         compressed_tasks = [
             CompressedContext(
-                summary="Task 1",
-                statistics={'p_value': 0.01, 'sample_size': 100, 'n_genes': 50}
+                summary="Task 1", statistics={"p_value": 0.01, "sample_size": 100, "n_genes": 50}
             ),
             CompressedContext(
-                summary="Task 2",
-                statistics={'p_value': 0.04, 'sample_size': 200, 'n_genes': 30}
-            )
+                summary="Task 2", statistics={"p_value": 0.04, "sample_size": 200, "n_genes": 30}
+            ),
         ]
 
         aggregated = compressor._aggregate_statistics(compressed_tasks)
 
-        assert aggregated['n_tasks'] == 2
-        assert aggregated['min_p_value'] == 0.01
-        assert aggregated['n_significant'] == 2  # Both p < 0.05
-        assert aggregated['total_samples'] == 300
-        assert aggregated['total_genes'] == 80
+        assert aggregated["n_tasks"] == 2
+        assert aggregated["min_p_value"] == 0.01
+        assert aggregated["n_significant"] == 2  # Both p < 0.05
+        assert aggregated["total_samples"] == 300
+        assert aggregated["total_genes"] == 80
 
 
 # ============================================================================
 # Edge Cases and Error Handling
 # ============================================================================
+
 
 class TestCompressionEdgeCases:
     """Tests for edge cases and error handling."""
@@ -522,10 +510,7 @@ class TestCompressionEdgeCases:
     def test_empty_content_compression(self):
         """Test compressing empty content."""
         compressor = NotebookCompressor()
-        result = compressor.compress_notebook(
-            "/path/to/empty.ipynb",
-            notebook_content=""
-        )
+        result = compressor.compress_notebook("/path/to/empty.ipynb", notebook_content="")
 
         assert isinstance(result, CompressedContext)
         assert result.statistics == {}
@@ -545,7 +530,7 @@ class TestCompressionEdgeCases:
         stats = compressor._extract_statistics(content)
 
         # Should not extract invalid p-values
-        assert 'p_value' not in stats or stats['p_value'] <= 1.0
+        assert "p_value" not in stats or stats["p_value"] <= 1.0
 
     def test_unicode_content(self):
         """Test handling of unicode content."""
@@ -561,13 +546,14 @@ class TestCompressionEdgeCases:
         content = "Sample size: n = 1000000, genes: 50000"
         stats = compressor._extract_statistics(content)
 
-        assert 'sample_size' in stats
-        assert stats['sample_size'] == 1000000
+        assert "sample_size" in stats
+        assert stats["sample_size"] == 1000000
 
 
 # ============================================================================
 # Integration-like Tests
 # ============================================================================
+
 
 class TestCompressionPipeline:
     """Tests for the full compression pipeline."""
@@ -581,14 +567,8 @@ class TestCompressionPipeline:
         notebook_path.write_text(sample_notebook_text)
 
         task_results = [
-            {
-                'type': 'data_analysis',
-                'notebook_path': str(notebook_path)
-            },
-            {
-                'type': 'literature_review',
-                'papers': sample_papers
-            }
+            {"type": "data_analysis", "notebook_path": str(notebook_path)},
+            {"type": "literature_review", "papers": sample_papers},
         ]
 
         # Compress multiple cycles
@@ -596,17 +576,19 @@ class TestCompressionPipeline:
             result = compressor.compress_cycle_results(cycle, task_results)
 
             assert isinstance(result, CompressedContext)
-            assert result.metadata['cycle'] == cycle
+            assert result.metadata["cycle"] == cycle
 
     def test_compression_ratio(self, temp_dir):
         """Test that compression achieves significant reduction."""
         compressor = NotebookCompressor()
 
         # Create large content
-        large_content = "\n".join([
-            f"Analysis {i}: p = 0.0{i}, n = {100 * i}, correlation r = 0.{i}"
-            for i in range(1, 100)
-        ])
+        large_content = "\n".join(
+            [
+                f"Analysis {i}: p = 0.0{i}, n = {100 * i}, correlation r = 0.{i}"
+                for i in range(1, 100)
+            ]
+        )
 
         notebook_path = temp_dir / "large.ipynb"
         notebook_path.write_text(large_content)

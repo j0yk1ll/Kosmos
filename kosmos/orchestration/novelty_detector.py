@@ -16,8 +16,9 @@ Performance: O(n) similarity check vs O(n²) pairwise comparison
 """
 
 import logging
-from typing import Dict, List, Optional, Set
+
 import numpy as np
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class NoveltyDetector:
         self,
         novelty_threshold: float = 0.75,
         model_name: str = "all-MiniLM-L6-v2",
-        use_sentence_transformers: bool = True
+        use_sentence_transformers: bool = True,
     ):
         """
         Initialize Novelty Detector.
@@ -71,6 +72,7 @@ class NoveltyDetector:
         """Initialize sentence transformer model."""
         try:
             from sentence_transformers import SentenceTransformer
+
             self.model = SentenceTransformer(self.model_name)
             logger.info(f"Loaded sentence transformer: {self.model_name}")
         except ImportError:
@@ -84,7 +86,7 @@ class NoveltyDetector:
             logger.error(f"Failed to load sentence transformer: {e}")
             self.use_sentence_transformers = False
 
-    def index_past_tasks(self, tasks: List[Dict]):
+    def index_past_tasks(self, tasks: list[dict]):
         """
         Index past tasks for similarity search.
 
@@ -97,8 +99,8 @@ class NoveltyDetector:
         # Create text representations
         task_texts = []
         for task in tasks:
-            task_type = task.get('type', 'unknown')
-            description = task.get('description', '')
+            task_type = task.get("type", "unknown")
+            description = task.get("description", "")
             task_text = f"{task_type}: {description}"
             task_texts.append(task_text)
 
@@ -122,7 +124,7 @@ class NoveltyDetector:
             self.task_texts.extend(task_texts)
             self.task_metadata.extend(tasks)
 
-    def check_task_novelty(self, task: Dict) -> Dict:
+    def check_task_novelty(self, task: dict) -> dict:
         """
         Check if task is novel compared to indexed tasks.
 
@@ -137,17 +139,17 @@ class NoveltyDetector:
             - similar_tasks: List of similar task dictionaries
         """
         # Create task text
-        task_type = task.get('type', 'unknown')
-        description = task.get('description', '')
+        task_type = task.get("type", "unknown")
+        description = task.get("description", "")
         task_text = f"{task_type}: {description}"
 
         # If no past tasks indexed, it's novel
         if not self.task_texts:
             return {
-                'is_novel': True,
-                'novelty_score': 1.0,
-                'max_similarity': 0.0,
-                'similar_tasks': []
+                "is_novel": True,
+                "novelty_score": 1.0,
+                "max_similarity": 0.0,
+                "similar_tasks": [],
             }
 
         # Compute similarities
@@ -169,16 +171,15 @@ class NoveltyDetector:
 
         for idx in similar_indices:
             if idx < len(self.task_metadata) and similarities[idx] > 0.6:
-                similar_tasks.append({
-                    'task': self.task_metadata[idx],
-                    'similarity': float(similarities[idx])
-                })
+                similar_tasks.append(
+                    {"task": self.task_metadata[idx], "similarity": float(similarities[idx])}
+                )
 
         return {
-            'is_novel': is_novel,
-            'novelty_score': novelty_score,
-            'max_similarity': float(max_similarity),
-            'similar_tasks': similar_tasks
+            "is_novel": is_novel,
+            "novelty_score": novelty_score,
+            "max_similarity": float(max_similarity),
+            "similar_tasks": similar_tasks,
         }
 
     def _compute_semantic_similarities(self, task_text: str) -> np.ndarray:
@@ -236,7 +237,7 @@ class NoveltyDetector:
 
         return np.array(similarities)
 
-    def check_plan_novelty(self, plan: Dict) -> Dict:
+    def check_plan_novelty(self, plan: dict) -> dict:
         """
         Check novelty of entire plan.
 
@@ -250,13 +251,13 @@ class NoveltyDetector:
             - novel_task_count: Number of novel tasks
             - task_novelties: List of per-task novelty results
         """
-        tasks = plan.get('tasks', [])
+        tasks = plan.get("tasks", [])
         if not tasks:
             return {
-                'plan_novelty_score': 1.0,
-                'redundant_task_count': 0,
-                'novel_task_count': 0,
-                'task_novelties': []
+                "plan_novelty_score": 1.0,
+                "redundant_task_count": 0,
+                "novel_task_count": 0,
+                "task_novelties": [],
             }
 
         # Check each task
@@ -266,17 +267,17 @@ class NoveltyDetector:
             task_novelties.append(novelty_result)
 
         # Aggregate
-        novelty_scores = [t['novelty_score'] for t in task_novelties]
+        novelty_scores = [t["novelty_score"] for t in task_novelties]
         plan_novelty_score = sum(novelty_scores) / len(novelty_scores)
 
-        novel_count = sum(1 for t in task_novelties if t['is_novel'])
+        novel_count = sum(1 for t in task_novelties if t["is_novel"])
         redundant_count = len(task_novelties) - novel_count
 
         return {
-            'plan_novelty_score': plan_novelty_score,
-            'redundant_task_count': redundant_count,
-            'novel_task_count': novel_count,
-            'task_novelties': task_novelties
+            "plan_novelty_score": plan_novelty_score,
+            "redundant_task_count": redundant_count,
+            "novel_task_count": novel_count,
+            "task_novelties": task_novelties,
         }
 
     def clear_index(self):
@@ -286,21 +287,17 @@ class NoveltyDetector:
         self.task_metadata = []
         logger.info("Cleared novelty detector index")
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get statistics about indexed tasks."""
         return {
-            'total_indexed_tasks': len(self.task_texts),
-            'has_embeddings': len(self.task_embeddings) > 0,
-            'novelty_threshold': self.novelty_threshold,
-            'using_semantic_similarity': self.use_sentence_transformers,
-            'model': self.model_name if self.use_sentence_transformers else 'token-based'
+            "total_indexed_tasks": len(self.task_texts),
+            "has_embeddings": len(self.task_embeddings) > 0,
+            "novelty_threshold": self.novelty_threshold,
+            "using_semantic_similarity": self.use_sentence_transformers,
+            "model": self.model_name if self.use_sentence_transformers else "token-based",
         }
 
-    def filter_redundant_tasks(
-        self,
-        tasks: List[Dict],
-        keep_most_novel: bool = True
-    ) -> List[Dict]:
+    def filter_redundant_tasks(self, tasks: list[dict], keep_most_novel: bool = True) -> list[dict]:
         """
         Filter redundant tasks from a list.
 
@@ -330,7 +327,7 @@ class NoveltyDetector:
             # Check novelty
             novelty_result = self.check_task_novelty(task)
 
-            if novelty_result['is_novel']:
+            if novelty_result["is_novel"]:
                 novel_tasks.append(task)
                 seen_tasks.append(task)
 

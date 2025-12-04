@@ -4,26 +4,29 @@ OpenAI provider implementation.
 Supports OpenAI API and OpenAI-compatible endpoints (Ollama, OpenRouter, etc.).
 """
 
-import os
 import json
 import logging
-from typing import Any, Dict, List, Optional
+import os
 from datetime import datetime
+from typing import Any
+
 
 try:
     from openai import OpenAI
+
     HAS_OPENAI = True
 except ImportError:
     HAS_OPENAI = False
 
 from kosmos.core.providers.base import (
     LLMProvider,
-    Message,
-    UsageStats,
     LLMResponse,
-    ProviderAPIError
+    Message,
+    ProviderAPIError,
+    UsageStats,
 )
-from kosmos.core.utils.json_parser import parse_json_response, JSONParseError
+from kosmos.core.utils.json_parser import JSONParseError, parse_json_response
+
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +76,7 @@ class OpenAIProvider(LLMProvider):
         ```
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize OpenAI provider.
 
@@ -90,9 +93,7 @@ class OpenAIProvider(LLMProvider):
         super().__init__(config)
 
         if not HAS_OPENAI:
-            raise ImportError(
-                "openai package is required. Install with: pip install openai"
-            )
+            raise ImportError("openai package is required. Install with: pip install openai")
 
         # Extract configuration (handle both dict and Pydantic model)
         def get_config_value(key, default=None):
@@ -102,58 +103,64 @@ class OpenAIProvider(LLMProvider):
             else:
                 return getattr(config, key, default)
 
-        self.api_key = get_config_value('api_key') or os.environ.get('OPENAI_API_KEY')
+        self.api_key = get_config_value("api_key") or os.environ.get("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError(
-                "OPENAI_API_KEY not provided in config or environment."
-            )
+            raise ValueError("OPENAI_API_KEY not provided in config or environment.")
 
-        self.model = get_config_value('model') or 'gpt-4-turbo'
-        self.max_tokens = get_config_value('max_tokens') or 4096
-        temperature = get_config_value('temperature')
+        self.model = get_config_value("model") or "gpt-4-turbo"
+        self.max_tokens = get_config_value("max_tokens") or 4096
+        temperature = get_config_value("temperature")
         self.temperature = temperature if temperature is not None else 0.7
-        self.base_url = get_config_value('base_url') or os.environ.get('OPENAI_BASE_URL')
-        self.organization = get_config_value('organization') or os.environ.get('OPENAI_ORGANIZATION')
-        self.timeout = get_config_value('timeout') or 120
+        self.base_url = get_config_value("base_url") or os.environ.get("OPENAI_BASE_URL")
+        self.organization = get_config_value("organization") or os.environ.get(
+            "OPENAI_ORGANIZATION"
+        )
+        self.timeout = get_config_value("timeout") or 120
 
         # Detect provider type from base_url
         if self.base_url:
-            if 'ollama' in self.base_url or 'localhost' in self.base_url or '127.0.0.1' in self.base_url:
-                self.provider_type = 'local'
-            elif 'openrouter' in self.base_url:
-                self.provider_type = 'openrouter'
-            elif 'together' in self.base_url:
-                self.provider_type = 'together'
+            if (
+                "ollama" in self.base_url
+                or "localhost" in self.base_url
+                or "127.0.0.1" in self.base_url
+            ):
+                self.provider_type = "local"
+            elif "openrouter" in self.base_url:
+                self.provider_type = "openrouter"
+            elif "together" in self.base_url:
+                self.provider_type = "together"
             else:
-                self.provider_type = 'compatible'
+                self.provider_type = "compatible"
         else:
-            self.provider_type = 'openai'
+            self.provider_type = "openai"
 
         # Initialize OpenAI client
         try:
             client_args = {
-                'api_key': self.api_key,
+                "api_key": self.api_key,
             }
             if self.base_url:
-                client_args['base_url'] = self.base_url
+                client_args["base_url"] = self.base_url
             if self.organization:
-                client_args['organization'] = self.organization
+                client_args["organization"] = self.organization
 
             self.client = OpenAI(**client_args)
-            logger.info(f"OpenAI provider initialized (type: {self.provider_type}, model: {self.model})")
+            logger.info(
+                f"OpenAI provider initialized (type: {self.provider_type}, model: {self.model})"
+            )
 
         except Exception as e:
             logger.error(f"Failed to initialize OpenAI client: {e}")
-            raise ProviderAPIError("openai", f"Failed to initialize: {e}", raw_error=e)
+            raise ProviderAPIError("openai", f"Failed to initialize: {e}", raw_error=e) from e
 
     def generate(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        stop_sequences: Optional[List[str]] = None,
-        **kwargs
+        stop_sequences: list[str] | None = None,
+        **kwargs,
     ) -> LLMResponse:
         """
         Generate text from OpenAI.
@@ -173,11 +180,13 @@ class OpenAIProvider(LLMProvider):
             ProviderAPIError: If the API call fails
         """
         import time as time_module
+
         try:
             # Check if LLM call logging is enabled
             log_llm = False
             try:
                 from kosmos.config import get_config
+
                 config = get_config()
                 log_llm = config.logging.log_llm_calls
             except Exception:
@@ -209,7 +218,7 @@ class OpenAIProvider(LLMProvider):
                     len(prompt),
                     len(system or ""),
                     max_tokens,
-                    temperature
+                    temperature,
                 )
 
             start_time = time_module.time()
@@ -222,7 +231,7 @@ class OpenAIProvider(LLMProvider):
             finish_reason = response.choices[0].finish_reason
 
             # Handle usage stats (may not be present for local models)
-            if hasattr(response, 'usage') and response.usage:
+            if hasattr(response, "usage") and response.usage:
                 input_tokens = response.usage.prompt_tokens
                 output_tokens = response.usage.completion_tokens
                 total_tokens = response.usage.total_tokens
@@ -242,11 +251,15 @@ class OpenAIProvider(LLMProvider):
                     input_tokens,
                     output_tokens,
                     latency_ms,
-                    finish_reason or "unknown"
+                    finish_reason or "unknown",
                 )
 
             # Calculate cost (only for OpenAI official)
-            cost = self._calculate_cost(input_tokens, output_tokens) if self.provider_type == 'openai' else None
+            cost = (
+                self._calculate_cost(input_tokens, output_tokens)
+                if self.provider_type == "openai"
+                else None
+            )
 
             usage_stats = UsageStats(
                 input_tokens=input_tokens,
@@ -255,7 +268,7 @@ class OpenAIProvider(LLMProvider):
                 cost_usd=cost,
                 model=self.model,
                 provider="openai",
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
             # Update stats
@@ -269,21 +282,21 @@ class OpenAIProvider(LLMProvider):
                 model=self.model,
                 finish_reason=finish_reason,
                 raw_response=response,
-                metadata={'provider_type': self.provider_type}
+                metadata={"provider_type": self.provider_type},
             )
 
         except Exception as e:
             logger.error(f"OpenAI generation failed: {e}")
-            raise ProviderAPIError("openai", f"Generation failed: {e}", raw_error=e)
+            raise ProviderAPIError("openai", f"Generation failed: {e}", raw_error=e) from e
 
     async def generate_async(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        stop_sequences: Optional[List[str]] = None,
-        **kwargs
+        stop_sequences: list[str] | None = None,
+        **kwargs,
     ) -> LLMResponse:
         """
         Generate text asynchronously.
@@ -308,11 +321,7 @@ class OpenAIProvider(LLMProvider):
         return self.generate(prompt, system, max_tokens, temperature, stop_sequences, **kwargs)
 
     def generate_with_messages(
-        self,
-        messages: List[Message],
-        max_tokens: int = 4096,
-        temperature: float = 0.7,
-        **kwargs
+        self, messages: list[Message], max_tokens: int = 4096, temperature: float = 0.7, **kwargs
     ) -> LLMResponse:
         """
         Generate text from conversation history.
@@ -328,10 +337,7 @@ class OpenAIProvider(LLMProvider):
         """
         try:
             # Convert Message objects to OpenAI format
-            openai_messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in messages
-            ]
+            openai_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
 
             # Call API
             response = self.client.chat.completions.create(
@@ -347,7 +353,7 @@ class OpenAIProvider(LLMProvider):
             finish_reason = response.choices[0].finish_reason
 
             # Handle usage stats
-            if hasattr(response, 'usage') and response.usage:
+            if hasattr(response, "usage") and response.usage:
                 input_tokens = response.usage.prompt_tokens
                 output_tokens = response.usage.completion_tokens
                 total_tokens = response.usage.total_tokens
@@ -358,7 +364,11 @@ class OpenAIProvider(LLMProvider):
                 output_tokens = self._estimate_tokens(text)
                 total_tokens = input_tokens + output_tokens
 
-            cost = self._calculate_cost(input_tokens, output_tokens) if self.provider_type == 'openai' else None
+            cost = (
+                self._calculate_cost(input_tokens, output_tokens)
+                if self.provider_type == "openai"
+                else None
+            )
 
             usage_stats = UsageStats(
                 input_tokens=input_tokens,
@@ -367,7 +377,7 @@ class OpenAIProvider(LLMProvider):
                 cost_usd=cost,
                 model=self.model,
                 provider="openai",
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
             self._update_usage_stats(usage_stats)
@@ -377,22 +387,24 @@ class OpenAIProvider(LLMProvider):
                 usage=usage_stats,
                 model=self.model,
                 finish_reason=finish_reason,
-                raw_response=response
+                raw_response=response,
             )
 
         except Exception as e:
             logger.error(f"OpenAI multi-turn generation failed: {e}")
-            raise ProviderAPIError("openai", f"Multi-turn generation failed: {e}", raw_error=e)
+            raise ProviderAPIError(
+                "openai", f"Multi-turn generation failed: {e}", raw_error=e
+            ) from e
 
     def generate_structured(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        system: Optional[str] = None,
+        schema: dict[str, Any],
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        **kwargs
-    ) -> Dict[str, Any]:
+        **kwargs,
+    ) -> dict[str, Any]:
         """
         Generate structured JSON output.
 
@@ -412,8 +424,14 @@ class OpenAIProvider(LLMProvider):
         """
         try:
             # Add JSON instruction to system prompt
-            json_system = (system or "") + "\n\nYou must respond with valid JSON matching this schema:\n" + json.dumps(schema, indent=2)
-            json_system += "\n\nIMPORTANT: Return ONLY valid JSON, no additional text or explanations."
+            json_system = (
+                (system or "")
+                + "\n\nYou must respond with valid JSON matching this schema:\n"
+                + json.dumps(schema, indent=2)
+            )
+            json_system += (
+                "\n\nIMPORTANT: Return ONLY valid JSON, no additional text or explanations."
+            )
 
             # Generate response
             response = self.generate(
@@ -421,7 +439,7 @@ class OpenAIProvider(LLMProvider):
                 system=json_system,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                **kwargs
+                **kwargs,
             )
 
             response_text = response.content
@@ -435,7 +453,7 @@ class OpenAIProvider(LLMProvider):
                 logger.error(f"Response text: {response_text[:500]}")
 
                 # Provide helpful guidance for local model issues
-                if self.provider_type == 'local':
+                if self.provider_type == "local":
                     logger.error(
                         f"\n{'='*60}\n"
                         f"JSON parsing failed with local model ({self.model}).\n"
@@ -450,11 +468,8 @@ class OpenAIProvider(LLMProvider):
 
                 # JSON parse errors are NOT recoverable - retrying won't help
                 raise ProviderAPIError(
-                    "openai",
-                    f"Invalid JSON response: {e.message}",
-                    raw_error=e,
-                    recoverable=False
-                )
+                    "openai", f"Invalid JSON response: {e.message}", raw_error=e, recoverable=False
+                ) from e
 
         except Exception as e:
             if isinstance(e, ProviderAPIError):
@@ -462,16 +477,18 @@ class OpenAIProvider(LLMProvider):
 
             # Provide helpful guidance for timeout errors with local models
             error_str = str(e).lower()
-            if self.provider_type == 'local' and 'timeout' in error_str:
+            if self.provider_type == "local" and "timeout" in error_str:
                 logger.error(
                     f"Request to local model ({self.model}) timed out.\n"
                     f"Consider increasing LOCAL_MODEL_REQUEST_TIMEOUT or using a smaller model."
                 )
 
             logger.error(f"Structured generation failed: {e}")
-            raise ProviderAPIError("openai", f"Structured generation failed: {e}", raw_error=e)
+            raise ProviderAPIError(
+                "openai", f"Structured generation failed: {e}", raw_error=e
+            ) from e
 
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """
         Get information about the current model.
 
@@ -486,7 +503,7 @@ class OpenAIProvider(LLMProvider):
         }
 
         # Add pricing and context for known OpenAI models
-        if self.provider_type == 'openai':
+        if self.provider_type == "openai":
             if "gpt-4-turbo" in self.model.lower() or "gpt-4-1106" in self.model.lower():
                 model_info["max_tokens"] = 128000
                 model_info["cost_per_million_input_tokens"] = 10.00
@@ -521,7 +538,7 @@ class OpenAIProvider(LLMProvider):
         Returns:
             float: Cost in USD
         """
-        if self.provider_type != 'openai':
+        if self.provider_type != "openai":
             return 0.0  # No cost tracking for non-OpenAI providers
 
         # Pricing per million tokens (as of Nov 2024)
@@ -563,7 +580,7 @@ class OpenAIProvider(LLMProvider):
         # Rough estimate: ~4 characters per token
         return len(text) // 4
 
-    def get_usage_stats(self) -> Dict[str, Any]:
+    def get_usage_stats(self) -> dict[str, Any]:
         """
         Get detailed usage statistics.
 
@@ -573,9 +590,11 @@ class OpenAIProvider(LLMProvider):
         stats = super().get_usage_stats()
 
         # Add OpenAI-specific stats
-        stats.update({
-            "provider_type": self.provider_type,
-            "base_url": self.base_url or "https://api.openai.com/v1",
-        })
+        stats.update(
+            {
+                "provider_type": self.provider_type,
+                "base_url": self.base_url or "https://api.openai.com/v1",
+            }
+        )
 
         return stats

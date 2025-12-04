@@ -10,17 +10,14 @@ Supports:
 
 import logging
 import re
-from typing import List, Dict, Any, Optional, Tuple
-from pathlib import Path
-from datetime import datetime
+from typing import Any
 
 import bibtexparser
-from bibtexparser.bparser import BibTexParser
-from bibtexparser.bwriter import BibTexWriter
-from bibtexparser.bibdatabase import BibDatabase
 import networkx as nx
+from bibtexparser.bparser import BibTexParser
 
-from kosmos.literature.base_client import PaperMetadata, Author, PaperSource
+from kosmos.literature.base_client import Author, PaperMetadata, PaperSource
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +33,7 @@ class CitationParser:
         """Initialize citation parser."""
         logger.info("Initialized CitationParser")
 
-    def parse_bibtex(self, file_path: str) -> List[PaperMetadata]:
+    def parse_bibtex(self, file_path: str) -> list[PaperMetadata]:
         """
         Parse BibTeX file.
 
@@ -53,7 +50,7 @@ class CitationParser:
             ```
         """
         try:
-            with open(file_path, 'r', encoding='utf-8') as bibtex_file:
+            with open(file_path, encoding="utf-8") as bibtex_file:
                 parser = BibTexParser(common_strings=True)
                 bib_database = bibtexparser.load(bibtex_file, parser)
 
@@ -70,7 +67,7 @@ class CitationParser:
             logger.error(f"BibTeX parsing failed: {e}")
             return []
 
-    def parse_bibtex_string(self, bibtex_str: str) -> Optional[PaperMetadata]:
+    def parse_bibtex_string(self, bibtex_str: str) -> PaperMetadata | None:
         """
         Parse single BibTeX entry from string.
 
@@ -103,7 +100,7 @@ class CitationParser:
             logger.error(f"BibTeX string parsing failed: {e}")
             return None
 
-    def parse_ris(self, file_path: str) -> List[PaperMetadata]:
+    def parse_ris(self, file_path: str) -> list[PaperMetadata]:
         """
         Parse RIS file.
 
@@ -119,12 +116,12 @@ class CitationParser:
             ```
         """
         try:
-            with open(file_path, 'r', encoding='utf-8') as ris_file:
+            with open(file_path, encoding="utf-8") as ris_file:
                 ris_content = ris_file.read()
 
             papers = []
             # Split by ER  - (end of record)
-            entries = re.split(r'ER\s*-\s*\n', ris_content)
+            entries = re.split(r"ER\s*-\s*\n", ris_content)
 
             for entry in entries:
                 if entry.strip():
@@ -139,7 +136,7 @@ class CitationParser:
             logger.error(f"RIS parsing failed: {e}")
             return []
 
-    def extract_citations_from_text(self, text: str) -> List[str]:
+    def extract_citations_from_text(self, text: str) -> list[str]:
         """
         Extract citation strings from text using regex patterns.
 
@@ -158,34 +155,34 @@ class CitationParser:
         citations = []
 
         # Pattern: Author et al. (Year)
-        pattern1 = r'([A-Z][a-z]+(?:\set\sal\.)?)\s*\((\d{4})\)'
+        pattern1 = r"([A-Z][a-z]+(?:\set\sal\.)?)\s*\((\d{4})\)"
         matches1 = re.findall(pattern1, text)
         citations.extend([f"{author} ({year})" for author, year in matches1])
 
         # Pattern: [Author, Year]
-        pattern2 = r'\[([A-Z][a-z]+(?:\set\sal\.)?),\s*(\d{4})\]'
+        pattern2 = r"\[([A-Z][a-z]+(?:\set\sal\.)?),\s*(\d{4})\]"
         matches2 = re.findall(pattern2, text)
         citations.extend([f"{author} ({year})" for author, year in matches2])
 
         # Pattern: (Author1 & Author2, Year)
-        pattern3 = r'\(([A-Z][a-z]+\s*&\s*[A-Z][a-z]+),\s*(\d{4})\)'
+        pattern3 = r"\(([A-Z][a-z]+\s*&\s*[A-Z][a-z]+),\s*(\d{4})\)"
         matches3 = re.findall(pattern3, text)
         citations.extend([f"{authors} ({year})" for authors, year in matches3])
 
         return list(set(citations))  # Remove duplicates
 
-    def _bibtex_entry_to_paper(self, entry: Dict[str, Any]) -> Optional[PaperMetadata]:
+    def _bibtex_entry_to_paper(self, entry: dict[str, Any]) -> PaperMetadata | None:
         """Convert BibTeX entry to PaperMetadata."""
         try:
             # Parse authors
             authors = []
-            if 'author' in entry:
-                author_str = entry['author']
+            if "author" in entry:
+                author_str = entry["author"]
                 # Split by ' and '
-                for author_name in author_str.split(' and '):
+                for author_name in author_str.split(" and "):
                     # Handle "Last, First" or "First Last" formats
-                    if ',' in author_name:
-                        parts = author_name.split(',')
+                    if "," in author_name:
+                        parts = author_name.split(",")
                         name = f"{parts[1].strip()} {parts[0].strip()}"
                     else:
                         name = author_name.strip()
@@ -194,25 +191,25 @@ class CitationParser:
 
             # Parse year
             year = None
-            if 'year' in entry:
+            if "year" in entry:
                 try:
-                    year = int(entry['year'])
+                    year = int(entry["year"])
                 except ValueError:
                     pass
 
             # Build PaperMetadata
             paper = PaperMetadata(
-                id=entry.get('ID', ''),
+                id=entry.get("ID", ""),
                 source=PaperSource.OTHER,
-                title=entry.get('title', ''),
-                abstract=entry.get('abstract', ''),
+                title=entry.get("title", ""),
+                abstract=entry.get("abstract", ""),
                 authors=authors,
                 year=year,
-                doi=entry.get('doi'),
-                url=entry.get('url'),
-                journal=entry.get('journal'),
-                venue=entry.get('booktitle') or entry.get('journal'),
-                raw_data=entry
+                doi=entry.get("doi"),
+                url=entry.get("url"),
+                journal=entry.get("journal"),
+                venue=entry.get("booktitle") or entry.get("journal"),
+                raw_data=entry,
             )
 
             return paper
@@ -221,15 +218,15 @@ class CitationParser:
             logger.debug(f"Error converting BibTeX entry: {e}")
             return None
 
-    def _ris_entry_to_paper(self, entry: str) -> Optional[PaperMetadata]:
+    def _ris_entry_to_paper(self, entry: str) -> PaperMetadata | None:
         """Convert RIS entry to PaperMetadata."""
         try:
-            lines = entry.strip().split('\n')
+            lines = entry.strip().split("\n")
             data = {}
 
             for line in lines:
-                if '  - ' in line:
-                    tag, value = line.split('  - ', 1)
+                if "  - " in line:
+                    tag, value = line.split("  - ", 1)
                     tag = tag.strip()
                     value = value.strip()
 
@@ -243,32 +240,32 @@ class CitationParser:
 
             # Parse authors (AU tag)
             authors = []
-            if 'AU' in data:
-                author_list = data['AU'] if isinstance(data['AU'], list) else [data['AU']]
+            if "AU" in data:
+                author_list = data["AU"] if isinstance(data["AU"], list) else [data["AU"]]
                 for author_name in author_list:
                     authors.append(Author(name=author_name))
 
             # Parse year (PY tag)
             year = None
-            if 'PY' in data:
+            if "PY" in data:
                 try:
-                    year = int(data['PY'].split('/')[0])  # Handle PY  - 2024/01/15
+                    year = int(data["PY"].split("/")[0])  # Handle PY  - 2024/01/15
                 except (ValueError, IndexError):
                     pass
 
             # Build PaperMetadata
             paper = PaperMetadata(
-                id=data.get('ID', ''),
+                id=data.get("ID", ""),
                 source=PaperSource.OTHER,
-                title=data.get('TI', ''),
-                abstract=data.get('AB', ''),
+                title=data.get("TI", ""),
+                abstract=data.get("AB", ""),
                 authors=authors,
                 year=year,
-                doi=data.get('DO'),
-                url=data.get('UR'),
-                journal=data.get('JO'),
-                venue=data.get('JO') or data.get('T2'),
-                raw_data=data
+                doi=data.get("DO"),
+                url=data.get("UR"),
+                journal=data.get("JO"),
+                venue=data.get("JO") or data.get("T2"),
+                raw_data=data,
             )
 
             return paper
@@ -289,11 +286,7 @@ class CitationFormatter:
         """Initialize citation formatter."""
         logger.info("Initialized CitationFormatter")
 
-    def format_citation(
-        self,
-        paper: PaperMetadata,
-        style: str = "apa"
-    ) -> str:
+    def format_citation(self, paper: PaperMetadata, style: str = "apa") -> str:
         """
         Format citation in specified style.
 
@@ -318,7 +311,7 @@ class CitationFormatter:
             "chicago": self._format_chicago,
             "ieee": self._format_ieee,
             "harvard": self._format_harvard,
-            "vancouver": self._format_vancouver
+            "vancouver": self._format_vancouver,
         }
 
         formatter_func = formatters.get(style, self._format_apa)
@@ -404,7 +397,7 @@ class CitationFormatter:
             lines.append(f"TI  - {paper.title}")
 
         # Authors
-        for author in (paper.authors or []):
+        for author in paper.authors or []:
             lines.append(f"AU  - {author.name}")
 
         # Year
@@ -433,10 +426,7 @@ class CitationFormatter:
         return "\n".join(lines) + "\n"
 
     def generate_bibliography(
-        self,
-        papers: List[PaperMetadata],
-        style: str = "apa",
-        sort_by: str = "author"
+        self, papers: list[PaperMetadata], style: str = "apa", sort_by: str = "author"
     ) -> str:
         """
         Generate formatted bibliography.
@@ -463,7 +453,10 @@ class CitationFormatter:
 
         # Sort papers
         if sort_by == "author":
-            sorted_papers = sorted(valid_papers, key=lambda p: p.authors[0].name if p.authors and len(p.authors) > 0 else "")
+            sorted_papers = sorted(
+                valid_papers,
+                key=lambda p: p.authors[0].name if p.authors and len(p.authors) > 0 else "",
+            )
         elif sort_by == "year":
             sorted_papers = sorted(valid_papers, key=lambda p: p.year or 0, reverse=True)
         elif sort_by == "title":
@@ -624,6 +617,7 @@ class CitationNetwork:
         if use_knowledge_graph:
             try:
                 from kosmos.knowledge.graph import get_knowledge_graph
+
                 self.knowledge_graph = get_knowledge_graph()
             except Exception as e:
                 logger.warning(f"Knowledge graph unavailable: {e}")
@@ -632,9 +626,7 @@ class CitationNetwork:
         logger.info("Initialized CitationNetwork")
 
     def build_network(
-        self,
-        papers: List[PaperMetadata],
-        fetch_citations: bool = False
+        self, papers: list[PaperMetadata], fetch_citations: bool = False
     ) -> nx.DiGraph:
         """
         Build citation network graph.
@@ -662,7 +654,7 @@ class CitationNetwork:
                 paper.primary_identifier,
                 title=paper.title,
                 year=paper.year,
-                citation_count=paper.citation_count
+                citation_count=paper.citation_count,
             )
 
         # Add citation edges (if available from knowledge graph)
@@ -670,8 +662,7 @@ class CitationNetwork:
             for paper in papers:
                 try:
                     citations = self.knowledge_graph.get_citations(
-                        paper.primary_identifier,
-                        depth=1
+                        paper.primary_identifier, depth=1
                     )
 
                     for cited in citations:
@@ -682,15 +673,14 @@ class CitationNetwork:
                 except Exception as e:
                     logger.debug(f"Citation fetch failed: {e}")
 
-        logger.info(f"Built citation network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+        logger.info(
+            f"Built citation network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges"
+        )
         return G
 
     def get_citation_path(
-        self,
-        graph: nx.DiGraph,
-        paper1_id: str,
-        paper2_id: str
-    ) -> Optional[List[str]]:
+        self, graph: nx.DiGraph, paper1_id: str, paper2_id: str
+    ) -> list[str] | None:
         """
         Find shortest citation path between two papers.
 
@@ -708,11 +698,7 @@ class CitationNetwork:
         except nx.NetworkXNoPath:
             return None
 
-    def analyze_influence(
-        self,
-        graph: nx.DiGraph,
-        paper_id: str
-    ) -> Dict[str, Any]:
+    def analyze_influence(self, graph: nx.DiGraph, paper_id: str) -> dict[str, Any]:
         """
         Analyze paper's influence in citation network.
 
@@ -752,10 +738,8 @@ class CitationNetwork:
         return metrics
 
     def identify_seminal_papers(
-        self,
-        graph: nx.DiGraph,
-        top_n: int = 10
-    ) -> List[Tuple[str, Dict[str, Any]]]:
+        self, graph: nx.DiGraph, top_n: int = 10
+    ) -> list[tuple[str, dict[str, Any]]]:
         """
         Identify most influential papers.
 
@@ -786,7 +770,7 @@ class CitationNetwork:
                 metrics = {
                     "pagerank": pr_score,
                     "in_degree": graph.in_degree(paper_id),
-                    "out_degree": graph.out_degree(paper_id)
+                    "out_degree": graph.out_degree(paper_id),
                 }
                 results.append((paper_id, metrics))
 
@@ -806,7 +790,7 @@ class CitationValidator:
         """Initialize citation validator."""
         logger.info("Initialized CitationValidator")
 
-    def validate_bibtex(self, bibtex_str: str) -> Tuple[bool, List[str]]:
+    def validate_bibtex(self, bibtex_str: str) -> tuple[bool, list[str]]:
         """
         Validate BibTeX format.
 
@@ -831,10 +815,10 @@ class CitationValidator:
             bibtexparser.loads(bibtex_str, parser)
 
             # Check for required fields
-            if '@' not in bibtex_str:
+            if "@" not in bibtex_str:
                 errors.append("Missing entry type (e.g., @article)")
 
-            if '{' not in bibtex_str or '}' not in bibtex_str:
+            if "{" not in bibtex_str or "}" not in bibtex_str:
                 errors.append("Missing or unbalanced braces")
 
             return (len(errors) == 0, errors)
@@ -843,7 +827,7 @@ class CitationValidator:
             errors.append(f"Parse error: {str(e)}")
             return (False, errors)
 
-    def validate_ris(self, ris_str: str) -> Tuple[bool, List[str]]:
+    def validate_ris(self, ris_str: str) -> tuple[bool, list[str]]:
         """
         Validate RIS format.
 
@@ -856,26 +840,24 @@ class CitationValidator:
         errors = []
 
         # Check for required tags
-        required_tags = ['TY', 'ER']
+        required_tags = ["TY", "ER"]
 
         for tag in required_tags:
             if f"{tag}  - " not in ris_str:
                 errors.append(f"Missing required tag: {tag}")
 
         # Check format of tags
-        lines = ris_str.strip().split('\n')
+        lines = ris_str.strip().split("\n")
         for line in lines:
-            if line.strip() and '  - ' not in line:
+            if line.strip() and "  - " not in line:
                 errors.append(f"Invalid line format: {line}")
                 break
 
         return (len(errors) == 0, errors)
 
     def validate_citation_data(
-        self,
-        citation: Dict[str, Any],
-        required_fields: List[str] = ["title", "year"]
-    ) -> Tuple[bool, List[str]]:
+        self, citation: dict[str, Any], required_fields: list[str] = None
+    ) -> tuple[bool, list[str]]:
         """
         Validate citation has required fields.
 
@@ -886,6 +868,8 @@ class CitationValidator:
         Returns:
             Tuple of (is_valid, missing_fields)
         """
+        if required_fields is None:
+            required_fields = ["title", "year"]
         missing = []
 
         for field in required_fields:
@@ -897,7 +881,8 @@ class CitationValidator:
 
 # Utility functions
 
-def papers_to_bibtex(papers: List[PaperMetadata], output_file: str):
+
+def papers_to_bibtex(papers: list[PaperMetadata], output_file: str):
     """
     Export papers to BibTeX file.
 
@@ -913,7 +898,7 @@ def papers_to_bibtex(papers: List[PaperMetadata], output_file: str):
     """
     formatter = CitationFormatter()
 
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         for paper in papers:
             bibtex = formatter.to_bibtex(paper)
             f.write(bibtex + "\n")
@@ -921,7 +906,7 @@ def papers_to_bibtex(papers: List[PaperMetadata], output_file: str):
     logger.info(f"Exported {len(papers)} papers to {output_file}")
 
 
-def papers_to_ris(papers: List[PaperMetadata], output_file: str):
+def papers_to_ris(papers: list[PaperMetadata], output_file: str):
     """
     Export papers to RIS file.
 
@@ -937,7 +922,7 @@ def papers_to_ris(papers: List[PaperMetadata], output_file: str):
     """
     formatter = CitationFormatter()
 
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         for paper in papers:
             ris = formatter.to_ris(paper)
             f.write(ris + "\n")

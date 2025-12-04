@@ -6,22 +6,18 @@ Tests hybrid retirement logic, hypothesis evolution, contradiction detection, an
 
 import json
 from datetime import datetime
-from unittest.mock import Mock, patch
+
 import pytest
 
-from kosmos.hypothesis.refiner import (
-    HypothesisRefiner,
-    RetirementDecision,
-    RefinerAction,
-    HypothesisLineage,
-)
+from kosmos.hypothesis.refiner import HypothesisLineage, HypothesisRefiner, RetirementDecision
 from kosmos.models.hypothesis import Hypothesis, HypothesisStatus
-from kosmos.models.result import ExperimentResult, ResultStatus, ExecutionMetadata
+from kosmos.models.result import ExecutionMetadata, ExperimentResult, ResultStatus
 
 
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def create_mock_metadata(experiment_id: str = "exp_001", protocol_id: str = "proto_001"):
     """Create a minimal mock ExecutionMetadata for testing."""
@@ -64,6 +60,7 @@ def create_experiment_result(
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def sample_hypothesis():
@@ -152,6 +149,7 @@ def refiner(mock_llm_client):
 # Test Class 1: Initialization
 # ============================================================================
 
+
 class TestHypothesisRefinerInitialization:
     """Test HypothesisRefiner initialization."""
 
@@ -189,6 +187,7 @@ class TestHypothesisRefinerInitialization:
 # ============================================================================
 # Test Class 2: Rule-Based Retirement
 # ============================================================================
+
 
 class TestRetirementDecisionRuleBased:
     """Test rule-based retirement decisions (consecutive failures)."""
@@ -265,7 +264,9 @@ class TestRetirementDecisionRuleBased:
 
         assert decision == RetirementDecision.RETIRE
 
-    def test_count_consecutive_failures(self, refiner, sample_rejected_result, sample_supported_result):
+    def test_count_consecutive_failures(
+        self, refiner, sample_rejected_result, sample_supported_result
+    ):
         """Test _count_consecutive_failures helper method."""
         # Test various patterns
         results_1 = [sample_rejected_result, sample_rejected_result]
@@ -281,6 +282,7 @@ class TestRetirementDecisionRuleBased:
 # ============================================================================
 # Test Class 3: Bayesian Retirement
 # ============================================================================
+
 
 class TestRetirementDecisionBayesian:
     """Test Bayesian confidence-based retirement decisions."""
@@ -326,9 +328,7 @@ class TestRetirementDecisionBayesian:
             sample_rejected_result,
         ]
 
-        updated_confidence = refiner._bayesian_confidence_update(
-            sample_hypothesis, results
-        )
+        updated_confidence = refiner._bayesian_confidence_update(sample_hypothesis, results)
 
         # Net support should increase confidence
         assert updated_confidence > sample_hypothesis.confidence_score
@@ -390,6 +390,7 @@ class TestRetirementDecisionBayesian:
 # Test Class 4: Claude-Powered Retirement
 # ============================================================================
 
+
 class TestRetirementDecisionClaude:
     """Test Claude-powered retirement decisions."""
 
@@ -398,12 +399,14 @@ class TestRetirementDecisionClaude:
     ):
         """Test Claude decides to retire hypothesis."""
         # Mock Claude response
-        refiner.llm_client.generate.return_value = json.dumps({
-            "decision": "retire",
-            "confidence": 0.85,
-            "rationale": "Consistent evidence against hypothesis",
-            "suggested_action": "Consider alternative mechanisms",
-        })
+        refiner.llm_client.generate.return_value = json.dumps(
+            {
+                "decision": "retire",
+                "confidence": 0.85,
+                "rationale": "Consistent evidence against hypothesis",
+                "suggested_action": "Consider alternative mechanisms",
+            }
+        )
 
         should_retire, rationale = refiner.should_retire_hypothesis_claude(
             sample_hypothesis, [sample_rejected_result]
@@ -416,12 +419,14 @@ class TestRetirementDecisionClaude:
         self, refiner, sample_hypothesis, sample_supported_result
     ):
         """Test Claude decides to continue testing."""
-        refiner.llm_client.generate.return_value = json.dumps({
-            "decision": "continue",
-            "confidence": 0.9,
-            "rationale": "Strong supporting evidence warrants more investigation",
-            "suggested_action": "Test boundary conditions",
-        })
+        refiner.llm_client.generate.return_value = json.dumps(
+            {
+                "decision": "continue",
+                "confidence": 0.9,
+                "rationale": "Strong supporting evidence warrants more investigation",
+                "suggested_action": "Test boundary conditions",
+            }
+        )
 
         should_retire, rationale = refiner.should_retire_hypothesis_claude(
             sample_hypothesis, [sample_supported_result]
@@ -434,12 +439,14 @@ class TestRetirementDecisionClaude:
         self, refiner, sample_hypothesis, sample_rejected_result
     ):
         """Test Claude decides to refine hypothesis."""
-        refiner.llm_client.generate.return_value = json.dumps({
-            "decision": "refine",
-            "confidence": 0.75,
-            "rationale": "Core idea has merit but needs refinement",
-            "suggested_action": "Narrow scope or adjust variables",
-        })
+        refiner.llm_client.generate.return_value = json.dumps(
+            {
+                "decision": "refine",
+                "confidence": 0.75,
+                "rationale": "Core idea has merit but needs refinement",
+                "suggested_action": "Narrow scope or adjust variables",
+            }
+        )
 
         should_retire, rationale = refiner.should_retire_hypothesis_claude(
             sample_hypothesis, [sample_rejected_result]
@@ -468,19 +475,20 @@ class TestRetirementDecisionClaude:
 # Test Class 5: Hypothesis Refinement
 # ============================================================================
 
+
 class TestHypothesisRefinement:
     """Test hypothesis refinement logic."""
 
-    def test_refine_hypothesis(
-        self, refiner, sample_hypothesis, sample_rejected_result
-    ):
+    def test_refine_hypothesis(self, refiner, sample_hypothesis, sample_rejected_result):
         """Test hypothesis refinement creates new refined hypothesis."""
-        refiner.llm_client.generate.return_value = json.dumps({
-            "refined_statement": "Caffeine (200mg) improves working memory performance in young adults aged 18-25",
-            "refined_rationale": "Evidence suggests specific dosage and age range matter",
-            "changes_made": "Added dosage specificity and age range",
-            "confidence": 0.6,
-        })
+        refiner.llm_client.generate.return_value = json.dumps(
+            {
+                "refined_statement": "Caffeine (200mg) improves working memory performance in young adults aged 18-25",
+                "refined_rationale": "Evidence suggests specific dosage and age range matter",
+                "changes_made": "Added dosage specificity and age range",
+                "confidence": 0.6,
+            }
+        )
 
         refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
 
@@ -496,12 +504,14 @@ class TestHypothesisRefinement:
         self, refiner, sample_hypothesis, sample_rejected_result
     ):
         """Test refinement tracks lineage correctly."""
-        refiner.llm_client.generate.return_value = json.dumps({
-            "refined_statement": "Refined statement that affects outcomes more specifically",
-            "refined_rationale": "Refined rationale with sufficient scientific justification for testing",
-            "changes_made": "Changes",
-            "confidence": 0.6,
-        })
+        refiner.llm_client.generate.return_value = json.dumps(
+            {
+                "refined_statement": "Refined statement that affects outcomes more specifically",
+                "refined_rationale": "Refined rationale with sufficient scientific justification for testing",
+                "changes_made": "Changes",
+                "confidence": 0.6,
+            }
+        )
 
         refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
 
@@ -515,12 +525,14 @@ class TestHypothesisRefinement:
         self, refiner, sample_hypothesis, sample_rejected_result
     ):
         """Test refinement increments generation number."""
-        refiner.llm_client.generate.return_value = json.dumps({
-            "refined_statement": "Refined statement that affects outcomes more specifically",
-            "refined_rationale": "Refined rationale with sufficient scientific justification for testing",
-            "changes_made": "Changes",
-            "confidence": 0.6,
-        })
+        refiner.llm_client.generate.return_value = json.dumps(
+            {
+                "refined_statement": "Refined statement that affects outcomes more specifically",
+                "refined_rationale": "Refined rationale with sufficient scientific justification for testing",
+                "changes_made": "Changes",
+                "confidence": 0.6,
+            }
+        )
 
         sample_hypothesis.generation = 2  # Start at generation 2
 
@@ -544,12 +556,11 @@ class TestHypothesisRefinement:
 # Test Class 6: Contradiction Detection
 # ============================================================================
 
+
 class TestContradictionDetection:
     """Test contradiction detection between hypotheses."""
 
-    def test_detect_contradictions_similar_opposite_outcomes(
-        self, mock_llm_client
-    ):
+    def test_detect_contradictions_similar_opposite_outcomes(self, mock_llm_client):
         """Test detects contradictions when similar hypotheses have opposite outcomes."""
         # Create refiner with lower similarity threshold for word overlap matching
         refiner = HypothesisRefiner(
@@ -702,6 +713,7 @@ class TestContradictionDetection:
 # Test Class 7: Hypothesis Merging
 # ============================================================================
 
+
 class TestHypothesisMerging:
     """Test hypothesis merging logic."""
 
@@ -725,11 +737,13 @@ class TestHypothesisMerging:
             generation=1,
         )
 
-        refiner.llm_client.generate.return_value = json.dumps({
-            "merged_statement": "Caffeine improves both memory and attention in cognitive tasks",
-            "merged_rationale": "Combined evidence shows multi-faceted cognitive benefits",
-            "synthesis_explanation": "Merged memory and attention effects",
-        })
+        refiner.llm_client.generate.return_value = json.dumps(
+            {
+                "merged_statement": "Caffeine improves both memory and attention in cognitive tasks",
+                "merged_rationale": "Combined evidence shows multi-faceted cognitive benefits",
+                "synthesis_explanation": "Merged memory and attention effects",
+            }
+        )
 
         merged = refiner.merge_hypotheses([hyp1, hyp2])
 
@@ -762,11 +776,13 @@ class TestHypothesisMerging:
             generation=3,
         )
 
-        refiner.llm_client.generate.return_value = json.dumps({
-            "merged_statement": "Merged statement that combines both hypotheses",
-            "merged_rationale": "Merged rationale with sufficient scientific justification from both sources",
-            "synthesis_explanation": "Synthesis",
-        })
+        refiner.llm_client.generate.return_value = json.dumps(
+            {
+                "merged_statement": "Merged statement that combines both hypotheses",
+                "merged_rationale": "Merged rationale with sufficient scientific justification from both sources",
+                "synthesis_explanation": "Synthesis",
+            }
+        )
 
         merged = refiner.merge_hypotheses([hyp1, hyp2])
 
@@ -777,6 +793,7 @@ class TestHypothesisMerging:
 # ============================================================================
 # Test Class 8: Lineage Tracking
 # ============================================================================
+
 
 class TestLineageTracking:
     """Test hypothesis lineage and family tree tracking."""

@@ -5,19 +5,14 @@ These tests validate the 7-phase autonomous research cycle and synchronization
 between workflow states as specified in the Kosmos research paper.
 """
 
-import pytest
 from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any
+from unittest.mock import Mock, patch
 
-from kosmos.core.workflow import (
-    WorkflowState,
-    ResearchWorkflow,
-    ResearchPlan,
-    WorkflowTransition,
-    NextAction
-)
+import pytest
+
 from kosmos.agents.research_director import ResearchDirectorAgent
+from kosmos.core.workflow import ResearchPlan, ResearchWorkflow, WorkflowState
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -44,13 +39,14 @@ class TestREQ_ORCH_CYCLE_001_SevenPhaseDiscoveryCycle:
             WorkflowState.EXECUTING,
             WorkflowState.ANALYZING,
             WorkflowState.REFINING,
-            WorkflowState.CONVERGED
+            WorkflowState.CONVERGED,
         }
 
         # All states should be in WorkflowState enum
         all_states = set(WorkflowState)
-        assert expected_states.issubset(all_states), \
-            f"Missing workflow states: {expected_states - all_states}"
+        assert expected_states.issubset(
+            all_states
+        ), f"Missing workflow states: {expected_states - all_states}"
 
     def test_workflow_initialization_state(self):
         """Verify workflow starts in INITIALIZING state."""
@@ -65,7 +61,9 @@ class TestREQ_ORCH_CYCLE_001_SevenPhaseDiscoveryCycle:
 
         # Phase 1: INITIALIZING → GENERATING_HYPOTHESES
         assert workflow.can_transition_to(WorkflowState.GENERATING_HYPOTHESES)
-        workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, action="Start hypothesis generation")
+        workflow.transition_to(
+            WorkflowState.GENERATING_HYPOTHESES, action="Start hypothesis generation"
+        )
         assert workflow.current_state == WorkflowState.GENERATING_HYPOTHESES
 
         # Phase 2: GENERATING_HYPOTHESES → DESIGNING_EXPERIMENTS
@@ -90,7 +88,9 @@ class TestREQ_ORCH_CYCLE_001_SevenPhaseDiscoveryCycle:
 
         # Phase 6: REFINING → GENERATING_HYPOTHESES (loop back)
         assert workflow.can_transition_to(WorkflowState.GENERATING_HYPOTHESES)
-        workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, action="Generate new hypotheses")
+        workflow.transition_to(
+            WorkflowState.GENERATING_HYPOTHESES, action="Generate new hypotheses"
+        )
         assert workflow.current_state == WorkflowState.GENERATING_HYPOTHESES
 
         # Verify transition history
@@ -200,8 +200,8 @@ class TestREQ_ORCH_CYCLE_001_SevenPhaseDiscoveryCycle:
         assert "state_durations_seconds" in stats
         assert stats["current_state"] == "executing"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_orchestrates_complete_cycle(self, mock_wm, mock_llm):
         """Verify ResearchDirector orchestrates complete 7-phase cycle."""
         # Mock dependencies
@@ -209,9 +209,7 @@ class TestREQ_ORCH_CYCLE_001_SevenPhaseDiscoveryCycle:
         mock_wm.return_value = None  # Disable world model for test
 
         director = ResearchDirectorAgent(
-            research_question="Test question",
-            domain="test",
-            config={"max_iterations": 2}
+            research_question="Test question", domain="test", config={"max_iterations": 2}
         )
 
         # Start director (should transition to GENERATING_HYPOTHESES)
@@ -234,15 +232,9 @@ class TestREQ_ORCH_SYN_001_WorkflowStateSynchronization:
 
     def test_workflow_and_research_plan_sync(self):
         """Verify workflow state syncs with research plan."""
-        plan = ResearchPlan(
-            research_question="Test question",
-            domain="test"
-        )
+        plan = ResearchPlan(research_question="Test question", domain="test")
 
-        workflow = ResearchWorkflow(
-            initial_state=WorkflowState.INITIALIZING,
-            research_plan=plan
-        )
+        workflow = ResearchWorkflow(initial_state=WorkflowState.INITIALIZING, research_plan=plan)
 
         # Verify initial sync
         assert workflow.current_state == WorkflowState.INITIALIZING
@@ -290,7 +282,7 @@ class TestREQ_ORCH_SYN_001_WorkflowStateSynchronization:
     def test_experiment_queue_sync_with_execution(self):
         """Verify experiment queue syncs with EXECUTING state."""
         plan = ResearchPlan(research_question="Test")
-        workflow = ResearchWorkflow(research_plan=plan)
+        ResearchWorkflow(research_plan=plan)
 
         # Add experiments
         plan.add_experiment("exp1")
@@ -316,23 +308,20 @@ class TestREQ_ORCH_SYN_001_WorkflowStateSynchronization:
         assert plan.iteration_count == 1
 
         # Multiple increments
-        for i in range(3):
+        for _i in range(3):
             plan.increment_iteration()
 
         assert plan.iteration_count == 4
         assert plan.iteration_count < plan.max_iterations
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_maintains_sync_across_transitions(self, mock_wm, mock_llm):
         """Verify ResearchDirector maintains sync across all transitions."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
-        director = ResearchDirectorAgent(
-            research_question="Test",
-            config={"max_iterations": 3}
-        )
+        director = ResearchDirectorAgent(research_question="Test", config={"max_iterations": 3})
 
         # Check initial sync
         assert director.workflow.current_state == director.research_plan.current_state
@@ -369,16 +358,12 @@ class TestREQ_ORCH_SYN_001_WorkflowStateSynchronization:
 
         metadata1 = {"hypothesis_count": 3, "source": "generator"}
         workflow.transition_to(
-            WorkflowState.GENERATING_HYPOTHESES,
-            action="Generate hypotheses",
-            metadata=metadata1
+            WorkflowState.GENERATING_HYPOTHESES, action="Generate hypotheses", metadata=metadata1
         )
 
         metadata2 = {"protocol_id": "exp1", "hypothesis_id": "hyp1"}
         workflow.transition_to(
-            WorkflowState.DESIGNING_EXPERIMENTS,
-            action="Design experiment",
-            metadata=metadata2
+            WorkflowState.DESIGNING_EXPERIMENTS, action="Design experiment", metadata=metadata2
         )
 
         # Verify metadata preserved

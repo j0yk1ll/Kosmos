@@ -2,8 +2,9 @@
 Tests for kosmos.agents.literature_analyzer module.
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 
 from kosmos.agents.literature_analyzer import LiteratureAnalyzerAgent, PaperAnalysis
 from kosmos.literature.base_client import PaperMetadata
@@ -12,9 +13,14 @@ from kosmos.literature.base_client import PaperMetadata
 @pytest.fixture
 def literature_analyzer(mock_llm_client, mock_knowledge_graph, mock_vector_db):
     """Create LiteratureAnalyzerAgent with mocked dependencies."""
-    with patch('kosmos.agents.literature_analyzer.get_client', return_value=mock_llm_client):
-        with patch('kosmos.agents.literature_analyzer.get_knowledge_graph', return_value=mock_knowledge_graph):
-            with patch('kosmos.agents.literature_analyzer.get_vector_db', return_value=mock_vector_db):
+    with patch("kosmos.agents.literature_analyzer.get_client", return_value=mock_llm_client):
+        with patch(
+            "kosmos.agents.literature_analyzer.get_knowledge_graph",
+            return_value=mock_knowledge_graph,
+        ):
+            with patch(
+                "kosmos.agents.literature_analyzer.get_vector_db", return_value=mock_vector_db
+            ):
                 agent = LiteratureAnalyzerAgent(config={"use_knowledge_graph": False})
                 agent.llm_client = mock_llm_client
                 agent.knowledge_graph = mock_knowledge_graph
@@ -28,14 +34,14 @@ class TestLiteratureAnalyzerInit:
 
     def test_init_default(self, mock_llm_client):
         """Test default initialization."""
-        with patch('kosmos.agents.literature_analyzer.get_client', return_value=mock_llm_client):
+        with patch("kosmos.agents.literature_analyzer.get_client", return_value=mock_llm_client):
             agent = LiteratureAnalyzerAgent()
             assert agent.agent_type == "LiteratureAnalyzerAgent"
 
     def test_init_with_config(self, mock_llm_client):
         """Test initialization with custom config."""
         config = {"use_knowledge_graph": True, "use_semantic_similarity": True}
-        with patch('kosmos.agents.literature_analyzer.get_client', return_value=mock_llm_client):
+        with patch("kosmos.agents.literature_analyzer.get_client", return_value=mock_llm_client):
             agent = LiteratureAnalyzerAgent(config=config)
             assert agent.use_knowledge_graph is True
             assert agent.use_semantic_similarity is True
@@ -65,9 +71,7 @@ class TestPaperSummarization:
 
     def test_summarize_paper_with_empty_abstract(self, literature_analyzer):
         """Test summarizing paper with no abstract."""
-        paper = PaperMetadata(
-            title="Test", authors=[], abstract="", year=2023, source="test"
-        )
+        paper = PaperMetadata(title="Test", authors=[], abstract="", year=2023, source="test")
 
         literature_analyzer.llm_client.generate_structured.return_value = {
             "executive_summary": "Limited information.",
@@ -127,10 +131,10 @@ class TestSemanticSimilarity:
             (sample_paper_metadata, 0.88),
         ]
 
-        with patch.object(literature_analyzer.semantic_search, 'find_similar_papers', return_value=mock_similar):
-            similar = literature_analyzer.find_similar_papers(
-                sample_paper_metadata, top_k=2
-            )
+        with patch.object(
+            literature_analyzer.semantic_search, "find_similar_papers", return_value=mock_similar
+        ):
+            similar = literature_analyzer.find_similar_papers(sample_paper_metadata, top_k=2)
 
             assert len(similar) == 2
             assert all(isinstance(item, tuple) for item in similar)
@@ -141,9 +145,14 @@ class TestSemanticSimilarity:
 class TestConceptExtraction:
     """Test concept extraction from papers."""
 
-    def test_extract_concepts(self, literature_analyzer, sample_paper_metadata, mock_concept_extractor):
+    def test_extract_concepts(
+        self, literature_analyzer, sample_paper_metadata, mock_concept_extractor
+    ):
         """Test extracting concepts from a paper."""
-        with patch('kosmos.agents.literature_analyzer.get_concept_extractor', return_value=mock_concept_extractor):
+        with patch(
+            "kosmos.agents.literature_analyzer.get_concept_extractor",
+            return_value=mock_concept_extractor,
+        ):
             literature_analyzer.concept_extractor = mock_concept_extractor
 
             result = literature_analyzer.extract_concepts(sample_paper_metadata)

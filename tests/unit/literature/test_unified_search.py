@@ -2,11 +2,12 @@
 Tests for kosmos.literature.unified_search module.
 """
 
-import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-from kosmos.literature.unified_search import UnifiedLiteratureSearch
+import pytest
+
 from kosmos.literature.base_client import PaperMetadata
+from kosmos.literature.unified_search import UnifiedLiteratureSearch
 
 
 @pytest.fixture
@@ -50,9 +51,9 @@ class TestUnifiedSearchInit:
 class TestUnifiedSearch:
     """Test unified search functionality."""
 
-    @patch('kosmos.literature.arxiv_client.ArxivClient.search')
-    @patch('kosmos.literature.semantic_scholar.SemanticScholarClient.search')
-    @patch('kosmos.literature.pubmed_client.PubMedClient.search')
+    @patch("kosmos.literature.arxiv_client.ArxivClient.search")
+    @patch("kosmos.literature.semantic_scholar.SemanticScholarClient.search")
+    @patch("kosmos.literature.pubmed_client.PubMedClient.search")
     def test_search_all_sources(
         self, mock_pubmed, mock_s2, mock_arxiv, unified_search, sample_papers_list
     ):
@@ -69,11 +70,9 @@ class TestUnifiedSearch:
         assert mock_s2.called
         assert mock_pubmed.called
 
-    @patch('kosmos.literature.arxiv_client.ArxivClient.search')
-    @patch('kosmos.literature.semantic_scholar.SemanticScholarClient.search')
-    def test_search_specific_sources(
-        self, mock_s2, mock_arxiv, unified_search, sample_papers_list
-    ):
+    @patch("kosmos.literature.arxiv_client.ArxivClient.search")
+    @patch("kosmos.literature.semantic_scholar.SemanticScholarClient.search")
+    def test_search_specific_sources(self, mock_s2, mock_arxiv, unified_search, sample_papers_list):
         """Test searching specific sources only."""
         mock_arxiv.return_value = [sample_papers_list[0]]
         mock_s2.return_value = [sample_papers_list[1]]
@@ -86,9 +85,9 @@ class TestUnifiedSearch:
         assert mock_arxiv.called
         assert mock_s2.called
 
-    @patch('kosmos.literature.arxiv_client.ArxivClient.search')
-    @patch('kosmos.literature.semantic_scholar.SemanticScholarClient.search')
-    @patch('kosmos.literature.pubmed_client.PubMedClient.search')
+    @patch("kosmos.literature.arxiv_client.ArxivClient.search")
+    @patch("kosmos.literature.semantic_scholar.SemanticScholarClient.search")
+    @patch("kosmos.literature.pubmed_client.PubMedClient.search")
     def test_deduplication(self, mock_pubmed, mock_s2, mock_arxiv, unified_search):
         """Test that duplicate papers are removed."""
         # Create duplicate papers with same DOI
@@ -118,7 +117,7 @@ class TestUnifiedSearch:
         # Should only return one paper after deduplication
         assert len(papers) == 1
 
-    @patch('kosmos.literature.arxiv_client.ArxivClient.search')
+    @patch("kosmos.literature.arxiv_client.ArxivClient.search")
     def test_search_with_errors(self, mock_arxiv, unified_search):
         """Test handling of search errors."""
         mock_arxiv.side_effect = Exception("API Error")
@@ -132,8 +131,8 @@ class TestUnifiedSearch:
 class TestUnifiedSearchParallel:
     """Test parallel search functionality."""
 
-    @patch('kosmos.literature.arxiv_client.ArxivClient.search')
-    @patch('kosmos.literature.semantic_scholar.SemanticScholarClient.search')
+    @patch("kosmos.literature.arxiv_client.ArxivClient.search")
+    @patch("kosmos.literature.semantic_scholar.SemanticScholarClient.search")
     def test_parallel_execution(self, mock_s2, mock_arxiv, unified_search, sample_papers_list):
         """Test that searches execute in parallel."""
         mock_arxiv.return_value = [sample_papers_list[0]]
@@ -155,12 +154,20 @@ class TestUnifiedSearchDeduplication:
         """Test deduplication by DOI."""
         papers = [
             PaperMetadata(
-                title="Paper 1", authors=[], abstract="", year=2023,
-                doi="10.1234/test", source="arxiv"
+                title="Paper 1",
+                authors=[],
+                abstract="",
+                year=2023,
+                doi="10.1234/test",
+                source="arxiv",
             ),
             PaperMetadata(
-                title="Paper 1 Duplicate", authors=[], abstract="", year=2023,
-                doi="10.1234/test", source="semantic_scholar"
+                title="Paper 1 Duplicate",
+                authors=[],
+                abstract="",
+                year=2023,
+                doi="10.1234/test",
+                source="semantic_scholar",
             ),
         ]
 
@@ -171,12 +178,20 @@ class TestUnifiedSearchDeduplication:
         """Test deduplication by arXiv ID."""
         papers = [
             PaperMetadata(
-                title="Paper 1", authors=[], abstract="", year=2023,
-                arxiv_id="2301.00001", source="arxiv"
+                title="Paper 1",
+                authors=[],
+                abstract="",
+                year=2023,
+                arxiv_id="2301.00001",
+                source="arxiv",
             ),
             PaperMetadata(
-                title="Paper 1", authors=[], abstract="", year=2023,
-                arxiv_id="2301.00001", source="semantic_scholar"
+                title="Paper 1",
+                authors=[],
+                abstract="",
+                year=2023,
+                arxiv_id="2301.00001",
+                source="semantic_scholar",
             ),
         ]
 
@@ -187,12 +202,18 @@ class TestUnifiedSearchDeduplication:
         """Test fuzzy title-based deduplication."""
         papers = [
             PaperMetadata(
-                title="Attention Is All You Need", authors=[], abstract="", year=2017,
-                source="arxiv"
+                title="Attention Is All You Need",
+                authors=[],
+                abstract="",
+                year=2017,
+                source="arxiv",
             ),
             PaperMetadata(
-                title="Attention is All You Need", authors=[], abstract="", year=2017,
-                source="semantic_scholar"
+                title="Attention is All You Need",
+                authors=[],
+                abstract="",
+                year=2017,
+                source="semantic_scholar",
             ),
         ]
 
@@ -214,5 +235,5 @@ class TestUnifiedSearchIntegration:
         assert len(papers) > 0
         assert all(isinstance(p, PaperMetadata) for p in papers)
         # Should have papers from multiple sources
-        sources = set(p.source for p in papers)
+        sources = {p.source for p in papers}
         assert len(sources) > 1

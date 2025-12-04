@@ -8,24 +8,26 @@ with literature context and novelty checking.
 import logging
 import time
 import uuid
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import Any
 
-from kosmos.agents.base import BaseAgent, AgentMessage, MessageType, AgentStatus
+from kosmos.agents.base import AgentMessage, AgentStatus, BaseAgent, MessageType
 from kosmos.core.llm import get_client
-from kosmos.utils.compat import model_to_dict
 from kosmos.core.prompts import HYPOTHESIS_GENERATOR
+from kosmos.db import get_session
+from kosmos.db.models import (
+    Hypothesis as DBHypothesis,
+    HypothesisStatus as DBHypothesisStatus,
+)
+from kosmos.literature.base_client import PaperMetadata
+from kosmos.literature.unified_search import UnifiedLiteratureSearch
 from kosmos.models.hypothesis import (
+    ExperimentType,
     Hypothesis,
-    HypothesisGenerationRequest,
     HypothesisGenerationResponse,
     HypothesisStatus,
-    ExperimentType
 )
-from kosmos.literature.unified_search import UnifiedLiteratureSearch
-from kosmos.literature.base_client import PaperMetadata
-from kosmos.db.models import Hypothesis as DBHypothesis, HypothesisStatus as DBHypothesisStatus
-from kosmos.db import get_session
+from kosmos.utils.compat import model_to_dict
+
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +63,9 @@ class HypothesisGeneratorAgent(BaseAgent):
 
     def __init__(
         self,
-        agent_id: Optional[str] = None,
-        agent_type: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None
+        agent_id: str | None = None,
+        agent_type: str | None = None,
+        config: dict[str, Any] | None = None,
     ):
         """
         Initialize Hypothesis Generator Agent.
@@ -111,7 +113,7 @@ class HypothesisGeneratorAgent(BaseAgent):
                 response = self.generate_hypotheses(
                     research_question=research_question,
                     num_hypotheses=num_hypotheses,
-                    domain=domain
+                    domain=domain,
                 )
 
                 return AgentMessage(
@@ -119,7 +121,7 @@ class HypothesisGeneratorAgent(BaseAgent):
                     from_agent=self.agent_id,
                     to_agent=message.from_agent,
                     content={"response": model_to_dict(response)},
-                    correlation_id=message.correlation_id
+                    correlation_id=message.correlation_id,
                 )
 
             else:
@@ -133,7 +135,7 @@ class HypothesisGeneratorAgent(BaseAgent):
                 from_agent=self.agent_id,
                 to_agent=message.from_agent,
                 content={"error": str(e)},
-                correlation_id=message.correlation_id
+                correlation_id=message.correlation_id,
             )
 
         finally:
@@ -142,9 +144,9 @@ class HypothesisGeneratorAgent(BaseAgent):
     def generate_hypotheses(
         self,
         research_question: str,
-        num_hypotheses: Optional[int] = None,
-        domain: Optional[str] = None,
-        store_in_db: bool = True
+        num_hypotheses: int | None = None,
+        domain: str | None = None,
+        store_in_db: bool = True,
     ) -> HypothesisGenerationResponse:
         """
         Generate hypotheses from research question.
@@ -188,7 +190,7 @@ class HypothesisGeneratorAgent(BaseAgent):
             research_question=research_question,
             domain=domain,
             num_hypotheses=num_hypotheses,
-            context_papers=papers
+            context_papers=papers,
         )
 
         # Step 4: Validate hypotheses
@@ -215,11 +217,15 @@ class HypothesisGeneratorAgent(BaseAgent):
         avg_testability = None
 
         if validated_hypotheses:
-            novelty_scores = [h.novelty_score for h in validated_hypotheses if h.novelty_score is not None]
+            novelty_scores = [
+                h.novelty_score for h in validated_hypotheses if h.novelty_score is not None
+            ]
             if novelty_scores:
                 avg_novelty = sum(novelty_scores) / len(novelty_scores)
 
-            testability_scores = [h.testability_score for h in validated_hypotheses if h.testability_score is not None]
+            testability_scores = [
+                h.testability_score for h in validated_hypotheses if h.testability_score is not None
+            ]
             if testability_scores:
                 avg_testability = sum(testability_scores) / len(testability_scores)
 
@@ -230,7 +236,7 @@ class HypothesisGeneratorAgent(BaseAgent):
             generation_time_seconds=generation_time,
             num_papers_analyzed=len(papers),
             avg_novelty_score=avg_novelty,
-            avg_testability_score=avg_testability
+            avg_testability_score=avg_testability,
         )
 
     def _detect_domain(self, research_question: str) -> str:
@@ -251,11 +257,7 @@ Return ONLY the domain name (e.g., "machine_learning", "biology", "physics", "ch
 No explanation needed."""
 
         try:
-            response = self.llm_client.generate(
-                prompt=prompt,
-                max_tokens=50,
-                temperature=0.0
-            )
+            response = self.llm_client.generate(prompt=prompt, max_tokens=50, temperature=0.0)
             domain = response.strip().lower().replace(" ", "_").replace("-", "_")
             return domain if domain else "general"
 
@@ -264,10 +266,8 @@ No explanation needed."""
             return "general"
 
     def _gather_literature_context(
-        self,
-        research_question: str,
-        domain: str
-    ) -> List[PaperMetadata]:
+        self, research_question: str, domain: str
+    ) -> list[PaperMetadata]:
         """
         Gather relevant literature for context.
 
@@ -284,10 +284,7 @@ No explanation needed."""
         try:
             # Search for relevant papers
             query = research_question
-            papers = self.literature_search.search(
-                query=query,
-                max_results=self.max_papers_context
-            )
+            papers = self.literature_search.search(query=query, max_results=self.max_papers_context)
 
             logger.info(f"Found {len(papers)} papers for context")
             return papers
@@ -301,8 +298,8 @@ No explanation needed."""
         research_question: str,
         domain: str,
         num_hypotheses: int,
-        context_papers: List[PaperMetadata]
-    ) -> List[Hypothesis]:
+        context_papers: list[PaperMetadata],
+    ) -> list[Hypothesis]:
         """
         Generate hypotheses using Claude with structured output.
 
@@ -334,7 +331,7 @@ No explanation needed."""
             research_question=research_question,
             domain=domain,
             num_hypotheses=num_hypotheses,
-            literature_context=literature_context or "No specific literature context provided."
+            literature_context=literature_context or "No specific literature context provided.",
         )
 
         # Define expected JSON schema
@@ -345,7 +342,9 @@ No explanation needed."""
                     "rationale": "string (scientific justification)",
                     "confidence_score": "float 0.0-1.0",
                     "testability_score": "float 0.0-1.0 (preliminary estimate)",
-                    "suggested_experiment_types": ["computational | data_analysis | literature_synthesis"]
+                    "suggested_experiment_types": [
+                        "computational | data_analysis | literature_synthesis"
+                    ],
                 }
             ]
         }
@@ -356,7 +355,7 @@ No explanation needed."""
                 prompt=prompt,
                 schema=schema,
                 max_tokens=4000,
-                temperature=0.7  # Slightly higher for creativity
+                temperature=0.7,  # Slightly higher for creativity
             )
 
             # Parse response into Hypothesis objects
@@ -386,7 +385,7 @@ No explanation needed."""
                             for p in context_papers
                             if p is not None and (p.arxiv_id or p.doi or p.title)
                         ],
-                        generated_by=self.agent_id
+                        generated_by=self.agent_id,
                     )
                     hypotheses.append(hypothesis)
 
@@ -437,7 +436,7 @@ No explanation needed."""
             logger.error(f"Validation error: {e}")
             return False
 
-    def _store_hypothesis(self, hypothesis: Hypothesis) -> Optional[str]:
+    def _store_hypothesis(self, hypothesis: Hypothesis) -> str | None:
         """
         Store hypothesis in database.
 
@@ -462,7 +461,7 @@ No explanation needed."""
                     confidence_score=hypothesis.confidence_score,
                     related_papers=hypothesis.related_papers,
                     created_at=hypothesis.created_at,
-                    updated_at=hypothesis.updated_at
+                    updated_at=hypothesis.updated_at,
                 )
 
                 session.add(db_hypothesis)
@@ -476,7 +475,7 @@ No explanation needed."""
             logger.error(f"Error storing hypothesis: {e}", exc_info=True)
             return None
 
-    def get_hypothesis_by_id(self, hypothesis_id: str) -> Optional[Hypothesis]:
+    def get_hypothesis_by_id(self, hypothesis_id: str) -> Hypothesis | None:
         """
         Retrieve hypothesis from database by ID.
 
@@ -488,7 +487,9 @@ No explanation needed."""
         """
         try:
             with get_session() as session:
-                db_hyp = session.query(DBHypothesis).filter(DBHypothesis.id == hypothesis_id).first()
+                db_hyp = (
+                    session.query(DBHypothesis).filter(DBHypothesis.id == hypothesis_id).first()
+                )
 
                 if not db_hyp:
                     return None
@@ -506,7 +507,7 @@ No explanation needed."""
                     confidence_score=db_hyp.confidence_score,
                     related_papers=db_hyp.related_papers or [],
                     created_at=db_hyp.created_at,
-                    updated_at=db_hyp.updated_at
+                    updated_at=db_hyp.updated_at,
                 )
 
                 return hypothesis
@@ -516,11 +517,8 @@ No explanation needed."""
             return None
 
     def list_hypotheses(
-        self,
-        domain: Optional[str] = None,
-        status: Optional[HypothesisStatus] = None,
-        limit: int = 100
-    ) -> List[Hypothesis]:
+        self, domain: str | None = None, status: HypothesisStatus | None = None, limit: int = 100
+    ) -> list[Hypothesis]:
         """
         List hypotheses from database with optional filtering.
 
@@ -559,7 +557,7 @@ No explanation needed."""
                         confidence_score=db_hyp.confidence_score,
                         related_papers=db_hyp.related_papers or [],
                         created_at=db_hyp.created_at,
-                        updated_at=db_hyp.updated_at
+                        updated_at=db_hyp.updated_at,
                     )
                     hypotheses.append(hypothesis)
 

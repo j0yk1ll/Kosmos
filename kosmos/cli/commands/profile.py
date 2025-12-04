@@ -1,25 +1,25 @@
 """
 Profile command for performance analysis.
-from kosmos.utils.compat import model_to_dict
 
 Displays profiling results with Rich formatting for easy analysis
 of execution performance, memory usage, and bottlenecks.
 """
 
-import typer
-from typing import Optional
-from pathlib import Path
 import json
+from pathlib import Path
 
+import typer
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich.syntax import Syntax
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
+
+from kosmos.utils.compat import model_to_dict
+
 
 # Import profiling utilities
 try:
-    from kosmos.core.profiling import ProfileResult, format_profile_summary
+    from kosmos.core.profiling import ProfileResult
+
     PROFILING_AVAILABLE = True
 except ImportError:
     PROFILING_AVAILABLE = False
@@ -28,45 +28,24 @@ console = Console()
 
 
 def profile_command(
-    target: str = typer.Argument(
-        ...,
-        help="Target to profile: experiment, agent, workflow"
+    target: str = typer.Argument(..., help="Target to profile: experiment, agent, workflow"),
+    experiment_id: str | None = typer.Option(
+        None, "--experiment", "-e", help="Experiment ID to profile"
     ),
-    experiment_id: Optional[str] = typer.Option(
-        None,
-        "--experiment", "-e",
-        help="Experiment ID to profile"
-    ),
-    agent_type: Optional[str] = typer.Option(
-        None,
-        "--agent", "-a",
-        help="Agent type to profile"
-    ),
+    agent_type: str | None = typer.Option(None, "--agent", "-a", help="Agent type to profile"),
     mode: str = typer.Option(
-        "standard",
-        "--mode", "-m",
-        help="Profiling mode: light, standard, full"
+        "standard", "--mode", "-m", help="Profiling mode: light, standard, full"
     ),
-    output: Optional[Path] = typer.Option(
-        None,
-        "--output", "-o",
-        help="Save profile data to file (JSON)"
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Save profile data to file (JSON)"
     ),
-    compare: Optional[str] = typer.Option(
-        None,
-        "--compare", "-c",
-        help="Compare with another profile ID"
+    compare: str | None = typer.Option(
+        None, "--compare", "-c", help="Compare with another profile ID"
     ),
     show_flamegraph: bool = typer.Option(
-        False,
-        "--flamegraph",
-        help="Generate flamegraph visualization"
+        False, "--flamegraph", help="Generate flamegraph visualization"
     ),
-    top_n: int = typer.Option(
-        20,
-        "--top", "-n",
-        help="Show top N functions by time"
-    )
+    top_n: int = typer.Option(20, "--top", "-n", help="Show top N functions by time"),
 ):
     """
     Profile Kosmos performance.
@@ -92,10 +71,7 @@ def profile_command(
         kosmos profile agent --agent HypothesisGenerator
     """
     if not PROFILING_AVAILABLE:
-        console.print(
-            "[red]Error:[/red] Profiling module not available",
-            style="bold"
-        )
+        console.print("[red]Error:[/red] Profiling module not available", style="bold")
         raise typer.Exit(1)
 
     # Validate target
@@ -104,7 +80,7 @@ def profile_command(
         console.print(
             f"[red]Error:[/red] Invalid target '{target}'. "
             f"Must be one of: {', '.join(valid_targets)}",
-            style="bold"
+            style="bold",
         )
         raise typer.Exit(1)
 
@@ -112,8 +88,7 @@ def profile_command(
     if target == "experiment":
         if not experiment_id:
             console.print(
-                "[red]Error:[/red] --experiment required for experiment profiling",
-                style="bold"
+                "[red]Error:[/red] --experiment required for experiment profiling", style="bold"
             )
             raise typer.Exit(1)
         _profile_experiment(
@@ -122,41 +97,27 @@ def profile_command(
             output=output,
             compare=compare,
             show_flamegraph=show_flamegraph,
-            top_n=top_n
+            top_n=top_n,
         )
     elif target == "agent":
         if not agent_type:
-            console.print(
-                "[red]Error:[/red] --agent required for agent profiling",
-                style="bold"
-            )
+            console.print("[red]Error:[/red] --agent required for agent profiling", style="bold")
             raise typer.Exit(1)
-        _profile_agent(
-            agent_type=agent_type,
-            mode=mode,
-            output=output,
-            top_n=top_n
-        )
+        _profile_agent(agent_type=agent_type, mode=mode, output=output, top_n=top_n)
     elif target == "workflow":
-        _profile_workflow(
-            mode=mode,
-            output=output,
-            top_n=top_n
-        )
+        _profile_workflow(mode=mode, output=output, top_n=top_n)
 
 
 def _profile_experiment(
     experiment_id: str,
     mode: str,
-    output: Optional[Path],
-    compare: Optional[str],
+    output: Path | None,
+    compare: str | None,
     show_flamegraph: bool,
-    top_n: int
+    top_n: int,
 ):
     """Profile an experiment."""
-    console.print(
-        f"\n[bold cyan]Profiling Experiment: {experiment_id}[/bold cyan]\n"
-    )
+    console.print(f"\n[bold cyan]Profiling Experiment: {experiment_id}[/bold cyan]\n")
 
     # Mock profile result for demonstration
     # In production, this would load from database
@@ -165,11 +126,10 @@ def _profile_experiment(
     if not profile_result:
         console.print(
             f"[yellow]Warning:[/yellow] No profiling data found for experiment {experiment_id}",
-            style="bold"
+            style="bold",
         )
         console.print(
-            "\nTo enable profiling, set ENABLE_PROFILING=true in your .env file",
-            style="dim"
+            "\nTo enable profiling, set ENABLE_PROFILING=true in your .env file", style="dim"
         )
         raise typer.Exit(0)
 
@@ -195,10 +155,7 @@ def _profile_experiment(
         if compare_profile:
             _display_comparison(profile_result, compare_profile)
         else:
-            console.print(
-                f"[yellow]Warning:[/yellow] Profile {compare} not found",
-                style="bold"
-            )
+            console.print(f"[yellow]Warning:[/yellow] Profile {compare} not found", style="bold")
 
     # Save output
     if output:
@@ -207,96 +164,53 @@ def _profile_experiment(
     # Flamegraph
     if show_flamegraph:
         console.print(
-            "\n[yellow]Note:[/yellow] Flamegraph generation not yet implemented",
-            style="dim"
+            "\n[yellow]Note:[/yellow] Flamegraph generation not yet implemented", style="dim"
         )
 
 
-def _profile_agent(agent_type: str, mode: str, output: Optional[Path], top_n: int):
+def _profile_agent(agent_type: str, mode: str, output: Path | None, top_n: int):
     """Profile an agent."""
-    console.print(
-        f"\n[bold cyan]Profiling Agent: {agent_type}[/bold cyan]\n"
-    )
-    console.print(
-        "[yellow]Note:[/yellow] Agent profiling not yet implemented",
-        style="dim"
-    )
+    console.print(f"\n[bold cyan]Profiling Agent: {agent_type}[/bold cyan]\n")
+    console.print("[yellow]Note:[/yellow] Agent profiling not yet implemented", style="dim")
 
 
-def _profile_workflow(mode: str, output: Optional[Path], top_n: int):
+def _profile_workflow(mode: str, output: Path | None, top_n: int):
     """Profile a workflow."""
-    console.print(
-        f"\n[bold cyan]Profiling Workflow[/bold cyan]\n"
-    )
-    console.print(
-        "[yellow]Note:[/yellow] Workflow profiling not yet implemented",
-        style="dim"
-    )
+    console.print("\n[bold cyan]Profiling Workflow[/bold cyan]\n")
+    console.print("[yellow]Note:[/yellow] Workflow profiling not yet implemented", style="dim")
 
 
 def _display_profile_summary(profile: ProfileResult):
     """Display profile summary table."""
-    table = Table(
-        title="Profile Summary",
-        show_header=True,
-        header_style="bold magenta"
-    )
+    table = Table(title="Profile Summary", show_header=True, header_style="bold magenta")
     table.add_column("Metric", style="cyan", no_wrap=True)
     table.add_column("Value", style="white")
     table.add_column("Status", justify="center")
 
     # Execution time
     exec_status = _get_performance_status(profile.execution_time, 5.0, 10.0)
-    table.add_row(
-        "Execution Time",
-        f"{profile.execution_time:.3f}s",
-        exec_status
-    )
+    table.add_row("Execution Time", f"{profile.execution_time:.3f}s", exec_status)
 
     # CPU time
-    table.add_row(
-        "CPU Time",
-        f"{profile.cpu_time:.3f}s",
-        ""
-    )
+    table.add_row("CPU Time", f"{profile.cpu_time:.3f}s", "")
 
     # Memory peak
     mem_status = _get_performance_status(profile.memory_peak_mb, 1000, 2000)
-    table.add_row(
-        "Peak Memory",
-        f"{profile.memory_peak_mb:.1f} MB",
-        mem_status
-    )
+    table.add_row("Peak Memory", f"{profile.memory_peak_mb:.1f} MB", mem_status)
 
     # Memory allocated
-    table.add_row(
-        "Memory Allocated",
-        f"{profile.memory_allocated_mb:.1f} MB",
-        ""
-    )
+    table.add_row("Memory Allocated", f"{profile.memory_allocated_mb:.1f} MB", "")
 
     # Profiling mode
-    table.add_row(
-        "Profiling Mode",
-        profile.profiling_mode.value,
-        ""
-    )
+    table.add_row("Profiling Mode", profile.profiling_mode.value, "")
 
     # Overhead
     if profile.profiler_overhead_ms > 0:
-        table.add_row(
-            "Profiler Overhead",
-            f"{profile.profiler_overhead_ms:.2f}ms",
-            ""
-        )
+        table.add_row("Profiler Overhead", f"{profile.profiler_overhead_ms:.2f}ms", "")
 
     # Timestamps
     if profile.started_at:
-        table.add_row(
-            "Started At",
-            profile.started_at.strftime("%Y-%m-%d %H:%M:%S"),
-            ""
-        )
+        table.add_row("Started At", profile.started_at.strftime("%Y-%m-%d %H:%M:%S"), "")
 
     console.print(table)
     console.print()
@@ -308,12 +222,7 @@ def _display_bottlenecks(bottlenecks, max_display: int = 10):
 
     for i, bottleneck in enumerate(bottlenecks[:max_display], 1):
         # Color by severity
-        severity_colors = {
-            "critical": "red",
-            "high": "yellow",
-            "medium": "blue",
-            "low": "green"
-        }
+        severity_colors = {"critical": "red", "high": "yellow", "medium": "blue", "low": "green"}
         color = severity_colors.get(bottleneck.severity, "white")
 
         panel_content = (
@@ -325,25 +234,23 @@ def _display_bottlenecks(bottlenecks, max_display: int = 10):
             f"[bold]Per Call:[/bold] {bottleneck.per_call_time:.2f}ms"
         )
 
-        console.print(Panel(
-            panel_content,
-            title=f"[{color}]#{i} {bottleneck.severity.upper()}[/{color}]",
-            border_style=color
-        ))
+        console.print(
+            Panel(
+                panel_content,
+                title=f"[{color}]#{i} {bottleneck.severity.upper()}[/{color}]",
+                border_style=color,
+            )
+        )
 
     if len(bottlenecks) > max_display:
-        console.print(
-            f"\n[dim]... and {len(bottlenecks) - max_display} more[/dim]\n"
-        )
+        console.print(f"\n[dim]... and {len(bottlenecks) - max_display} more[/dim]\n")
     console.print()
 
 
 def _display_function_stats(function_times: dict, function_calls: dict, top_n: int):
     """Display function call statistics."""
     table = Table(
-        title=f"Top {top_n} Functions by Time",
-        show_header=True,
-        header_style="bold magenta"
+        title=f"Top {top_n} Functions by Time", show_header=True, header_style="bold magenta"
     )
     table.add_column("#", style="dim", width=4)
     table.add_column("Function", style="cyan")
@@ -352,11 +259,7 @@ def _display_function_stats(function_times: dict, function_calls: dict, top_n: i
     table.add_column("Per Call", justify="right", style="blue")
 
     # Sort by cumulative time
-    sorted_funcs = sorted(
-        function_times.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )[:top_n]
+    sorted_funcs = sorted(function_times.items(), key=lambda x: x[1], reverse=True)[:top_n]
 
     for i, (func_name, cum_time) in enumerate(sorted_funcs, 1):
         calls = function_calls.get(func_name, 0)
@@ -367,7 +270,7 @@ def _display_function_stats(function_times: dict, function_calls: dict, top_n: i
             func_name[:60] + "..." if len(func_name) > 60 else func_name,
             f"{calls:,}",
             f"{cum_time:.3f}s",
-            f"{per_call:.2f}ms"
+            f"{per_call:.2f}ms",
         )
 
     console.print(table)
@@ -387,8 +290,7 @@ def _display_memory_timeline(snapshots):
         bar_length = int(snapshot.current_mb / 10)
         bar = "█" * bar_length
         console.print(
-            f"{i:2d}. [{snapshot.timestamp:6.2f}s] {bar} "
-            f"{snapshot.current_mb:.1f} MB"
+            f"{i:2d}. [{snapshot.timestamp:6.2f}s] {bar} " f"{snapshot.current_mb:.1f} MB"
         )
 
     if len(snapshots) > 10:
@@ -398,11 +300,7 @@ def _display_memory_timeline(snapshots):
 
 def _display_comparison(profile1: ProfileResult, profile2: ProfileResult):
     """Display comparison between two profiles."""
-    table = Table(
-        title="Profile Comparison",
-        show_header=True,
-        header_style="bold magenta"
-    )
+    table = Table(title="Profile Comparison", show_header=True, header_style="bold magenta")
     table.add_column("Metric", style="cyan")
     table.add_column("Profile 1", justify="right", style="white")
     table.add_column("Profile 2", justify="right", style="white")
@@ -410,14 +308,16 @@ def _display_comparison(profile1: ProfileResult, profile2: ProfileResult):
 
     # Compare execution time
     exec_diff = profile2.execution_time - profile1.execution_time
-    exec_diff_pct = (exec_diff / profile1.execution_time * 100) if profile1.execution_time > 0 else 0
+    exec_diff_pct = (
+        (exec_diff / profile1.execution_time * 100) if profile1.execution_time > 0 else 0
+    )
     exec_diff_str = _format_diff(exec_diff, exec_diff_pct, "s", lower_is_better=True)
 
     table.add_row(
         "Execution Time",
         f"{profile1.execution_time:.3f}s",
         f"{profile2.execution_time:.3f}s",
-        exec_diff_str
+        exec_diff_str,
     )
 
     # Compare memory
@@ -429,7 +329,7 @@ def _display_comparison(profile1: ProfileResult, profile2: ProfileResult):
         "Peak Memory",
         f"{profile1.memory_peak_mb:.1f} MB",
         f"{profile2.memory_peak_mb:.1f} MB",
-        mem_diff_str
+        mem_diff_str,
     )
 
     console.print(table)
@@ -449,7 +349,9 @@ def _format_diff(diff: float, diff_pct: float, unit: str, lower_is_better: bool 
     return f"[{color}]{symbol} {abs(diff):.2f}{unit} ({abs(diff_pct):.1f}%)[/{color}]"
 
 
-def _get_performance_status(value: float, warning_threshold: float, critical_threshold: float) -> str:
+def _get_performance_status(
+    value: float, warning_threshold: float, critical_threshold: float
+) -> str:
     """Get performance status indicator."""
     if value < warning_threshold:
         return "[green]✓[/green]"
@@ -459,7 +361,7 @@ def _get_performance_status(value: float, warning_threshold: float, critical_thr
         return "[red]✗[/red]"
 
 
-def _load_profile_from_db(profile_id: str, profile_type: str) -> Optional[ProfileResult]:
+def _load_profile_from_db(profile_id: str, profile_type: str) -> ProfileResult | None:
     """Load profile from database."""
     # This would query the execution_profiles table
     # For now, return None to indicate no profiling data
@@ -470,14 +372,8 @@ def _load_profile_from_db(profile_id: str, profile_type: str) -> Optional[Profil
 def _save_profile_output(profile: ProfileResult, output_path: Path):
     """Save profile data to file."""
     try:
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(model_to_dict(profile), f, indent=2, default=str)
-        console.print(
-            f"\n[green]✓[/green] Profile data saved to {output_path}",
-            style="bold"
-        )
+        console.print(f"\n[green]✓[/green] Profile data saved to {output_path}", style="bold")
     except Exception as e:
-        console.print(
-            f"\n[red]Error:[/red] Failed to save profile data: {e}",
-            style="bold"
-        )
+        console.print(f"\n[red]Error:[/red] Failed to save profile data: {e}", style="bold")

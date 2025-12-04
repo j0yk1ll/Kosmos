@@ -4,10 +4,11 @@ Safety-related data models.
 Pydantic models for safety reports, incidents, approvals, and ethical guidelines.
 """
 
-from typing import List, Dict, Any, Optional
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RiskLevel(str, Enum):
@@ -48,8 +49,8 @@ class SafetyViolation(BaseModel):
     type: ViolationType
     severity: RiskLevel
     message: str
-    location: Optional[str] = None  # File path, line number, or code location
-    details: Dict[str, Any] = Field(default_factory=dict)
+    location: str | None = None  # File path, line number, or code location
+    details: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
@@ -60,10 +61,10 @@ class SafetyReport(BaseModel):
 
     passed: bool
     risk_level: RiskLevel
-    violations: List[SafetyViolation] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list)
-    checks_performed: List[str] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    violations: list[SafetyViolation] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    checks_performed: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)
 
     def has_violations(self) -> bool:
@@ -72,12 +73,9 @@ class SafetyReport(BaseModel):
 
     def has_critical_violations(self) -> bool:
         """Check if report has any critical or high-risk violations."""
-        return any(
-            v.severity in [RiskLevel.CRITICAL, RiskLevel.HIGH]
-            for v in self.violations
-        )
+        return any(v.severity in [RiskLevel.CRITICAL, RiskLevel.HIGH] for v in self.violations)
 
-    def get_violations_by_type(self, violation_type: ViolationType) -> List[SafetyViolation]:
+    def get_violations_by_type(self, violation_type: ViolationType) -> list[SafetyViolation]:
         """Get violations of a specific type."""
         return [v for v in self.violations if v.type == violation_type]
 
@@ -102,13 +100,13 @@ class SafetyIncident(BaseModel):
     incident_id: str
     timestamp: datetime = Field(default_factory=datetime.now)
     violation: SafetyViolation
-    context: Dict[str, Any] = Field(default_factory=dict)
+    context: dict[str, Any] = Field(default_factory=dict)
     action_taken: str  # What was done in response
-    experiment_id: Optional[str] = None
-    hypothesis_id: Optional[str] = None
+    experiment_id: str | None = None
+    hypothesis_id: str | None = None
     user_notified: bool = False
     resolved: bool = False
-    resolution_notes: Optional[str] = None
+    resolution_notes: str | None = None
 
 
 class EthicalGuideline(BaseModel):
@@ -121,7 +119,7 @@ class EthicalGuideline(BaseModel):
     description: str
     required: bool = True
     validation_method: str  # "keyword", "llm", "manual"
-    keywords: List[str] = Field(default_factory=list)  # For keyword-based validation
+    keywords: list[str] = Field(default_factory=list)  # For keyword-based validation
     severity_if_violated: RiskLevel = RiskLevel.HIGH
 
 
@@ -137,11 +135,11 @@ class ApprovalRequest(BaseModel):
     risk_level: RiskLevel
     reason_for_approval: str
     status: ApprovalStatus = ApprovalStatus.PENDING
-    approved_by: Optional[str] = None
-    approval_timestamp: Optional[datetime] = None
-    rejection_reason: Optional[str] = None
+    approved_by: str | None = None
+    approval_timestamp: datetime | None = None
+    rejection_reason: str | None = None
     timeout_seconds: int = 3600  # Auto-reject after 1 hour by default
-    context: Dict[str, Any] = Field(default_factory=dict)
+    context: dict[str, Any] = Field(default_factory=dict)
 
     def is_expired(self) -> bool:
         """Check if approval request has expired."""
@@ -175,11 +173,11 @@ class ResourceLimit(BaseModel):
 
     model_config = ConfigDict(frozen=False)
 
-    max_cpu_cores: Optional[float] = None
-    max_memory_mb: Optional[int] = None
-    max_execution_time_seconds: Optional[int] = None
-    max_disk_usage_mb: Optional[int] = None
-    max_network_bandwidth_mbps: Optional[float] = None
+    max_cpu_cores: float | None = None
+    max_memory_mb: int | None = None
+    max_execution_time_seconds: int | None = None
+    max_disk_usage_mb: int | None = None
+    max_network_bandwidth_mbps: float | None = None
     allow_network_access: bool = False
     allow_file_write: bool = False
     allow_subprocess: bool = False
@@ -191,12 +189,12 @@ class EmergencyStopStatus(BaseModel):
     model_config = ConfigDict(frozen=False)
 
     is_active: bool = False
-    triggered_at: Optional[datetime] = None
-    triggered_by: Optional[str] = None  # "signal", "flag_file", "api", "user"
-    reason: Optional[str] = None
-    affected_experiments: List[str] = Field(default_factory=list)
+    triggered_at: datetime | None = None
+    triggered_by: str | None = None  # "signal", "flag_file", "api", "user"
+    reason: str | None = None
+    affected_experiments: list[str] = Field(default_factory=list)
 
-    def trigger(self, triggered_by: str, reason: str, affected_experiments: List[str] = None):
+    def trigger(self, triggered_by: str, reason: str, affected_experiments: list[str] = None):
         """Trigger emergency stop."""
         self.is_active = True
         self.triggered_at = datetime.now()

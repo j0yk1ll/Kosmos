@@ -9,16 +9,24 @@ Performance Optimizations:
 - Query result caching for frequently accessed data
 """
 
-from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import event, func
-from kosmos.db.models import (
-    Experiment, Hypothesis, Result, Paper, AgentRecord, ResearchSession,
-    ExperimentStatus, HypothesisStatus
-)
-from datetime import datetime
 import logging
 import time
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import event
+from sqlalchemy.orm import Session, joinedload
+
+from kosmos.db.models import (
+    AgentRecord,
+    Experiment,
+    ExperimentStatus,
+    Hypothesis,
+    HypothesisStatus,
+    Paper,
+    ResearchSession,
+    Result,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -27,6 +35,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # QUERY PERFORMANCE MONITORING
 # ============================================================================
+
 
 def log_slow_queries(session_factory, threshold_ms: float = 100.0):
     """
@@ -40,6 +49,7 @@ def log_slow_queries(session_factory, threshold_ms: float = 100.0):
         >>> from kosmos.db import _engine
         >>> log_slow_queries(_engine, threshold_ms=50.0)
     """
+
     @event.listens_for(session_factory, "after_cursor_execute")
     def receive_after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
         """Log queries that exceed threshold."""
@@ -64,6 +74,7 @@ def log_slow_queries(session_factory, threshold_ms: float = 100.0):
 # HYPOTHESIS CRUD
 # ============================================================================
 
+
 def create_hypothesis(
     session: Session,
     id: str,
@@ -71,10 +82,10 @@ def create_hypothesis(
     statement: str,
     rationale: str,
     domain: str,
-    novelty_score: Optional[float] = None,
-    testability_score: Optional[float] = None,
-    confidence_score: Optional[float] = None,
-    related_papers: Optional[List[str]] = None,
+    novelty_score: float | None = None,
+    testability_score: float | None = None,
+    confidence_score: float | None = None,
+    related_papers: list[str] | None = None,
 ) -> Hypothesis:
     """Create a new hypothesis."""
     hypothesis = Hypothesis(
@@ -96,7 +107,9 @@ def create_hypothesis(
     return hypothesis
 
 
-def get_hypothesis(session: Session, hypothesis_id: str, with_experiments: bool = False) -> Optional[Hypothesis]:
+def get_hypothesis(
+    session: Session, hypothesis_id: str, with_experiments: bool = False
+) -> Hypothesis | None:
     """
     Get hypothesis by ID.
 
@@ -118,11 +131,11 @@ def get_hypothesis(session: Session, hypothesis_id: str, with_experiments: bool 
 
 def list_hypotheses(
     session: Session,
-    domain: Optional[str] = None,
-    status: Optional[HypothesisStatus] = None,
+    domain: str | None = None,
+    status: HypothesisStatus | None = None,
     limit: int = 100,
-    with_experiments: bool = False
-) -> List[Hypothesis]:
+    with_experiments: bool = False,
+) -> list[Hypothesis]:
     """
     List hypotheses with optional filtering.
 
@@ -152,9 +165,7 @@ def list_hypotheses(
 
 
 def update_hypothesis_status(
-    session: Session,
-    hypothesis_id: str,
-    status: HypothesisStatus
+    session: Session, hypothesis_id: str, status: HypothesisStatus
 ) -> Hypothesis:
     """Update hypothesis status."""
     hypothesis = get_hypothesis(session, hypothesis_id)
@@ -174,15 +185,16 @@ def update_hypothesis_status(
 # EXPERIMENT CRUD
 # ============================================================================
 
+
 def create_experiment(
     session: Session,
     id: str,
     hypothesis_id: str,
     experiment_type: str,
     description: str,
-    protocol: Dict[str, Any],
+    protocol: dict[str, Any],
     domain: str,
-    code_generated: Optional[str] = None,
+    code_generated: str | None = None,
 ) -> Experiment:
     """Create a new experiment."""
     experiment = Experiment(
@@ -203,11 +215,8 @@ def create_experiment(
 
 
 def get_experiment(
-    session: Session,
-    experiment_id: str,
-    with_hypothesis: bool = True,
-    with_results: bool = False
-) -> Optional[Experiment]:
+    session: Session, experiment_id: str, with_hypothesis: bool = True, with_results: bool = False
+) -> Experiment | None:
     """
     Get experiment by ID with optional eager loading.
 
@@ -236,13 +245,13 @@ def get_experiment(
 
 def list_experiments(
     session: Session,
-    hypothesis_id: Optional[str] = None,
-    status: Optional[ExperimentStatus] = None,
-    domain: Optional[str] = None,
+    hypothesis_id: str | None = None,
+    status: ExperimentStatus | None = None,
+    domain: str | None = None,
     limit: int = 100,
     with_hypothesis: bool = False,
-    with_results: bool = False
-) -> List[Experiment]:
+    with_results: bool = False,
+) -> list[Experiment]:
     """
     List experiments with optional filtering and eager loading.
 
@@ -284,8 +293,8 @@ def update_experiment_status(
     session: Session,
     experiment_id: str,
     status: ExperimentStatus,
-    error_message: Optional[str] = None,
-    execution_time_seconds: Optional[float] = None,
+    error_message: str | None = None,
+    execution_time_seconds: float | None = None,
 ) -> Experiment:
     """Update experiment status."""
     experiment = get_experiment(session, experiment_id)
@@ -314,17 +323,18 @@ def update_experiment_status(
 # RESULT CRUD
 # ============================================================================
 
+
 def create_result(
     session: Session,
     id: str,
     experiment_id: str,
-    data: Dict[str, Any],
-    statistical_tests: Optional[Dict[str, Any]] = None,
-    interpretation: Optional[str] = None,
-    key_findings: Optional[List[str]] = None,
-    supports_hypothesis: Optional[bool] = None,
-    p_value: Optional[float] = None,
-    effect_size: Optional[float] = None,
+    data: dict[str, Any],
+    statistical_tests: dict[str, Any] | None = None,
+    interpretation: str | None = None,
+    key_findings: list[str] | None = None,
+    supports_hypothesis: bool | None = None,
+    p_value: float | None = None,
+    effect_size: float | None = None,
 ) -> Result:
     """Create a new result."""
     result = Result(
@@ -346,7 +356,7 @@ def create_result(
     return result
 
 
-def get_result(session: Session, result_id: str, with_experiment: bool = False) -> Optional[Result]:
+def get_result(session: Session, result_id: str, with_experiment: bool = False) -> Result | None:
     """
     Get result by ID.
 
@@ -367,10 +377,8 @@ def get_result(session: Session, result_id: str, with_experiment: bool = False) 
 
 
 def get_results_for_experiment(
-    session: Session,
-    experiment_id: str,
-    with_experiment: bool = False
-) -> List[Result]:
+    session: Session, experiment_id: str, with_experiment: bool = False
+) -> list[Result]:
     """
     Get all results for an experiment.
 
@@ -396,18 +404,19 @@ def get_results_for_experiment(
 # PAPER CRUD
 # ============================================================================
 
+
 def create_paper(
     session: Session,
     id: str,
     title: str,
-    authors: List[str],
+    authors: list[str],
     abstract: str,
     source: str,
-    url: Optional[str] = None,
-    doi: Optional[str] = None,
-    arxiv_id: Optional[str] = None,
-    publication_date: Optional[datetime] = None,
-    domain: Optional[str] = None,
+    url: str | None = None,
+    doi: str | None = None,
+    arxiv_id: str | None = None,
+    publication_date: datetime | None = None,
+    domain: str | None = None,
 ) -> Paper:
     """Create a new paper."""
     paper = Paper(
@@ -430,17 +439,17 @@ def create_paper(
     return paper
 
 
-def get_paper(session: Session, paper_id: str) -> Optional[Paper]:
+def get_paper(session: Session, paper_id: str) -> Paper | None:
     """Get paper by ID."""
     return session.query(Paper).filter(Paper.id == paper_id).first()
 
 
 def search_papers(
     session: Session,
-    domain: Optional[str] = None,
-    min_relevance: Optional[float] = None,
-    limit: int = 100
-) -> List[Paper]:
+    domain: str | None = None,
+    min_relevance: float | None = None,
+    limit: int = 100,
+) -> list[Paper]:
     """Search papers with filtering."""
     query = session.query(Paper)
 
@@ -456,12 +465,13 @@ def search_papers(
 # AGENT CRUD
 # ============================================================================
 
+
 def create_agent_record(
     session: Session,
     id: str,
     agent_type: str,
     status: str,
-    config: Optional[Dict[str, Any]] = None,
+    config: dict[str, Any] | None = None,
 ) -> AgentRecord:
     """Create agent record."""
     agent = AgentRecord(
@@ -481,8 +491,8 @@ def create_agent_record(
 def update_agent_record(
     session: Session,
     agent_id: str,
-    status: Optional[str] = None,
-    state_data: Optional[Dict[str, Any]] = None,
+    status: str | None = None,
+    state_data: dict[str, Any] | None = None,
 ) -> AgentRecord:
     """Update agent record."""
     agent = session.query(AgentRecord).filter(AgentRecord.id == agent_id).first()
@@ -508,6 +518,7 @@ def update_agent_record(
 # RESEARCH SESSION CRUD
 # ============================================================================
 
+
 def create_research_session(
     session: Session,
     id: str,
@@ -532,10 +543,7 @@ def create_research_session(
     return research_session
 
 
-def get_research_session(
-    session: Session,
-    session_id: str
-) -> Optional[ResearchSession]:
+def get_research_session(session: Session, session_id: str) -> ResearchSession | None:
     """Get research session by ID."""
     return session.query(ResearchSession).filter(ResearchSession.id == session_id).first()
 
@@ -543,10 +551,10 @@ def get_research_session(
 def update_research_session(
     db_session: Session,
     session_id: str,
-    status: Optional[str] = None,
-    iteration: Optional[int] = None,
-    hypotheses_generated: Optional[int] = None,
-    experiments_completed: Optional[int] = None,
+    status: str | None = None,
+    iteration: int | None = None,
+    hypotheses_generated: int | None = None,
+    experiments_completed: int | None = None,
 ) -> ResearchSession:
     """Update research session."""
     research_session = get_research_session(db_session, session_id)

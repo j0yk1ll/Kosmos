@@ -5,11 +5,11 @@ These tests validate that the Data Analysis Agent generates syntactically valid,
 executable, and secure code as specified in REQUIREMENTS.md.
 """
 
-import pytest
 import ast
 import re
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+
+import pytest
+
 
 pytestmark = [
     pytest.mark.requirement("REQ-DAA-GEN"),
@@ -43,7 +43,9 @@ def test_req_daa_gen_001_syntactically_valid_code():
         agent = DataAnalysisAgent()
 
         for objective in analysis_objectives:
-            code = agent.generate_code(objective, dataset_info={'columns': ['x', 'y', 'age', 'group']})
+            code = agent.generate_code(
+                objective, dataset_info={"columns": ["x", "y", "age", "group"]}
+            )
 
             # Check if code is syntactically valid
             try:
@@ -54,8 +56,7 @@ def test_req_daa_gen_001_syntactically_valid_code():
 
         # Assert: >95% should be syntactically valid
         validity_rate = valid_count / total_count
-        assert validity_rate > 0.95, \
-            f"Syntax validity rate {validity_rate:.2%} must be >95%"
+        assert validity_rate > 0.95, f"Syntax validity rate {validity_rate:.2%} must be >95%"
 
     except (ImportError, AttributeError):
         # Fallback: Test AST parsing directly on sample generated code
@@ -102,8 +103,7 @@ plt.savefig('histogram.png')
                 pass
 
         validity_rate = valid_count / len(sample_codes)
-        assert validity_rate > 0.95, \
-            f"Syntax validity rate {validity_rate:.2%} must be >95%"
+        assert validity_rate > 0.95, f"Syntax validity rate {validity_rate:.2%} must be >95%"
 
 
 @pytest.mark.requirement("REQ-DAA-GEN-002")
@@ -142,14 +142,14 @@ result = {
         execution_result = sandbox.execute(generated_code)
 
         # Assert: Code should execute successfully
-        assert execution_result.success, \
-            f"Generated code should execute without modification: {execution_result.error}"
-        assert not execution_result.timeout, \
-            "Generated code should complete within timeout"
+        assert (
+            execution_result.success
+        ), f"Generated code should execute without modification: {execution_result.error}"
+        assert not execution_result.timeout, "Generated code should complete within timeout"
 
     except ImportError:
         # Fallback: Test that code compiles and can be executed locally
-        compiled_code = compile(generated_code, '<string>', 'exec')
+        compiled_code = compile(generated_code, "<string>", "exec")
         assert compiled_code is not None
 
         # Execute in isolated namespace
@@ -157,9 +157,9 @@ result = {
         exec(compiled_code, namespace)
 
         # Verify result was produced
-        assert 'result' in namespace
-        assert 'mean_x' in namespace['result']
-        assert namespace['result']['mean_x'] == 3.0
+        assert "result" in namespace
+        assert "mean_x" in namespace["result"]
+        assert namespace["result"]["mean_x"] == 3.0
 
 
 @pytest.mark.requirement("REQ-DAA-GEN-003")
@@ -174,8 +174,8 @@ def test_req_daa_gen_003_addresses_analysis_objective():
     # Arrange: Specific analysis objective
     objective = "Calculate the correlation between temperature and humidity"
     dataset_info = {
-        'columns': ['temperature', 'humidity', 'pressure'],
-        'dtypes': {'temperature': 'float64', 'humidity': 'float64', 'pressure': 'float64'}
+        "columns": ["temperature", "humidity", "pressure"],
+        "dtypes": {"temperature": "float64", "humidity": "float64", "pressure": "float64"},
     }
 
     try:
@@ -185,16 +185,16 @@ def test_req_daa_gen_003_addresses_analysis_objective():
         code = agent.generate_code(objective, dataset_info)
 
         # Assert: Code should contain relevant operations
-        assert 'corr' in code.lower() or 'correlation' in code.lower(), \
-            "Code should perform correlation analysis"
-        assert 'temperature' in code, \
-            "Code should reference temperature column"
-        assert 'humidity' in code, \
-            "Code should reference humidity column"
+        assert (
+            "corr" in code.lower() or "correlation" in code.lower()
+        ), "Code should perform correlation analysis"
+        assert "temperature" in code, "Code should reference temperature column"
+        assert "humidity" in code, "Code should reference humidity column"
 
         # Verify code produces correlation result
-        assert 'result' in code or 'correlation' in code, \
-            "Code should store/output correlation result"
+        assert (
+            "result" in code or "correlation" in code
+        ), "Code should store/output correlation result"
 
     except (ImportError, AttributeError):
         # Fallback: Test that sample code addresses objective
@@ -208,10 +208,10 @@ result = {'correlation': correlation}
 """
 
         # Verify code contains required elements
-        assert 'corr' in sample_code
-        assert 'temperature' in sample_code
-        assert 'humidity' in sample_code
-        assert 'result' in sample_code
+        assert "corr" in sample_code
+        assert "temperature" in sample_code
+        assert "humidity" in sample_code
+        assert "result" in sample_code
 
 
 @pytest.mark.requirement("REQ-DAA-GEN-004")
@@ -225,7 +225,7 @@ def test_req_daa_gen_004_include_comments():
 
     # Arrange
     objective = "Perform exploratory data analysis on sales data"
-    dataset_info = {'columns': ['date', 'sales', 'region']}
+    dataset_info = {"columns": ["date", "sales", "region"]}
 
     try:
         agent = DataAnalysisAgent()
@@ -234,18 +234,16 @@ def test_req_daa_gen_004_include_comments():
         code = agent.generate_code(objective, dataset_info)
 
         # Assert: Code should contain comments
-        lines = code.split('\n')
-        comment_lines = [line for line in lines if line.strip().startswith('#')]
+        lines = code.split("\n")
+        comment_lines = [line for line in lines if line.strip().startswith("#")]
 
-        assert len(comment_lines) > 0, \
-            "Generated code should include comments"
+        assert len(comment_lines) > 0, "Generated code should include comments"
 
         # Check for meaningful comments (not just imports)
-        meaningful_comments = [c for c in comment_lines
-                              if len(c.strip()) > 5 and
-                              not c.strip().startswith('# import')]
-        assert len(meaningful_comments) > 0, \
-            "Code should include meaningful explanatory comments"
+        meaningful_comments = [
+            c for c in comment_lines if len(c.strip()) > 5 and not c.strip().startswith("# import")
+        ]
+        assert len(meaningful_comments) > 0, "Code should include meaningful explanatory comments"
 
     except (ImportError, AttributeError):
         # Fallback: Test sample well-commented code
@@ -273,10 +271,9 @@ plt.savefig('sales_by_region.png')
 result = {'summary': summary_stats, 'regional': regional_sales}
 """
 
-        lines = sample_code.split('\n')
-        comment_lines = [line for line in lines if line.strip().startswith('#')]
-        assert len(comment_lines) >= 5, \
-            "Well-formed code should have multiple comments"
+        lines = sample_code.split("\n")
+        comment_lines = [line for line in lines if line.strip().startswith("#")]
+        assert len(comment_lines) >= 5, "Well-formed code should have multiple comments"
 
 
 @pytest.mark.requirement("REQ-DAA-GEN-005")
@@ -300,8 +297,8 @@ def test_req_daa_gen_005_no_hardcoded_credentials():
     safe_codes = [
         'api_key = os.environ.get("API_KEY")',
         'password = getpass.getpass("Enter password: ")',
-        'config = load_config_from_file()',
-        'credentials = get_credentials_from_vault()',
+        "config = load_config_from_file()",
+        "credentials = get_credentials_from_vault()",
     ]
 
     try:
@@ -310,20 +307,23 @@ def test_req_daa_gen_005_no_hardcoded_credentials():
         # Act & Assert: Unsafe codes should be detected
         for code in unsafe_codes:
             validation = validator.validate(code)
-            assert not validation.is_safe, \
-                f"Should detect hardcoded credential: {code[:50]}"
-            assert any('credential' in v.lower() or 'secret' in v.lower()
-                      for v in validation.violations), \
-                "Should report credential violation"
+            assert not validation.is_safe, f"Should detect hardcoded credential: {code[:50]}"
+            assert any(
+                "credential" in v.lower() or "secret" in v.lower() for v in validation.violations
+            ), "Should report credential violation"
 
         # Act & Assert: Safe codes should pass
         for code in safe_codes:
             validation = validator.validate(code)
             # These should not trigger credential violations
-            credential_violations = [v for v in validation.violations
-                                   if 'credential' in v.lower() or 'password' in v.lower()]
-            assert len(credential_violations) == 0, \
-                f"Should not flag safe credential handling: {code}"
+            credential_violations = [
+                v
+                for v in validation.violations
+                if "credential" in v.lower() or "password" in v.lower()
+            ]
+            assert (
+                len(credential_violations) == 0
+            ), f"Should not flag safe credential handling: {code}"
 
     except (ImportError, AttributeError):
         # Fallback: Pattern-based detection
@@ -335,10 +335,10 @@ def test_req_daa_gen_005_no_hardcoded_credentials():
         ]
 
         for code in unsafe_codes:
-            matched = any(re.search(pattern, code, re.IGNORECASE)
-                         for pattern in credential_patterns)
-            assert matched, \
-                f"Pattern should detect credential: {code[:50]}"
+            matched = any(
+                re.search(pattern, code, re.IGNORECASE) for pattern in credential_patterns
+            )
+            assert matched, f"Pattern should detect credential: {code[:50]}"
 
 
 @pytest.mark.requirement("REQ-DAA-GEN-006")
@@ -352,8 +352,8 @@ def test_req_daa_gen_006_no_eval_exec_on_untrusted():
 
     # Arrange: Dangerous code patterns
     dangerous_codes = [
-        'eval(user_input)',
-        'exec(data_from_file)',
+        "eval(user_input)",
+        "exec(data_from_file)",
         'eval(df["column"].iloc[0])',
         '__import__("os").system(user_command)',
         'compile(untrusted_code, "<string>", "exec")',
@@ -372,19 +372,21 @@ def test_req_daa_gen_006_no_eval_exec_on_untrusted():
         # Act & Assert: Dangerous patterns should be blocked
         for code in dangerous_codes:
             validation = validator.validate(code)
-            assert not validation.is_safe, \
-                f"Should block dangerous eval/exec: {code}"
-            assert any('eval' in v.lower() or 'exec' in v.lower() or 'dangerous' in v.lower()
-                      for v in validation.violations), \
-                "Should report eval/exec violation"
+            assert not validation.is_safe, f"Should block dangerous eval/exec: {code}"
+            assert any(
+                "eval" in v.lower() or "exec" in v.lower() or "dangerous" in v.lower()
+                for v in validation.violations
+            ), "Should report eval/exec violation"
 
         # Act & Assert: Safe patterns should pass
         for code in safe_codes:
             validation = validator.validate(code)
-            eval_violations = [v for v in validation.violations
-                              if 'eval(' in v.lower() and 'forbidden' in v.lower()]
-            assert len(eval_violations) == 0, \
-                f"Should allow safe code: {code}"
+            eval_violations = [
+                v
+                for v in validation.violations
+                if "eval(" in v.lower() and "forbidden" in v.lower()
+            ]
+            assert len(eval_violations) == 0, f"Should allow safe code: {code}"
 
     except (ImportError, AttributeError):
         # Fallback: AST-based detection
@@ -395,11 +397,10 @@ def test_req_daa_gen_006_no_eval_exec_on_untrusted():
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Call):
                         if isinstance(node.func, ast.Name):
-                            if node.func.id in ('eval', 'exec', '__import__', 'compile'):
+                            if node.func.id in ("eval", "exec", "__import__", "compile"):
                                 has_eval_exec = True
                                 break
-                assert has_eval_exec, \
-                    f"Should detect eval/exec in: {code}"
+                assert has_eval_exec, f"Should detect eval/exec in: {code}"
             except SyntaxError:
                 pass  # Invalid syntax, but still dangerous
 
@@ -419,16 +420,16 @@ def test_req_daa_gen_007_no_global_state_modification():
         'os.environ["PATH"] = "/bad/path"',
         'import warnings; warnings.filterwarnings("ignore")',  # Affects global state
         'pd.set_option("display.max_rows", None)',  # Modifies pandas global options
-        'np.random.seed(42)',  # Acceptable but should be noted
+        "np.random.seed(42)",  # Acceptable but should be noted
         'matplotlib.use("Agg")',  # Changes backend globally
     ]
 
     # Safe patterns
     safe_codes = [
-        'import pandas as pd',
-        'data = [1, 2, 3]',
-        'result = df.mean()',
-        'local_var = compute_value()',
+        "import pandas as pd",
+        "data = [1, 2, 3]",
+        "result = df.mean()",
+        "local_var = compute_value()",
     ]
 
     try:
@@ -438,28 +439,27 @@ def test_req_daa_gen_007_no_global_state_modification():
         for code in unsafe_codes:
             validation = validator.validate(code)
             # Some global modifications might be allowed but should be flagged
-            if 'sys.path' in code or 'os.environ' in code:
-                assert not validation.is_safe, \
-                    f"Should block system modification: {code}"
+            if "sys.path" in code or "os.environ" in code:
+                assert not validation.is_safe, f"Should block system modification: {code}"
 
         # Act & Assert: Safe codes should pass
         for code in safe_codes:
             validation = validator.validate(code)
-            assert validation.is_safe, \
-                f"Should allow safe code: {code}"
+            assert validation.is_safe, f"Should allow safe code: {code}"
 
     except (ImportError, AttributeError):
         # Fallback: Pattern detection
         global_modification_patterns = [
-            r'sys\.path\.(append|insert|extend)',
-            r'os\.environ\[',
-            r'setattr\(sys,',
-            r'globals\(\)\[',
+            r"sys\.path\.(append|insert|extend)",
+            r"os\.environ\[",
+            r"setattr\(sys,",
+            r"globals\(\)\[",
         ]
 
         for code in unsafe_codes:
             if any(re.search(pattern, code) for pattern in global_modification_patterns):
                 # Pattern matched - this is potentially unsafe
                 matched = True
-                assert matched or 'warnings' in code or 'set_option' in code, \
-                    f"Should detect global modification: {code}"
+                assert (
+                    matched or "warnings" in code or "set_option" in code
+                ), f"Should detect global modification: {code}"

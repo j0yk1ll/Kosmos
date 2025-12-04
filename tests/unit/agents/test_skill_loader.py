@@ -7,9 +7,9 @@ Tests:
 - Prompt injection formatting
 """
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+
+import pytest
 
 from kosmos.agents.skill_loader import SkillLoader
 
@@ -17,6 +17,7 @@ from kosmos.agents.skill_loader import SkillLoader
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def skills_dir(temp_dir):
@@ -30,7 +31,8 @@ def skills_dir(temp_dir):
     (skills_path / "analysis").mkdir()
 
     # Create sample skill files
-    (skills_path / "libraries" / "pandas.md").write_text("""
+    (skills_path / "libraries" / "pandas.md").write_text(
+        """
 # Pandas
 
 Data manipulation and analysis library.
@@ -53,9 +55,11 @@ df.describe()
 - read_csv, to_csv
 - groupby, merge, join
 - fillna, dropna
-""")
+"""
+    )
 
-    (skills_path / "libraries" / "scipy.md").write_text("""
+    (skills_path / "libraries" / "scipy.md").write_text(
+        """
 # SciPy
 
 Scientific computing library.
@@ -66,9 +70,11 @@ from scipy import stats
 
 result = stats.ttest_ind(group1, group2)
 ```
-""")
+"""
+    )
 
-    (skills_path / "libraries" / "scanpy.md").write_text("""
+    (skills_path / "libraries" / "scanpy.md").write_text(
+        """
 # Scanpy
 
 Single-cell analysis toolkit.
@@ -80,9 +86,11 @@ import scanpy as sc
 adata = sc.read_h5ad('data.h5ad')
 sc.pp.filter_cells(adata, min_genes=200)
 ```
-""")
+"""
+    )
 
-    (skills_path / "databases" / "ensembl-database.md").write_text("""
+    (skills_path / "databases" / "ensembl-database.md").write_text(
+        """
 # Ensembl Database
 
 Genome database for vertebrates and model organisms.
@@ -93,7 +101,8 @@ from biomart import BiomartServer
 
 server = BiomartServer("http://www.ensembl.org/biomart")
 ```
-""")
+"""
+    )
 
     return skills_path
 
@@ -115,6 +124,7 @@ def empty_skill_loader(temp_dir):
 # ============================================================================
 # SkillLoader Initialization Tests
 # ============================================================================
+
 
 class TestSkillLoaderInit:
     """Tests for SkillLoader initialization."""
@@ -138,9 +148,9 @@ class TestSkillLoaderInit:
         loader = SkillLoader(skills_dir=str(skills_dir), auto_discover=True)
 
         # Should find all .md files
-        assert 'pandas' in loader.skills_cache
-        assert 'scipy' in loader.skills_cache
-        assert 'scanpy' in loader.skills_cache
+        assert "pandas" in loader.skills_cache
+        assert "scipy" in loader.skills_cache
+        assert "scanpy" in loader.skills_cache
 
     def test_init_without_auto_discover(self, skills_dir):
         """Test initialization without auto-discovery."""
@@ -152,22 +162,23 @@ class TestSkillLoaderInit:
         """Test that skill bundles are predefined."""
         loader = SkillLoader(auto_discover=False)
 
-        assert 'single_cell_analysis' in loader.SKILL_BUNDLES
-        assert 'genomics_analysis' in loader.SKILL_BUNDLES
-        assert 'drug_discovery' in loader.SKILL_BUNDLES
-        assert 'scanpy' in loader.SKILL_BUNDLES['single_cell_analysis']
+        assert "single_cell_analysis" in loader.SKILL_BUNDLES
+        assert "genomics_analysis" in loader.SKILL_BUNDLES
+        assert "drug_discovery" in loader.SKILL_BUNDLES
+        assert "scanpy" in loader.SKILL_BUNDLES["single_cell_analysis"]
 
     def test_common_skills_defined(self):
         """Test that common skills are predefined."""
         loader = SkillLoader(auto_discover=False)
 
-        assert 'pandas' in loader.COMMON_SKILLS
-        assert 'numpy' in loader.COMMON_SKILLS
+        assert "pandas" in loader.COMMON_SKILLS
+        assert "numpy" in loader.COMMON_SKILLS
 
 
 # ============================================================================
 # Skill Discovery Tests
 # ============================================================================
+
 
 class TestSkillDiscovery:
     """Tests for skill discovery."""
@@ -182,15 +193,15 @@ class TestSkillDiscovery:
     def test_discovered_skill_metadata(self, skill_loader_with_skills):
         """Test that discovered skills have correct metadata."""
         loader = skill_loader_with_skills
-        pandas_skill = loader.skills_cache.get('pandas')
+        pandas_skill = loader.skills_cache.get("pandas")
 
         assert pandas_skill is not None
-        assert 'path' in pandas_skill
-        assert 'name' in pandas_skill
-        assert 'category' in pandas_skill
-        assert pandas_skill['name'] == 'pandas'
-        assert pandas_skill['category'] == 'libraries'
-        assert pandas_skill['loaded'] is False  # Lazy loading
+        assert "path" in pandas_skill
+        assert "name" in pandas_skill
+        assert "category" in pandas_skill
+        assert pandas_skill["name"] == "pandas"
+        assert pandas_skill["category"] == "libraries"
+        assert pandas_skill["loaded"] is False  # Lazy loading
 
     def test_discover_nested_skills(self, skills_dir):
         """Test discovery of nested skill files."""
@@ -201,12 +212,13 @@ class TestSkillDiscovery:
 
         loader = SkillLoader(skills_dir=str(skills_dir), auto_discover=True)
 
-        assert 'pytorch' in loader.skills_cache
+        assert "pytorch" in loader.skills_cache
 
 
 # ============================================================================
 # Skill Loading Tests
 # ============================================================================
+
 
 class TestSkillLoading:
     """Tests for loading individual skills."""
@@ -214,21 +226,21 @@ class TestSkillLoading:
     def test_load_skill_by_name(self, skill_loader_with_skills):
         """Test loading skill by name."""
         loader = skill_loader_with_skills
-        skill = loader.load_skill('pandas')
+        skill = loader.load_skill("pandas")
 
         assert skill is not None
-        assert skill['name'] == 'pandas'
-        assert skill['loaded'] is True
-        assert 'content' in skill
-        assert 'Pandas' in skill['content']
+        assert skill["name"] == "pandas"
+        assert skill["loaded"] is True
+        assert "content" in skill
+        assert "Pandas" in skill["content"]
 
     def test_load_skill_from_cache(self, skill_loader_with_skills):
         """Test that loaded skills are cached."""
         loader = skill_loader_with_skills
 
         # Load twice
-        skill1 = loader.load_skill('pandas')
-        skill2 = loader.load_skill('pandas')
+        skill1 = loader.load_skill("pandas")
+        skill2 = loader.load_skill("pandas")
 
         # Should be same object (cached)
         assert skill1 is skill2
@@ -236,7 +248,7 @@ class TestSkillLoading:
     def test_load_skill_not_found(self, skill_loader_with_skills):
         """Test loading non-existent skill."""
         loader = skill_loader_with_skills
-        skill = loader.load_skill('nonexistent_skill')
+        skill = loader.load_skill("nonexistent_skill")
 
         assert skill is None
 
@@ -247,13 +259,14 @@ class TestSkillLoading:
 
         skill = loader.load_skill_from_file(skill_path)
 
-        assert skill['name'] == 'scipy'
-        assert 'SciPy' in skill['content']
+        assert skill["name"] == "scipy"
+        assert "SciPy" in skill["content"]
 
 
 # ============================================================================
 # Skill Parsing Tests
 # ============================================================================
+
 
 class TestSkillParsing:
     """Tests for skill markdown parsing."""
@@ -261,19 +274,19 @@ class TestSkillParsing:
     def test_parse_skill_description(self, skill_loader_with_skills):
         """Test extraction of skill description."""
         loader = skill_loader_with_skills
-        skill = loader.load_skill('pandas')
+        skill = loader.load_skill("pandas")
 
-        assert 'description' in skill
-        assert len(skill['description']) > 0
+        assert "description" in skill
+        assert len(skill["description"]) > 0
 
     def test_parse_skill_examples(self, skill_loader_with_skills):
         """Test extraction of code examples."""
         loader = skill_loader_with_skills
-        skill = loader.load_skill('pandas')
+        skill = loader.load_skill("pandas")
 
-        assert 'examples' in skill
-        assert len(skill['examples']) > 0
-        assert 'import pandas' in skill['examples'][0]
+        assert "examples" in skill
+        assert len(skill["examples"]) > 0
+        assert "import pandas" in skill["examples"][0]
 
     def test_parse_empty_skill(self, temp_dir):
         """Test parsing skill with minimal content."""
@@ -282,15 +295,16 @@ class TestSkillParsing:
         (skills_dir / "empty.md").write_text("# Empty Skill\n")
 
         loader = SkillLoader(skills_dir=str(skills_dir), auto_discover=True)
-        skill = loader.load_skill('empty')
+        skill = loader.load_skill("empty")
 
         assert skill is not None
-        assert skill['examples'] == []
+        assert skill["examples"] == []
 
 
 # ============================================================================
 # Skill Bundle Tests
 # ============================================================================
+
 
 class TestSkillBundles:
     """Tests for skill bundles."""
@@ -300,22 +314,22 @@ class TestSkillBundles:
         loader = SkillLoader(auto_discover=False)
         bundles = loader.get_available_bundles()
 
-        assert 'single_cell_analysis' in bundles
-        assert 'genomics_analysis' in bundles
+        assert "single_cell_analysis" in bundles
+        assert "genomics_analysis" in bundles
         assert len(bundles) >= 8
 
     def test_get_bundle_skills(self):
         """Test getting skills in a bundle."""
         loader = SkillLoader(auto_discover=False)
-        skills = loader.get_bundle_skills('single_cell_analysis')
+        skills = loader.get_bundle_skills("single_cell_analysis")
 
-        assert 'scanpy' in skills
-        assert 'anndata' in skills
+        assert "scanpy" in skills
+        assert "anndata" in skills
 
     def test_get_bundle_skills_nonexistent(self):
         """Test getting skills from non-existent bundle."""
         loader = SkillLoader(auto_discover=False)
-        skills = loader.get_bundle_skills('nonexistent_bundle')
+        skills = loader.get_bundle_skills("nonexistent_bundle")
 
         assert skills == []
 
@@ -324,6 +338,7 @@ class TestSkillBundles:
 # Load Skills for Task Tests
 # ============================================================================
 
+
 class TestLoadSkillsForTask:
     """Tests for loading skills based on task requirements."""
 
@@ -331,9 +346,7 @@ class TestLoadSkillsForTask:
         """Test loading skills for a specific task type."""
         loader = skill_loader_with_skills
         skills_text = loader.load_skills_for_task(
-            task_type='single_cell_analysis',
-            include_examples=False,
-            include_common=False
+            task_type="single_cell_analysis", include_examples=False, include_common=False
         )
 
         # Should include scanpy from single_cell_analysis bundle
@@ -344,8 +357,7 @@ class TestLoadSkillsForTask:
         """Test loading skills by domain."""
         loader = skill_loader_with_skills
         skills_text = loader.load_skills_for_task(
-            domain='single_cell_analysis',
-            include_common=False
+            domain="single_cell_analysis", include_common=False
         )
 
         assert isinstance(skills_text, str)
@@ -354,8 +366,7 @@ class TestLoadSkillsForTask:
         """Test loading specific libraries."""
         loader = skill_loader_with_skills
         skills_text = loader.load_skills_for_task(
-            libraries=['pandas', 'scipy'],
-            include_common=False
+            libraries=["pandas", "scipy"], include_common=False
         )
 
         # Should include requested libraries if available
@@ -365,32 +376,27 @@ class TestLoadSkillsForTask:
         """Test that common skills are included when requested."""
         loader = skill_loader_with_skills
         skills_text = loader.load_skills_for_task(
-            task_type='single_cell_analysis',
-            include_common=True
+            task_type="single_cell_analysis", include_common=True
         )
 
         # Should be formatted for prompt
-        assert 'Scientific Skills' in skills_text or skills_text == ''
+        assert "Scientific Skills" in skills_text or skills_text == ""
 
     def test_load_skills_with_examples(self, skill_loader_with_skills):
         """Test including code examples."""
         loader = skill_loader_with_skills
         skills_text = loader.load_skills_for_task(
-            libraries=['pandas'],
-            include_examples=True,
-            include_common=False
+            libraries=["pandas"], include_examples=True, include_common=False
         )
 
         # If pandas was loaded, should include example
-        if 'pandas' in skills_text.lower():
-            assert '```python' in skills_text
+        if "pandas" in skills_text.lower():
+            assert "```python" in skills_text
 
     def test_load_skills_empty_request(self, skill_loader_with_skills):
         """Test loading with no specific requirements."""
         loader = skill_loader_with_skills
-        skills_text = loader.load_skills_for_task(
-            include_common=False
-        )
+        skills_text = loader.load_skills_for_task(include_common=False)
 
         # Should return empty or minimal
         assert isinstance(skills_text, str)
@@ -400,6 +406,7 @@ class TestLoadSkillsForTask:
 # Prompt Formatting Tests
 # ============================================================================
 
+
 class TestPromptFormatting:
     """Tests for skill prompt formatting."""
 
@@ -408,27 +415,27 @@ class TestPromptFormatting:
         loader = skill_loader_with_skills
 
         # Load some skills
-        skills = [loader.load_skill('pandas')]
+        skills = [loader.load_skill("pandas")]
         skills = [s for s in skills if s is not None]
 
         if skills:
             formatted = loader._format_skills_for_prompt(skills, include_examples=False)
 
-            assert '# Scientific Skills' in formatted
-            assert 'pandas' in formatted
+            assert "# Scientific Skills" in formatted
+            assert "pandas" in formatted
 
     def test_format_skills_with_examples(self, skill_loader_with_skills):
         """Test formatting with code examples."""
         loader = skill_loader_with_skills
 
-        skills = [loader.load_skill('pandas')]
+        skills = [loader.load_skill("pandas")]
         skills = [s for s in skills if s is not None]
 
         if skills:
             formatted = loader._format_skills_for_prompt(skills, include_examples=True)
 
-            assert '**Example Usage**' in formatted
-            assert '```python' in formatted
+            assert "**Example Usage**" in formatted
+            assert "```python" in formatted
 
     def test_format_empty_skills(self, skill_loader_with_skills):
         """Test formatting empty skill list."""
@@ -444,16 +451,12 @@ class TestPromptFormatting:
         # Create many skills
         skills = []
         for i in range(20):
-            skills.append({
-                'name': f'skill_{i}',
-                'description': f'Description {i}',
-                'examples': []
-            })
+            skills.append({"name": f"skill_{i}", "description": f"Description {i}", "examples": []})
 
         formatted = loader._format_skills_for_prompt(skills)
 
         # Should limit to 15 skills
-        skill_count = formatted.count('## skill_')
+        skill_count = formatted.count("## skill_")
         assert skill_count <= 15
 
 
@@ -461,36 +464,37 @@ class TestPromptFormatting:
 # Search Tests
 # ============================================================================
 
+
 class TestSkillSearch:
     """Tests for skill searching."""
 
     def test_search_skills_by_name(self, skill_loader_with_skills):
         """Test searching skills by name."""
         loader = skill_loader_with_skills
-        results = loader.search_skills('pandas')
+        results = loader.search_skills("pandas")
 
         assert len(results) >= 1
-        assert any(s['name'] == 'pandas' for s in results if s)
+        assert any(s["name"] == "pandas" for s in results if s)
 
     def test_search_skills_partial_match(self, skill_loader_with_skills):
         """Test searching with partial name."""
         loader = skill_loader_with_skills
-        results = loader.search_skills('scan')
+        results = loader.search_skills("scan")
 
         # Should find scanpy
-        assert any('scanpy' in str(s) for s in results if s)
+        assert any("scanpy" in str(s) for s in results if s)
 
     def test_search_skills_no_results(self, skill_loader_with_skills):
         """Test search with no matches."""
         loader = skill_loader_with_skills
-        results = loader.search_skills('xyznonexistent')
+        results = loader.search_skills("xyznonexistent")
 
         assert results == []
 
     def test_search_skills_case_insensitive(self, skill_loader_with_skills):
         """Test case-insensitive search."""
         loader = skill_loader_with_skills
-        results = loader.search_skills('PANDAS')
+        results = loader.search_skills("PANDAS")
 
         assert len(results) >= 1
 
@@ -498,6 +502,7 @@ class TestSkillSearch:
 # ============================================================================
 # Statistics Tests
 # ============================================================================
+
 
 class TestSkillStatistics:
     """Tests for skill statistics."""
@@ -507,22 +512,23 @@ class TestSkillStatistics:
         loader = skill_loader_with_skills
         stats = loader.get_statistics()
 
-        assert 'total_skills' in stats
-        assert 'skills_by_category' in stats
-        assert 'predefined_bundles' in stats
-        assert stats['total_skills'] >= 4  # Our mock skills
+        assert "total_skills" in stats
+        assert "skills_by_category" in stats
+        assert "predefined_bundles" in stats
+        assert stats["total_skills"] >= 4  # Our mock skills
 
     def test_get_statistics_empty(self, empty_skill_loader):
         """Test statistics for empty skill loader."""
         loader = empty_skill_loader
         stats = loader.get_statistics()
 
-        assert stats['total_skills'] == 0
+        assert stats["total_skills"] == 0
 
 
 # ============================================================================
 # Edge Cases and Error Handling
 # ============================================================================
+
 
 class TestSkillLoaderEdgeCases:
     """Tests for edge cases and error handling."""
@@ -542,10 +548,10 @@ class TestSkillLoaderEdgeCases:
 
         # Create file with special characters
         skill_path = skills_dir / "special.md"
-        skill_path.write_text("# Special\n\nContent with émojis: 🎉", encoding='utf-8')
+        skill_path.write_text("# Special\n\nContent with émojis: 🎉", encoding="utf-8")
 
         loader = SkillLoader(skills_dir=str(skills_dir), auto_discover=True)
-        skill = loader.load_skill('special')
+        skill = loader.load_skill("special")
 
         assert skill is not None
 
@@ -568,9 +574,9 @@ class TestSkillLoaderEdgeCases:
             results.append(skill)
 
         threads = [
-            threading.Thread(target=load_skill, args=('pandas',)),
-            threading.Thread(target=load_skill, args=('scipy',)),
-            threading.Thread(target=load_skill, args=('scanpy',))
+            threading.Thread(target=load_skill, args=("pandas",)),
+            threading.Thread(target=load_skill, args=("scipy",)),
+            threading.Thread(target=load_skill, args=("scanpy",)),
         ]
 
         for t in threads:

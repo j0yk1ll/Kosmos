@@ -2,15 +2,16 @@
 
 # Domain models (Phase 9)
 from kosmos.models.domain import (
-    ScientificDomain,
-    DomainConfidence,
-    DomainClassification,
-    DomainExpertise,
-    DomainRoute,
     CrossDomainMapping,
-    DomainOntology,
     DomainCapability,
+    DomainClassification,
+    DomainConfidence,
+    DomainExpertise,
+    DomainOntology,
+    DomainRoute,
+    ScientificDomain,
 )
+
 
 __all__ = [
     # Domain models

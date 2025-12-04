@@ -10,24 +10,22 @@ Supports:
 """
 
 import logging
-from typing import List, Dict, Any, Optional, Set, Tuple
-from pathlib import Path
 from enum import Enum
+from typing import Any
 
-import networkx as nx
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.colors import LinearSegmentedColormap
+import networkx as nx
 import plotly.graph_objects as go
-import numpy as np
 
-from kosmos.knowledge.graph import get_knowledge_graph, KnowledgeGraph
+from kosmos.knowledge.graph import KnowledgeGraph, get_knowledge_graph
+
 
 logger = logging.getLogger(__name__)
 
 
 class LayoutAlgorithm(Enum):
     """Available graph layout algorithms."""
+
     SPRING = "spring"
     HIERARCHICAL = "hierarchical"
     CIRCULAR = "circular"
@@ -37,6 +35,7 @@ class LayoutAlgorithm(Enum):
 
 class VisualizationMode(Enum):
     """Visualization modes."""
+
     STATIC = "static"
     INTERACTIVE = "interactive"
 
@@ -51,8 +50,8 @@ class GraphVisualizer:
 
     def __init__(
         self,
-        graph: Optional[KnowledgeGraph] = None,
-        default_layout: LayoutAlgorithm = LayoutAlgorithm.SPRING
+        graph: KnowledgeGraph | None = None,
+        default_layout: LayoutAlgorithm = LayoutAlgorithm.SPRING,
     ):
         """
         Initialize graph visualizer.
@@ -82,18 +81,18 @@ class GraphVisualizer:
 
         # Color schemes
         self.node_colors = {
-            "Paper": "#3498db",      # Blue
-            "Author": "#e74c3c",     # Red
-            "Concept": "#2ecc71",    # Green
-            "Method": "#f39c12"      # Orange
+            "Paper": "#3498db",  # Blue
+            "Author": "#e74c3c",  # Red
+            "Concept": "#2ecc71",  # Green
+            "Method": "#f39c12",  # Orange
         }
 
         self.edge_colors = {
-            "CITES": "#95a5a6",      # Gray
-            "AUTHORED": "#e74c3c",   # Red
+            "CITES": "#95a5a6",  # Gray
+            "AUTHORED": "#e74c3c",  # Red
             "DISCUSSES": "#2ecc71",  # Green
-            "USES_METHOD": "#f39c12", # Orange
-            "RELATED_TO": "#9b59b6"  # Purple
+            "USES_METHOD": "#f39c12",  # Orange
+            "RELATED_TO": "#9b59b6",  # Purple
         }
 
         logger.info("Initialized GraphVisualizer")
@@ -101,12 +100,12 @@ class GraphVisualizer:
     def visualize_static(
         self,
         output_file: str = "knowledge_graph.png",
-        layout: Optional[LayoutAlgorithm] = None,
-        node_types: Optional[List[str]] = None,
+        layout: LayoutAlgorithm | None = None,
+        node_types: list[str] | None = None,
         max_nodes: int = 100,
-        figsize: Tuple[int, int] = (16, 12),
+        figsize: tuple[int, int] = (16, 12),
         dpi: int = 300,
-        title: Optional[str] = None
+        title: str | None = None,
     ):
         """
         Create static visualization using NetworkX and Matplotlib.
@@ -151,13 +150,14 @@ class GraphVisualizer:
             nodes = [n for n, d in G.nodes(data=True) if d.get("type") == node_type]
             if nodes:
                 nx.draw_networkx_nodes(
-                    G, pos,
+                    G,
+                    pos,
                     nodelist=nodes,
                     node_color=self.node_colors[node_type],
                     node_size=500,
                     alpha=0.7,
                     label=node_type,
-                    ax=ax
+                    ax=ax,
                 )
 
         # Draw edges by type
@@ -165,14 +165,15 @@ class GraphVisualizer:
             edges = [(u, v) for u, v, d in G.edges(data=True) if d.get("type") == edge_type]
             if edges:
                 nx.draw_networkx_edges(
-                    G, pos,
+                    G,
+                    pos,
                     edgelist=edges,
                     edge_color=color,
                     alpha=0.5,
                     width=1.5,
                     arrows=True,
                     arrowsize=10,
-                    ax=ax
+                    ax=ax,
                 )
 
         # Draw labels for important nodes
@@ -181,13 +182,7 @@ class GraphVisualizer:
             if data.get("importance", 0) > 0.7 or G.degree(node) > 5:
                 labels[node] = data.get("label", node)[:30]  # Truncate
 
-        nx.draw_networkx_labels(
-            G, pos,
-            labels=labels,
-            font_size=8,
-            font_weight="bold",
-            ax=ax
-        )
+        nx.draw_networkx_labels(G, pos, labels=labels, font_size=8, font_weight="bold", ax=ax)
 
         # Add legend
         ax.legend(loc="upper left", fontsize=10)
@@ -208,10 +203,10 @@ class GraphVisualizer:
     def visualize_interactive(
         self,
         output_file: str = "knowledge_graph.html",
-        node_types: Optional[List[str]] = None,
+        node_types: list[str] | None = None,
         max_nodes: int = 200,
-        layout: Optional[LayoutAlgorithm] = None,
-        title: Optional[str] = None
+        layout: LayoutAlgorithm | None = None,
+        title: str | None = None,
     ):
         """
         Create interactive visualization using Plotly.
@@ -251,7 +246,6 @@ class GraphVisualizer:
         for edge_type, color in self.edge_colors.items():
             edge_x = []
             edge_y = []
-            edge_text = []
 
             for u, v, data in G.edges(data=True):
                 if data.get("type") == edge_type:
@@ -262,12 +256,13 @@ class GraphVisualizer:
 
             if edge_x:
                 edge_trace = go.Scatter(
-                    x=edge_x, y=edge_y,
-                    line=dict(width=1, color=color),
-                    hoverinfo='none',
-                    mode='lines',
+                    x=edge_x,
+                    y=edge_y,
+                    line={"width": 1, "color": color},
+                    hoverinfo="none",
+                    mode="lines",
                     name=edge_type,
-                    showlegend=True
+                    showlegend=True,
                 )
                 edge_traces.append(edge_trace)
 
@@ -310,18 +305,15 @@ class GraphVisualizer:
 
             if node_x:
                 node_trace = go.Scatter(
-                    x=node_x, y=node_y,
-                    mode='markers',
-                    hoverinfo='text',
+                    x=node_x,
+                    y=node_y,
+                    mode="markers",
+                    hoverinfo="text",
                     hovertext=node_hover,
-                    marker=dict(
-                        color=color,
-                        size=10,
-                        line=dict(width=1, color='white')
-                    ),
+                    marker={"color": color, "size": 10, "line": {"width": 1, "color": "white"}},
                     text=node_text,
                     name=node_type,
-                    showlegend=True
+                    showlegend=True,
                 )
                 node_traces.append(node_trace)
 
@@ -332,13 +324,13 @@ class GraphVisualizer:
                 title=title or "Knowledge Graph",
                 titlefont_size=16,
                 showlegend=True,
-                hovermode='closest',
-                margin=dict(b=20, l=5, r=5, t=40),
-                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                plot_bgcolor='white',
-                height=800
-            )
+                hovermode="closest",
+                margin={"b": 20, "l": 5, "r": 5, "t": 40},
+                xaxis={"showgrid": False, "zeroline": False, "showticklabels": False},
+                yaxis={"showgrid": False, "zeroline": False, "showticklabels": False},
+                plot_bgcolor="white",
+                height=800,
+            ),
         )
 
         # Save
@@ -350,7 +342,7 @@ class GraphVisualizer:
         paper_id: str,
         max_depth: int = 2,
         output_file: str = "citation_network.png",
-        mode: VisualizationMode = VisualizationMode.STATIC
+        mode: VisualizationMode = VisualizationMode.STATIC,
     ):
         """
         Visualize citation network around a paper.
@@ -392,26 +384,17 @@ class GraphVisualizer:
             cited = citation["paper"]
             cited_id = cited.get("id")
 
-            G.add_node(
-                cited_id,
-                type="Paper",
-                label=cited.get("title", "Unknown"),
-                importance=0.5
-            )
+            G.add_node(cited_id, type="Paper", label=cited.get("title", "Unknown"), importance=0.5)
             G.add_edge(paper_id, cited_id, type="CITES")
 
         # Visualize
         if mode == VisualizationMode.STATIC:
             self._visualize_networkx_static(
-                G,
-                output_file=output_file,
-                title=f"Citation Network (depth={max_depth})"
+                G, output_file=output_file, title=f"Citation Network (depth={max_depth})"
             )
         else:
             self._visualize_networkx_interactive(
-                G,
-                output_file=output_file,
-                title=f"Citation Network (depth={max_depth})"
+                G, output_file=output_file, title=f"Citation Network (depth={max_depth})"
             )
 
     def visualize_concept_network(
@@ -419,7 +402,7 @@ class GraphVisualizer:
         concept_name: str,
         output_file: str = "concept_network.png",
         mode: VisualizationMode = VisualizationMode.STATIC,
-        max_related: int = 20
+        max_related: int = 20,
     ):
         """
         Visualize concept and related concepts.
@@ -470,15 +453,11 @@ class GraphVisualizer:
         # Visualize
         if mode == VisualizationMode.STATIC:
             self._visualize_networkx_static(
-                G,
-                output_file=output_file,
-                title=f"Concept Network: {concept_name}"
+                G, output_file=output_file, title=f"Concept Network: {concept_name}"
             )
         else:
             self._visualize_networkx_interactive(
-                G,
-                output_file=output_file,
-                title=f"Concept Network: {concept_name}"
+                G, output_file=output_file, title=f"Concept Network: {concept_name}"
             )
 
     def visualize_author_network(
@@ -486,7 +465,7 @@ class GraphVisualizer:
         author_name: str,
         output_file: str = "author_network.png",
         mode: VisualizationMode = VisualizationMode.STATIC,
-        include_coauthors: bool = True
+        include_coauthors: bool = True,
     ):
         """
         Visualize author's papers and co-authors.
@@ -527,21 +506,15 @@ class GraphVisualizer:
         # Visualize
         if mode == VisualizationMode.STATIC:
             self._visualize_networkx_static(
-                G,
-                output_file=output_file,
-                title=f"Author Network: {author_name}"
+                G, output_file=output_file, title=f"Author Network: {author_name}"
             )
         else:
             self._visualize_networkx_interactive(
-                G,
-                output_file=output_file,
-                title=f"Author Network: {author_name}"
+                G, output_file=output_file, title=f"Author Network: {author_name}"
             )
 
     def _build_networkx_graph(
-        self,
-        node_types: Optional[List[str]] = None,
-        max_nodes: int = 100
+        self, node_types: list[str] | None = None, max_nodes: int = 100
     ) -> nx.MultiDiGraph:
         """
         Build NetworkX graph from Neo4j knowledge graph.
@@ -559,7 +532,7 @@ class GraphVisualizer:
         node_types_str = "|".join(node_types) if node_types else "Paper|Author|Concept|Method"
 
         # Get nodes
-        query = f"""
+        query = """
         MATCH (n)
         WHERE any(label IN labels(n) WHERE label IN split($node_types, '|'))
         RETURN n, labels(n)[0] as type
@@ -568,9 +541,7 @@ class GraphVisualizer:
 
         try:
             results = self.graph.graph.run(
-                query,
-                node_types=node_types_str,
-                max_nodes=max_nodes
+                query, node_types=node_types_str, max_nodes=max_nodes
             ).data()
 
             for result in results:
@@ -582,15 +553,10 @@ class GraphVisualizer:
                     node_id,
                     type=node_type,
                     label=node.get("title") or node.get("name", "Unknown"),
-                    **dict(node)
+                    **dict(node),
                 )
 
             # Get edges
-            edge_query = """
-            MATCH (a)-[r]->(b)
-            WHERE id(a) IN $node_ids AND id(b) IN $node_ids
-            RETURN a, b, type(r) as rel_type, r
-            """
 
             # This is a simplified version - full implementation would
             # properly query relationships between loaded nodes
@@ -601,10 +567,8 @@ class GraphVisualizer:
         return G
 
     def _compute_layout(
-        self,
-        G: nx.Graph,
-        layout: LayoutAlgorithm
-    ) -> Dict[Any, Tuple[float, float]]:
+        self, G: nx.Graph, layout: LayoutAlgorithm
+    ) -> dict[Any, tuple[float, float]]:
         """
         Compute graph layout positions.
 
@@ -628,12 +592,7 @@ class GraphVisualizer:
         else:
             return nx.spring_layout(G)
 
-    def _visualize_networkx_static(
-        self,
-        G: nx.Graph,
-        output_file: str,
-        title: str
-    ):
+    def _visualize_networkx_static(self, G: nx.Graph, output_file: str, title: str):
         """Helper for static NetworkX visualization."""
         pos = self._compute_layout(G, self.default_layout)
 
@@ -644,13 +603,14 @@ class GraphVisualizer:
             nodes = [n for n, d in G.nodes(data=True) if d.get("type") == node_type]
             if nodes:
                 nx.draw_networkx_nodes(
-                    G, pos,
+                    G,
+                    pos,
                     nodelist=nodes,
                     node_color=self.node_colors[node_type],
                     node_size=300,
                     alpha=0.7,
                     label=node_type,
-                    ax=ax
+                    ax=ax,
                 )
 
         # Draw edges
@@ -670,27 +630,17 @@ class GraphVisualizer:
 
         logger.info(f"Saved to {output_file}")
 
-    def _visualize_networkx_interactive(
-        self,
-        G: nx.Graph,
-        output_file: str,
-        title: str
-    ):
+    def _visualize_networkx_interactive(self, G: nx.Graph, output_file: str, title: str):
         """Helper for interactive Plotly visualization."""
-        self.visualize_interactive(
-            output_file=output_file,
-            max_nodes=len(G.nodes()),
-            title=title
-        )
+        self.visualize_interactive(output_file=output_file, max_nodes=len(G.nodes()), title=title)
 
 
 # Singleton instance
-_graph_visualizer: Optional[GraphVisualizer] = None
+_graph_visualizer: GraphVisualizer | None = None
 
 
 def get_graph_visualizer(
-    graph: Optional[KnowledgeGraph] = None,
-    reset: bool = False
+    graph: KnowledgeGraph | None = None, reset: bool = False
 ) -> GraphVisualizer:
     """
     Get or create the singleton graph visualizer instance.

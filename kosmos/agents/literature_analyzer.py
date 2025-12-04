@@ -10,22 +10,23 @@ Provides intelligent paper analysis including:
 - Corpus-level insights
 """
 
-import logging
-from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass, asdict
-import time
 import json
+import logging
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
-from kosmos.agents.base import BaseAgent, AgentMessage, MessageType, AgentStatus
+from kosmos.agents.base import AgentStatus, BaseAgent
 from kosmos.core.llm import get_client
-from kosmos.knowledge.graph import get_knowledge_graph
-from kosmos.knowledge.vector_db import get_vector_db
-from kosmos.knowledge.embeddings import get_embedder
-from kosmos.knowledge.semantic_search import SemanticLiteratureSearch
-from kosmos.literature.unified_search import UnifiedLiteratureSearch
-from kosmos.literature.base_client import PaperMetadata
 from kosmos.knowledge.concept_extractor import get_concept_extractor
+from kosmos.knowledge.embeddings import get_embedder
+from kosmos.knowledge.graph import get_knowledge_graph
+from kosmos.knowledge.semantic_search import SemanticLiteratureSearch
+from kosmos.knowledge.vector_db import get_vector_db
+from kosmos.literature.base_client import PaperMetadata
+from kosmos.literature.unified_search import UnifiedLiteratureSearch
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,16 +34,17 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PaperAnalysis:
     """Complete paper analysis result."""
+
     paper_id: str
     executive_summary: str
-    key_findings: List[Dict[str, Any]]
-    methodology: Dict[str, Any]
+    key_findings: list[dict[str, Any]]
+    methodology: dict[str, Any]
     significance: str
-    limitations: List[str]
+    limitations: list[str]
     confidence_score: float
     analysis_time: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -80,9 +82,9 @@ class LiteratureAnalyzerAgent(BaseAgent):
 
     def __init__(
         self,
-        agent_id: Optional[str] = None,
-        agent_type: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None
+        agent_id: str | None = None,
+        agent_type: str | None = None,
+        config: dict[str, Any] | None = None,
     ):
         """
         Initialize Literature Analyzer Agent.
@@ -150,7 +152,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
             f"errors: {self.errors_encountered}"
         )
 
-    def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         """
         Execute analysis task.
 
@@ -266,7 +268,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
                 prompt=prompt,
                 output_schema=self._get_summarization_schema(),
                 system="You are an expert scientific literature analyst. Provide thorough, accurate analysis.",
-                max_tokens=2048
+                max_tokens=2048,
             )
 
             result = PaperAnalysis(
@@ -277,7 +279,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
                 significance=analysis.get("significance", ""),
                 limitations=analysis.get("limitations", []),
                 confidence_score=analysis.get("confidence_score", 0.5),
-                analysis_time=time.time() - start_time
+                analysis_time=time.time() - start_time,
             )
 
             # Cache result
@@ -291,10 +293,8 @@ class LiteratureAnalyzerAgent(BaseAgent):
             raise
 
     def extract_key_findings(
-        self,
-        paper: PaperMetadata,
-        max_findings: int = 5
-    ) -> List[Dict[str, Any]]:
+        self, paper: PaperMetadata, max_findings: int = 5
+    ) -> list[dict[str, Any]]:
         """
         Extract structured key findings using Claude.
 
@@ -325,18 +325,18 @@ class LiteratureAnalyzerAgent(BaseAgent):
                             "finding": {"type": "string"},
                             "evidence": {"type": "string"},
                             "confidence": {"type": "number"},
-                            "category": {"type": "string"}
-                        }
-                    }
+                            "category": {"type": "string"},
+                        },
+                    },
                 }
-            }
+            },
         }
 
         try:
             result = self.llm_client.generate_structured(
                 prompt=prompt,
                 output_schema=schema,
-                system="Extract key findings with supporting evidence."
+                system="Extract key findings with supporting evidence.",
             )
 
             return result.get("findings", [])
@@ -345,7 +345,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
             logger.error(f"Key findings extraction failed: {e}")
             return []
 
-    def extract_methodology(self, paper: PaperMetadata) -> Dict[str, Any]:
+    def extract_methodology(self, paper: PaperMetadata) -> dict[str, Any]:
         """
         Identify research methods and techniques.
 
@@ -368,7 +368,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
             "experimental_methods": [],
             "computational_methods": [],
             "analytical_methods": [],
-            "datasets_used": []
+            "datasets_used": [],
         }
 
         # Use concept extractor if available
@@ -380,7 +380,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
                     method_dict = {
                         "name": method.name,
                         "description": method.description,
-                        "confidence": method.confidence
+                        "confidence": method.confidence,
                     }
 
                     # Categorize by category
@@ -402,7 +402,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
                 result = self.llm_client.generate_structured(
                     prompt=prompt,
                     output_schema=self._get_methodology_schema(),
-                    system="Extract research methods systematically."
+                    system="Extract research methods systematically.",
                 )
 
                 methodology.update(result)
@@ -413,11 +413,8 @@ class LiteratureAnalyzerAgent(BaseAgent):
         return methodology
 
     def analyze_citation_network(
-        self,
-        paper_id: str,
-        depth: int = 2,
-        build_if_missing: bool = True
-    ) -> Dict[str, Any]:
+        self, paper_id: str, depth: int = 2, build_if_missing: bool = True
+    ) -> dict[str, Any]:
         """
         Analyze citation network around a paper.
 
@@ -449,7 +446,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
             "citation_count": 0,
             "cited_by_count": 0,
             "influential_citations": [],
-            "network_metrics": {}
+            "network_metrics": {},
         }
 
         # Try knowledge graph first
@@ -465,16 +462,14 @@ class LiteratureAnalyzerAgent(BaseAgent):
 
                 # Identify influential citations (high citation count)
                 influential = sorted(
-                    citations,
-                    key=lambda x: x["paper"].get("citation_count", 0),
-                    reverse=True
+                    citations, key=lambda x: x["paper"].get("citation_count", 0), reverse=True
                 )[:5]
 
                 network_data["influential_citations"] = [
                     {
                         "paper_id": c["paper"]["id"],
                         "title": c["paper"]["title"],
-                        "citation_count": c["paper"].get("citation_count", 0)
+                        "citation_count": c["paper"].get("citation_count", 0),
                     }
                     for c in influential
                 ]
@@ -497,10 +492,10 @@ class LiteratureAnalyzerAgent(BaseAgent):
 
     def score_relevance(
         self,
-        papers: List[PaperMetadata],
+        papers: list[PaperMetadata],
         query: str,
-        reference_papers: Optional[List[PaperMetadata]] = None
-    ) -> List[Tuple[PaperMetadata, float]]:
+        reference_papers: list[PaperMetadata] | None = None,
+    ) -> list[tuple[PaperMetadata, float]]:
         """
         Multi-faceted relevance scoring.
 
@@ -553,12 +548,14 @@ class LiteratureAnalyzerAgent(BaseAgent):
             if paper.citation_count > 0:
                 # Log scale normalization
                 import math
+
                 citation_score = math.log1p(paper.citation_count) / math.log1p(1000)
                 score += weights["citation"] * min(citation_score, 1.0)
 
             # Recency (papers from last 5 years get bonus)
             if paper.year:
                 from datetime import datetime
+
                 current_year = datetime.now().year
                 age = current_year - paper.year
                 recency_score = max(0, 1.0 - (age / 5.0))  # 5-year window
@@ -572,11 +569,8 @@ class LiteratureAnalyzerAgent(BaseAgent):
         return scored_papers
 
     def find_related_papers(
-        self,
-        paper: PaperMetadata,
-        max_results: int = 10,
-        similarity_threshold: float = 0.7
-    ) -> List[Dict[str, Any]]:
+        self, paper: PaperMetadata, max_results: int = 10, similarity_threshold: float = 0.7
+    ) -> list[dict[str, Any]]:
         """
         Find papers related through multiple pathways.
 
@@ -607,19 +601,17 @@ class LiteratureAnalyzerAgent(BaseAgent):
         # 1. Semantic similarity
         if self.use_semantic_similarity:
             try:
-                similar = self.vector_db.search_by_paper(
-                    paper,
-                    top_k=max_results,
-                    filters=None
-                )
+                similar = self.vector_db.search_by_paper(paper, top_k=max_results, filters=None)
 
                 for result in similar:
                     if result["score"] >= similarity_threshold:
-                        related.append({
-                            "paper": result["metadata"],
-                            "similarity": result["score"],
-                            "relationship_type": "semantic_similarity"
-                        })
+                        related.append(
+                            {
+                                "paper": result["metadata"],
+                                "similarity": result["score"],
+                                "relationship_type": "semantic_similarity",
+                            }
+                        )
 
             except Exception as e:
                 logger.warning(f"Semantic search failed: {e}")
@@ -628,17 +620,17 @@ class LiteratureAnalyzerAgent(BaseAgent):
         if self.use_knowledge_graph and self.knowledge_graph:
             try:
                 graph_related = self.knowledge_graph.find_related_papers(
-                    paper.primary_identifier,
-                    max_hops=2,
-                    limit=max_results
+                    paper.primary_identifier, max_hops=2, limit=max_results
                 )
 
                 for item in graph_related:
-                    related.append({
-                        "paper": item["paper"],
-                        "distance": item["distance"],
-                        "relationship_type": "citation_network"
-                    })
+                    related.append(
+                        {
+                            "paper": item["paper"],
+                            "distance": item["distance"],
+                            "relationship_type": "citation_network",
+                        }
+                    )
 
             except Exception as e:
                 logger.warning(f"Graph search failed: {e}")
@@ -656,10 +648,8 @@ class LiteratureAnalyzerAgent(BaseAgent):
         return unique_related[:max_results]
 
     def analyze_corpus(
-        self,
-        papers: List[PaperMetadata],
-        generate_insights: bool = True
-    ) -> Dict[str, Any]:
+        self, papers: list[PaperMetadata], generate_insights: bool = True
+    ) -> dict[str, Any]:
         """
         Analyze a corpus of papers collectively.
 
@@ -689,7 +679,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
             "methodological_trends": [],
             "temporal_distribution": {},
             "research_gaps": [],
-            "key_authors": []
+            "key_authors": [],
         }
 
         if not papers:
@@ -706,7 +696,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
         if self.extract_concepts:
             concept_freq = {}
 
-            for paper in papers[:self.max_papers_per_analysis]:
+            for paper in papers[: self.max_papers_per_analysis]:
                 try:
                     extraction = self.concept_extractor.extract_from_paper(paper)
                     for concept in extraction.concepts:
@@ -734,7 +724,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
                     prompt=prompt,
                     output_schema=self._get_corpus_insights_schema(),
                     system="Analyze research corpus and identify patterns, trends, and gaps.",
-                    max_tokens=1024
+                    max_tokens=1024,
                 )
 
                 analysis.update(insights)
@@ -788,7 +778,9 @@ class LiteratureAnalyzerAgent(BaseAgent):
 
             # Fetch paper details with citations
             try:
-                paper_data = ss_client.get_paper(paper_id, fields=['citations', 'references', 'title', 'year', 'authors'])
+                paper_data = ss_client.get_paper(
+                    paper_id, fields=["citations", "references", "title", "year", "authors"]
+                )
             except Exception as e:
                 logger.warning(f"Failed to fetch paper from Semantic Scholar: {e}")
                 return False
@@ -804,54 +796,56 @@ class LiteratureAnalyzerAgent(BaseAgent):
 
                     # Create PaperMetadata object
                     paper_meta = PaperMetadata(
-                        title=paper_data.get('title', ''),
-                        authors=[a.get('name', '') for a in paper_data.get('authors', [])],
-                        year=paper_data.get('year'),
-                        abstract=paper_data.get('abstract', ''),
+                        title=paper_data.get("title", ""),
+                        authors=[a.get("name", "") for a in paper_data.get("authors", [])],
+                        year=paper_data.get("year"),
+                        abstract=paper_data.get("abstract", ""),
                         source=PaperSource.SEMANTIC_SCHOLAR,
-                        source_id=paper_data.get('paperId', paper_id)
+                        source_id=paper_data.get("paperId", paper_id),
                     )
 
                     # Add paper node
                     self.knowledge_graph.add_paper(paper_meta)
 
                     # Add citations (papers this paper cites)
-                    references = paper_data.get('references', [])
+                    references = paper_data.get("references", [])
                     for ref in references[:50]:  # Limit to 50 most relevant
-                        if ref and ref.get('paperId'):
+                        if ref and ref.get("paperId"):
                             ref_meta = PaperMetadata(
-                                title=ref.get('title', ''),
-                                authors=[a.get('name', '') for a in ref.get('authors', [])],
-                                year=ref.get('year'),
+                                title=ref.get("title", ""),
+                                authors=[a.get("name", "") for a in ref.get("authors", [])],
+                                year=ref.get("year"),
                                 source=PaperSource.SEMANTIC_SCHOLAR,
-                                source_id=ref['paperId']
+                                source_id=ref["paperId"],
                             )
 
                             self.knowledge_graph.add_paper(ref_meta)
                             self.knowledge_graph.add_citation(
                                 citing_paper_id=paper_meta.primary_identifier,
-                                cited_paper_id=ref_meta.primary_identifier
+                                cited_paper_id=ref_meta.primary_identifier,
                             )
 
                     # Add citing papers (papers that cite this paper)
-                    citations = paper_data.get('citations', [])
+                    citations = paper_data.get("citations", [])
                     for cite in citations[:50]:  # Limit to 50 most relevant
-                        if cite and cite.get('paperId'):
+                        if cite and cite.get("paperId"):
                             cite_meta = PaperMetadata(
-                                title=cite.get('title', ''),
-                                authors=[a.get('name', '') for a in cite.get('authors', [])],
-                                year=cite.get('year'),
+                                title=cite.get("title", ""),
+                                authors=[a.get("name", "") for a in cite.get("authors", [])],
+                                year=cite.get("year"),
                                 source=PaperSource.SEMANTIC_SCHOLAR,
-                                source_id=cite['paperId']
+                                source_id=cite["paperId"],
                             )
 
                             self.knowledge_graph.add_paper(cite_meta)
                             self.knowledge_graph.add_citation(
                                 citing_paper_id=cite_meta.primary_identifier,
-                                cited_paper_id=paper_meta.primary_identifier
+                                cited_paper_id=paper_meta.primary_identifier,
                             )
 
-                    logger.info(f"Built citation graph for {paper_id}: {len(references)} references, {len(citations)} citations")
+                    logger.info(
+                        f"Built citation graph for {paper_id}: {len(references)} references, {len(citations)} citations"
+                    )
                     return True
 
                 except Exception as e:
@@ -933,7 +927,7 @@ Categorize methods as:
 
 Return structured output."""
 
-    def _build_corpus_insights_prompt(self, summaries: List[str]) -> str:
+    def _build_corpus_insights_prompt(self, summaries: list[str]) -> str:
         """Build prompt for corpus-level insights."""
         papers_text = "\n\n".join([f"{i+1}. {s}" for i, s in enumerate(summaries)])
 
@@ -953,7 +947,7 @@ Return structured output."""
 
     # JSON schemas
 
-    def _get_summarization_schema(self) -> Dict[str, Any]:
+    def _get_summarization_schema(self) -> dict[str, Any]:
         """Schema for paper summarization."""
         return {
             "type": "object",
@@ -961,23 +955,20 @@ Return structured output."""
                 "executive_summary": {"type": "string"},
                 "key_findings": {
                     "type": "array",
-                    "items": {"type": "object", "properties": {"finding": {"type": "string"}}}
+                    "items": {"type": "object", "properties": {"finding": {"type": "string"}}},
                 },
                 "methodology": {"type": "object"},
                 "significance": {"type": "string"},
                 "limitations": {"type": "array", "items": {"type": "string"}},
-                "confidence_score": {"type": "number"}
-            }
+                "confidence_score": {"type": "number"},
+            },
         }
 
-    def _get_methodology_schema(self) -> Dict[str, Any]:
+    def _get_methodology_schema(self) -> dict[str, Any]:
         """Schema for methodology extraction."""
         method_item = {
             "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "description": {"type": "string"}
-            }
+            "properties": {"name": {"type": "string"}, "description": {"type": "string"}},
         }
 
         return {
@@ -986,11 +977,11 @@ Return structured output."""
                 "experimental_methods": {"type": "array", "items": method_item},
                 "computational_methods": {"type": "array", "items": method_item},
                 "analytical_methods": {"type": "array", "items": method_item},
-                "datasets_used": {"type": "array", "items": {"type": "string"}}
-            }
+                "datasets_used": {"type": "array", "items": {"type": "string"}},
+            },
         }
 
-    def _get_corpus_insights_schema(self) -> Dict[str, Any]:
+    def _get_corpus_insights_schema(self) -> dict[str, Any]:
         """Schema for corpus insights."""
         return {
             "type": "object",
@@ -998,13 +989,13 @@ Return structured output."""
                 "common_themes": {"type": "array", "items": {"type": "string"}},
                 "methodological_trends": {"type": "array", "items": {"type": "string"}},
                 "research_gaps": {"type": "array", "items": {"type": "string"}},
-                "emerging_directions": {"type": "array", "items": {"type": "string"}}
-            }
+                "emerging_directions": {"type": "array", "items": {"type": "string"}},
+            },
         }
 
     # Caching
 
-    def _get_cached_analysis(self, paper_id: str) -> Optional[Dict[str, Any]]:
+    def _get_cached_analysis(self, paper_id: str) -> dict[str, Any] | None:
         """Check cache for existing analysis."""
         cache_file = self.cache_dir / f"{self._sanitize_id(paper_id)}.json"
 
@@ -1012,7 +1003,7 @@ Return structured output."""
             return None
 
         try:
-            with open(cache_file, "r") as f:
+            with open(cache_file) as f:
                 data = json.load(f)
 
             # Check if cache is still fresh (24 hours)
@@ -1024,16 +1015,12 @@ Return structured output."""
 
         return None
 
-    def _cache_analysis(self, paper_id: str, analysis: Dict[str, Any]):
+    def _cache_analysis(self, paper_id: str, analysis: dict[str, Any]):
         """Save analysis to cache."""
         cache_file = self.cache_dir / f"{self._sanitize_id(paper_id)}.json"
 
         try:
-            data = {
-                "paper_id": paper_id,
-                "analysis": analysis,
-                "cached_at": time.time()
-            }
+            data = {"paper_id": paper_id, "analysis": analysis, "cached_at": time.time()}
 
             with open(cache_file, "w") as f:
                 json.dump(data, f)
@@ -1047,13 +1034,11 @@ Return structured output."""
 
 
 # Singleton instance
-_literature_analyzer: Optional[LiteratureAnalyzerAgent] = None
+_literature_analyzer: LiteratureAnalyzerAgent | None = None
 
 
 def get_literature_analyzer(
-    agent_id: Optional[str] = None,
-    config: Optional[Dict[str, Any]] = None,
-    reset: bool = False
+    agent_id: str | None = None, config: dict[str, Any] | None = None, reset: bool = False
 ) -> LiteratureAnalyzerAgent:
     """
     Get or create the singleton literature analyzer agent.
@@ -1068,10 +1053,7 @@ def get_literature_analyzer(
     """
     global _literature_analyzer
     if _literature_analyzer is None or reset:
-        _literature_analyzer = LiteratureAnalyzerAgent(
-            agent_id=agent_id,
-            config=config
-        )
+        _literature_analyzer = LiteratureAnalyzerAgent(agent_id=agent_id, config=config)
     return _literature_analyzer
 
 

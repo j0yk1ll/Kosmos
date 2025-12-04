@@ -8,10 +8,11 @@ import json
 import logging
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, Literal, List
+from typing import Any, Literal
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,17 +20,18 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StageEvent:
     """Represents a single stage event for tracking."""
+
     timestamp: str
     process_id: str
     stage: str
     status: Literal["started", "completed", "failed", "skipped"]
-    duration_ms: Optional[int] = None
+    duration_ms: int | None = None
     iteration: int = 0
-    substage: Optional[str] = None
-    parent_stage: Optional[str] = None
-    output_summary: Optional[str] = None
-    error: Optional[Dict[str, str]] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    substage: str | None = None
+    parent_stage: str | None = None
+    output_summary: str | None = None
+    error: dict[str, str] | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:
         """Convert to JSON string."""
@@ -50,17 +52,17 @@ class StageTracker:
     def __init__(
         self,
         process_id: str,
-        output_file: Optional[str] = None,
+        output_file: str | None = None,
         emit_to_stdout: bool = False,
-        enabled: bool = True
+        enabled: bool = True,
     ):
         self.process_id = process_id
         self.output_file = output_file or "logs/stages.jsonl"
         self.emit_to_stdout = emit_to_stdout
         self.enabled = enabled
-        self._stage_stack: List[str] = []
+        self._stage_stack: list[str] = []
         self.current_iteration = 0
-        self._events: List[StageEvent] = []
+        self._events: list[StageEvent] = []
 
         # Ensure output directory exists
         if self.enabled and self.output_file:
@@ -91,7 +93,7 @@ class StageTracker:
             status="started",
             iteration=self.current_iteration,
             parent_stage=self._stage_stack[-1] if self._stage_stack else None,
-            metadata=metadata
+            metadata=metadata,
         )
 
         self._emit(event)
@@ -104,10 +106,7 @@ class StageTracker:
         except Exception as e:
             event.status = "failed"
             event.duration_ms = int((time.time() - start) * 1000)
-            event.error = {
-                "type": type(e).__name__,
-                "message": str(e)[:500]
-            }
+            event.error = {"type": type(e).__name__, "message": str(e)[:500]}
             raise
         finally:
             self._stage_stack.pop()
@@ -126,7 +125,7 @@ class StageTracker:
             substage=substage,
             status="completed",
             iteration=self.current_iteration,
-            metadata=metadata
+            metadata=metadata,
         )
         self._emit(event)
 
@@ -144,11 +143,11 @@ class StageTracker:
             except Exception as e:
                 logger.warning(f"Failed to write stage event: {e}")
 
-    def get_events(self) -> List[StageEvent]:
+    def get_events(self) -> list[StageEvent]:
         """Get all recorded events."""
         return self._events.copy()
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get summary statistics of tracked stages."""
         completed = [e for e in self._events if e.status == "completed"]
         failed = [e for e in self._events if e.status == "failed"]
@@ -161,15 +160,15 @@ class StageTracker:
             "completed": len(completed),
             "failed": len(failed),
             "total_duration_ms": total_duration,
-            "iterations": self.current_iteration
+            "iterations": self.current_iteration,
         }
 
 
 # Singleton instance
-_tracker: Optional[StageTracker] = None
+_tracker: StageTracker | None = None
 
 
-def get_stage_tracker(process_id: Optional[str] = None) -> StageTracker:
+def get_stage_tracker(process_id: str | None = None) -> StageTracker:
     """Get or create stage tracker singleton."""
     global _tracker
 
@@ -177,17 +176,17 @@ def get_stage_tracker(process_id: Optional[str] = None) -> StageTracker:
         # Check config for settings
         try:
             from kosmos.config import get_config
+
             config = get_config()
             _tracker = StageTracker(
                 process_id=process_id or f"research_{int(time.time())}",
                 output_file=config.logging.stage_tracking_file,
-                enabled=config.logging.stage_tracking_enabled
+                enabled=config.logging.stage_tracking_enabled,
             )
         except Exception:
             # Fallback if config not available
             _tracker = StageTracker(
-                process_id=process_id or f"research_{int(time.time())}",
-                enabled=False
+                process_id=process_id or f"research_{int(time.time())}", enabled=False
             )
 
     return _tracker

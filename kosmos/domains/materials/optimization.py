@@ -34,21 +34,24 @@ Example workflow:
     )
 """
 
-from typing import Dict, List, Optional, Any, Tuple
 import logging
+
 import numpy as np
 import pandas as pd
+from pydantic import BaseModel, Field
 from scipy import stats
 from scipy.optimize import differential_evolution
-from pydantic import BaseModel, Field
+
 
 logger = logging.getLogger(__name__)
 
 
 # Pydantic models for results
 
+
 class CorrelationResult(BaseModel):
     """Result from parameter-performance correlation analysis"""
+
     parameter: str
     metric: str
     correlation: float  # Pearson correlation coefficient
@@ -60,7 +63,7 @@ class CorrelationResult(BaseModel):
     significance: str  # "***" (p<0.001), "**" (p<0.01), "*" (p<0.05), "ns"
     n_samples: int
     equation: str  # Linear regression equation
-    clean_data: Optional[pd.DataFrame] = Field(default=None, exclude=True)
+    clean_data: pd.DataFrame | None = Field(default=None, exclude=True)
 
     class Config:
         arbitrary_types_allowed = True
@@ -68,13 +71,14 @@ class CorrelationResult(BaseModel):
 
 class SHAPResult(BaseModel):
     """Result from SHAP feature importance analysis"""
-    feature_importance: Dict[str, float]  # feature name -> mean absolute SHAP value
-    shap_values: Optional[np.ndarray] = Field(default=None, exclude=True)
+
+    feature_importance: dict[str, float]  # feature name -> mean absolute SHAP value
+    shap_values: np.ndarray | None = Field(default=None, exclude=True)
     model_r_squared: float
     model_type: str  # "RandomForest" or "XGBoost"
     n_features: int
     n_samples: int
-    top_features: List[str] = Field(default_factory=list)  # Top 5 by importance
+    top_features: list[str] = Field(default_factory=list)  # Top 5 by importance
 
     class Config:
         arbitrary_types_allowed = True
@@ -82,12 +86,13 @@ class SHAPResult(BaseModel):
 
 class OptimizationResult(BaseModel):
     """Result from parameter space optimization"""
-    optimal_parameters: Dict[str, float]
+
+    optimal_parameters: dict[str, float]
     predicted_value: float
     optimization_success: bool
     n_iterations: int
     convergence_message: str
-    parameter_bounds: Dict[str, Tuple[float, float]]
+    parameter_bounds: dict[str, tuple[float, float]]
     model_r_squared: float
 
     class Config:
@@ -96,17 +101,19 @@ class OptimizationResult(BaseModel):
 
 class DOEResult(BaseModel):
     """Result from Design of Experiments"""
+
     experiment_design: pd.DataFrame  # Sampled parameter combinations
     n_experiments: int
     n_parameters: int
     sampling_method: str  # "LatinHypercube" or "Random"
-    parameter_ranges: Dict[str, Tuple[float, float]]
+    parameter_ranges: dict[str, tuple[float, float]]
 
     class Config:
         arbitrary_types_allowed = True
 
 
 # Main analyzer class
+
 
 class MaterialsOptimizer:
     """
@@ -124,11 +131,7 @@ class MaterialsOptimizer:
         pass
 
     def correlation_analysis(
-        self,
-        data: pd.DataFrame,
-        parameter: str,
-        metric: str,
-        min_samples: int = 10
+        self, data: pd.DataFrame, parameter: str, metric: str, min_samples: int = 10
     ) -> CorrelationResult:
         """
         Analyze correlation between a parameter and performance metric.
@@ -164,9 +167,7 @@ class MaterialsOptimizer:
         df_clean = df_clean[np.isfinite(df_clean[parameter]) & np.isfinite(df_clean[metric])]
 
         if len(df_clean) < min_samples:
-            logger.warning(
-                f"Insufficient data: {len(df_clean)} samples (minimum: {min_samples})"
-            )
+            logger.warning(f"Insufficient data: {len(df_clean)} samples (minimum: {min_samples})")
             # Return empty result
             return CorrelationResult(
                 parameter=parameter,
@@ -179,7 +180,7 @@ class MaterialsOptimizer:
                 std_err=0.0,
                 significance="ns",
                 n_samples=len(df_clean),
-                equation="Insufficient data"
+                equation="Insufficient data",
             )
 
         # Extract arrays
@@ -191,7 +192,7 @@ class MaterialsOptimizer:
 
         # Linear regression
         slope, intercept, r_value, p_value_reg, std_err = stats.linregress(x, y)
-        r_squared = r_value ** 2
+        r_squared = r_value**2
 
         # Determine significance level
         if p_value < 0.001:
@@ -224,17 +225,17 @@ class MaterialsOptimizer:
             significance=significance,
             n_samples=len(df_clean),
             equation=equation,
-            clean_data=df_clean
+            clean_data=df_clean,
         )
 
     def shap_analysis(
         self,
         data: pd.DataFrame,
-        features: List[str],
+        features: list[str],
         target: str,
         model_type: str = "RandomForest",
         n_estimators: int = 100,
-        test_size: float = 0.2
+        test_size: float = 0.2,
     ) -> SHAPResult:
         """
         Perform SHAP feature importance analysis.
@@ -266,8 +267,8 @@ class MaterialsOptimizer:
         try:
             import shap
             from sklearn.ensemble import RandomForestRegressor
-            from sklearn.model_selection import train_test_split
             from sklearn.metrics import r2_score
+            from sklearn.model_selection import train_test_split
 
             # Validate columns
             for col in features:
@@ -294,6 +295,7 @@ class MaterialsOptimizer:
             if model_type == "XGBoost":
                 try:
                     from xgboost import XGBRegressor
+
                     model = XGBRegressor(n_estimators=n_estimators, random_state=42)
                 except ImportError:
                     logger.warning("XGBoost not available, falling back to RandomForest")
@@ -315,15 +317,11 @@ class MaterialsOptimizer:
             # Calculate feature importance (mean absolute SHAP value)
             mean_abs_shap = np.abs(shap_values).mean(axis=0)
             feature_importance = {
-                feat: float(imp) for feat, imp in zip(features, mean_abs_shap)
+                feat: float(imp) for feat, imp in zip(features, mean_abs_shap, strict=False)
             }
 
             # Sort features by importance
-            sorted_features = sorted(
-                feature_importance.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )
+            sorted_features = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)
             top_features = [feat for feat, _ in sorted_features[:5]]
 
             logger.info(
@@ -338,7 +336,7 @@ class MaterialsOptimizer:
                 model_type=model_type,
                 n_features=len(features),
                 n_samples=len(df_clean),
-                top_features=top_features
+                top_features=top_features,
             )
 
         except ImportError as e:
@@ -349,11 +347,11 @@ class MaterialsOptimizer:
     def parameter_space_optimization(
         self,
         data: pd.DataFrame,
-        parameters: List[str],
+        parameters: list[str],
         objective: str,
         maximize: bool = True,
         model_type: str = "RandomForest",
-        n_estimators: int = 100
+        n_estimators: int = 100,
     ) -> OptimizationResult:
         """
         Optimize parameters to maximize/minimize objective metric.
@@ -404,6 +402,7 @@ class MaterialsOptimizer:
             if model_type == "XGBoost":
                 try:
                     from xgboost import XGBRegressor
+
                     model = XGBRegressor(n_estimators=n_estimators, random_state=42)
                 except ImportError:
                     logger.warning("XGBoost not available, using RandomForest")
@@ -416,6 +415,7 @@ class MaterialsOptimizer:
 
             # Evaluate model
             from sklearn.metrics import r2_score
+
             y_pred = model.predict(X)
             r_squared = r2_score(y, y_pred)
 
@@ -447,17 +447,12 @@ class MaterialsOptimizer:
             logger.info("Starting parameter optimization...")
 
             result = differential_evolution(
-                objective_function,
-                bounds,
-                seed=42,
-                maxiter=1000,
-                atol=1e-7,
-                tol=1e-7
+                objective_function, bounds, seed=42, maxiter=1000, atol=1e-7, tol=1e-7
             )
 
             # Extract results
             optimal_params_dict = {
-                param: float(val) for param, val in zip(parameters, result.x)
+                param: float(val) for param, val in zip(parameters, result.x, strict=False)
             }
 
             predicted_value = float(model.predict([result.x])[0])
@@ -480,7 +475,7 @@ class MaterialsOptimizer:
                 n_iterations=n_iterations,
                 convergence_message=result.message,
                 parameter_bounds=parameter_bounds,
-                model_r_squared=r_squared
+                model_r_squared=r_squared,
             )
 
         except ImportError as e:
@@ -490,9 +485,9 @@ class MaterialsOptimizer:
 
     def design_of_experiments(
         self,
-        parameter_ranges: Dict[str, Tuple[float, float]],
+        parameter_ranges: dict[str, tuple[float, float]],
         n_experiments: int,
-        sampling_method: str = "LatinHypercube"
+        sampling_method: str = "LatinHypercube",
     ) -> DOEResult:
         """
         Generate optimal experimental design using statistical sampling.
@@ -543,21 +538,16 @@ class MaterialsOptimizer:
             scaled_sample = qmc.scale(sample, lower_bounds, upper_bounds)
 
             # Create DataFrame
-            experiment_design = pd.DataFrame(
-                scaled_sample,
-                columns=parameters
-            )
+            experiment_design = pd.DataFrame(scaled_sample, columns=parameters)
 
-            logger.info(
-                f"Generated {n_experiments} experiments using {sampling_method} sampling"
-            )
+            logger.info(f"Generated {n_experiments} experiments using {sampling_method} sampling")
 
             return DOEResult(
                 experiment_design=experiment_design,
                 n_experiments=n_experiments,
                 n_parameters=n_parameters,
                 sampling_method=sampling_method,
-                parameter_ranges=parameter_ranges
+                parameter_ranges=parameter_ranges,
             )
 
         except ImportError as e:

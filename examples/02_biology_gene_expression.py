@@ -19,6 +19,7 @@ Research Question:
 
 Implementation placeholder - Structure matches 01_biology_metabolic_pathways.py
 """
+
 # TODO: Implement following pattern from example 01
 # 1. Setup configuration
 # 2. Initialize ResearchDirectorAgent

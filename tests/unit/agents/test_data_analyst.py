@@ -4,34 +4,38 @@ Tests for Data Analyst Agent.
 Tests Claude-powered result interpretation, anomaly detection, pattern detection.
 """
 
-import pytest
 import json
-from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
+from unittest.mock import Mock, patch
+
+import pytest
 
 from kosmos.agents.data_analyst import DataAnalystAgent, ResultInterpretation
+from kosmos.models.hypothesis import Hypothesis
 from kosmos.models.result import (
+    ExecutionMetadata,
     ExperimentResult,
     ResultStatus,
     StatisticalTestResult,
     VariableResult,
-    ExecutionMetadata
 )
-from kosmos.models.hypothesis import Hypothesis
 
 
 # Fixtures
 
+
 @pytest.fixture
 def data_analyst_agent():
     """Create DataAnalystAgent without real Claude client."""
-    with patch('kosmos.agents.data_analyst.get_client'):
-        agent = DataAnalystAgent(config={
-            "use_literature_context": True,
-            "detailed_interpretation": True,
-            "anomaly_detection_enabled": True,
-            "pattern_detection_enabled": True
-        })
+    with patch("kosmos.agents.data_analyst.get_client"):
+        agent = DataAnalystAgent(
+            config={
+                "use_literature_context": True,
+                "detailed_interpretation": True,
+                "anomaly_detection_enabled": True,
+                "pattern_detection_enabled": True,
+            }
+        )
         # Mock LLM client
         agent.llm_client = Mock()
         return agent
@@ -64,7 +68,7 @@ def sample_experiment_result():
                 sample_size=100,
                 degrees_of_freedom=98,
                 significance_label="*",
-                is_primary=True
+                is_primary=True,
             )
         ],
         variable_results=[
@@ -79,7 +83,7 @@ def sample_experiment_result():
                 q1=9.1,
                 q3=11.9,
                 n_samples=50,
-                n_missing=0
+                n_missing=0,
             ),
             VariableResult(
                 variable_name="control",
@@ -92,20 +96,20 @@ def sample_experiment_result():
                 q1=7.2,
                 q3=10.1,
                 n_samples=50,
-                n_missing=0
-            )
+                n_missing=0,
+            ),
         ],
         metadata=ExecutionMetadata(
             experiment_id="exp-001",
             start_time=datetime.utcnow(),
             end_time=datetime.utcnow(),
             duration_seconds=5.3,
-            random_seed=42
+            random_seed=42,
         ),
         raw_data={"mean_diff": 1.7},
         generated_files=[],
         version=1,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
 
@@ -124,55 +128,63 @@ def sample_hypothesis():
         feasibility_score=0.8,
         expected_outcome="Positive effect with medium-large effect size",
         variables=["treatment", "control", "outcome_Y"],
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
 
 @pytest.fixture
 def mock_claude_interpretation():
     """Mock Claude interpretation response."""
-    return json.dumps({
-        "hypothesis_supported": True,
-        "confidence": 0.85,
-        "summary": "The experiment provides strong evidence supporting the hypothesis. "
-                   "Treatment X showed a statistically significant increase in outcome Y "
-                   "with a medium-large effect size.",
-        "key_findings": [
-            "Statistically significant difference (p=0.012) between treatment and control",
-            "Medium-large effect size (Cohen's d=0.65) suggests practical significance",
-            "Treatment group mean (10.5) exceeded control (8.8) by 1.7 units"
-        ],
-        "significance_interpretation": "The p-value of 0.012 provides strong evidence against "
-                                      "the null hypothesis. Combined with a Cohen's d of 0.65, "
-                                      "this suggests both statistical and practical significance.",
-        "biological_significance": "The effect size suggests the treatment has a meaningful "
-                                  "biological impact, likely mediated through pathway Z as hypothesized.",
-        "comparison_to_prior_work": "Results align with prior studies showing similar effect sizes "
-                                   "for this intervention type.",
-        "potential_confounds": [
-            "Sample allocation method not specified - randomization should be verified",
-            "Possible placebo effect if blinding was not used",
-            "Baseline differences between groups should be checked"
-        ],
-        "follow_up_experiments": [
-            "Test dose-response relationship to establish optimal treatment level",
-            "Investigate mechanism via pathway Z using targeted assays",
-            "Replicate in independent cohort to confirm findings",
-            "Test long-term effects and sustainability of treatment benefit"
-        ],
-        "overall_assessment": "Quality: 4/5. Well-designed experiment with appropriate statistical "
-                             "analysis and meaningful effect size. Some methodological details "
-                             "(randomization, blinding) should be verified."
-    })
+    return json.dumps(
+        {
+            "hypothesis_supported": True,
+            "confidence": 0.85,
+            "summary": "The experiment provides strong evidence supporting the hypothesis. "
+            "Treatment X showed a statistically significant increase in outcome Y "
+            "with a medium-large effect size.",
+            "key_findings": [
+                "Statistically significant difference (p=0.012) between treatment and control",
+                "Medium-large effect size (Cohen's d=0.65) suggests practical significance",
+                "Treatment group mean (10.5) exceeded control (8.8) by 1.7 units",
+            ],
+            "significance_interpretation": "The p-value of 0.012 provides strong evidence against "
+            "the null hypothesis. Combined with a Cohen's d of 0.65, "
+            "this suggests both statistical and practical significance.",
+            "biological_significance": "The effect size suggests the treatment has a meaningful "
+            "biological impact, likely mediated through pathway Z as hypothesized.",
+            "comparison_to_prior_work": "Results align with prior studies showing similar effect sizes "
+            "for this intervention type.",
+            "potential_confounds": [
+                "Sample allocation method not specified - randomization should be verified",
+                "Possible placebo effect if blinding was not used",
+                "Baseline differences between groups should be checked",
+            ],
+            "follow_up_experiments": [
+                "Test dose-response relationship to establish optimal treatment level",
+                "Investigate mechanism via pathway Z using targeted assays",
+                "Replicate in independent cohort to confirm findings",
+                "Test long-term effects and sustainability of treatment benefit",
+            ],
+            "overall_assessment": "Quality: 4/5. Well-designed experiment with appropriate statistical "
+            "analysis and meaningful effect size. Some methodological details "
+            "(randomization, blinding) should be verified.",
+        }
+    )
 
 
 # Result Interpretation Tests
 
+
 class TestResultInterpretation:
     """Tests for result interpretation functionality."""
 
-    def test_interpret_results_success(self, data_analyst_agent, sample_experiment_result,
-                                       sample_hypothesis, mock_claude_interpretation):
+    def test_interpret_results_success(
+        self,
+        data_analyst_agent,
+        sample_experiment_result,
+        sample_hypothesis,
+        mock_claude_interpretation,
+    ):
         """Test successful result interpretation."""
         # Mock Claude response
         data_analyst_agent.llm_client.generate.return_value = mock_claude_interpretation
@@ -180,7 +192,7 @@ class TestResultInterpretation:
         interpretation = data_analyst_agent.interpret_results(
             result=sample_experiment_result,
             hypothesis=sample_hypothesis,
-            literature_context="Prior work shows similar effects..."
+            literature_context="Prior work shows similar effects...",
         )
 
         assert isinstance(interpretation, ResultInterpretation)
@@ -191,15 +203,14 @@ class TestResultInterpretation:
         assert len(interpretation.potential_confounds) > 0
         assert len(interpretation.follow_up_experiments) > 0
 
-    def test_interpret_results_without_hypothesis(self, data_analyst_agent, sample_experiment_result,
-                                                  mock_claude_interpretation):
+    def test_interpret_results_without_hypothesis(
+        self, data_analyst_agent, sample_experiment_result, mock_claude_interpretation
+    ):
         """Test interpretation without hypothesis."""
         data_analyst_agent.llm_client.generate.return_value = mock_claude_interpretation
 
         interpretation = data_analyst_agent.interpret_results(
-            result=sample_experiment_result,
-            hypothesis=None,
-            literature_context=None
+            result=sample_experiment_result, hypothesis=None, literature_context=None
         )
 
         assert isinstance(interpretation, ResultInterpretation)
@@ -209,22 +220,20 @@ class TestResultInterpretation:
         """Test fallback when Claude fails."""
         data_analyst_agent.llm_client.generate.side_effect = Exception("Claude API error")
 
-        interpretation = data_analyst_agent.interpret_results(
-            result=sample_experiment_result
-        )
+        interpretation = data_analyst_agent.interpret_results(result=sample_experiment_result)
 
         # Should return fallback interpretation
         assert isinstance(interpretation, ResultInterpretation)
-        assert "fallback" in interpretation.overall_assessment.lower() or \
-               "automated" in interpretation.overall_assessment.lower()
+        assert (
+            "fallback" in interpretation.overall_assessment.lower()
+            or "automated" in interpretation.overall_assessment.lower()
+        )
 
     def test_interpret_results_invalid_json(self, data_analyst_agent, sample_experiment_result):
         """Test handling of invalid JSON from Claude."""
         data_analyst_agent.llm_client.generate.return_value = "This is not valid JSON"
 
-        interpretation = data_analyst_agent.interpret_results(
-            result=sample_experiment_result
-        )
+        interpretation = data_analyst_agent.interpret_results(result=sample_experiment_result)
 
         # Should return fallback interpretation
         assert isinstance(interpretation, ResultInterpretation)
@@ -241,8 +250,9 @@ class TestResultInterpretation:
         assert len(summary["statistical_tests"]) == 1
         assert len(summary["variables"]) == 2
 
-    def test_build_interpretation_prompt(self, data_analyst_agent, sample_experiment_result,
-                                        sample_hypothesis):
+    def test_build_interpretation_prompt(
+        self, data_analyst_agent, sample_experiment_result, sample_hypothesis
+    ):
         """Test interpretation prompt building."""
         summary = data_analyst_agent._extract_result_summary(sample_experiment_result)
         prompt = data_analyst_agent._build_interpretation_prompt(
@@ -258,6 +268,7 @@ class TestResultInterpretation:
 
 
 # Anomaly Detection Tests
+
 
 class TestAnomalyDetection:
     """Tests for anomaly detection functionality."""
@@ -281,9 +292,9 @@ class TestAnomalyDetection:
                 start_time=datetime.utcnow(),
                 end_time=datetime.utcnow(),
                 duration_seconds=1.0,
-                random_seed=42
+                random_seed=42,
             ),
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         anomalies = data_analyst_agent.detect_anomalies(result)
@@ -310,9 +321,9 @@ class TestAnomalyDetection:
                 start_time=datetime.utcnow(),
                 end_time=datetime.utcnow(),
                 duration_seconds=1.0,
-                random_seed=42
+                random_seed=42,
             ),
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         anomalies = data_analyst_agent.detect_anomalies(result)
@@ -339,9 +350,9 @@ class TestAnomalyDetection:
                 start_time=datetime.utcnow(),
                 end_time=datetime.utcnow(),
                 duration_seconds=1.0,
-                random_seed=42
+                random_seed=42,
             ),
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         anomalies = data_analyst_agent.detect_anomalies(result)
@@ -372,7 +383,7 @@ class TestAnomalyDetection:
                     min=0.1,
                     max=50.0,
                     n_samples=30,
-                    n_missing=0
+                    n_missing=0,
                 )
             ],
             metadata=ExecutionMetadata(
@@ -380,9 +391,9 @@ class TestAnomalyDetection:
                 start_time=datetime.utcnow(),
                 end_time=datetime.utcnow(),
                 duration_seconds=1.0,
-                random_seed=42
+                random_seed=42,
             ),
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         anomalies = data_analyst_agent.detect_anomalies(result)
@@ -399,6 +410,7 @@ class TestAnomalyDetection:
 
 
 # Pattern Detection Tests
+
 
 class TestPatternDetection:
     """Tests for pattern detection across multiple results."""
@@ -423,9 +435,9 @@ class TestPatternDetection:
                     start_time=datetime.utcnow(),
                     end_time=datetime.utcnow(),
                     duration_seconds=1.0,
-                    random_seed=42
+                    random_seed=42,
                 ),
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             for i in range(5)
         ]
@@ -455,9 +467,9 @@ class TestPatternDetection:
                     start_time=datetime.utcnow(),
                     end_time=datetime.utcnow(),
                     duration_seconds=1.0,
-                    random_seed=42
+                    random_seed=42,
                 ),
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             for i in range(4)
         ]
@@ -488,9 +500,9 @@ class TestPatternDetection:
                     start_time=datetime.utcnow(),
                     end_time=datetime.utcnow(),
                     duration_seconds=1.0,
-                    random_seed=42
+                    random_seed=42,
                 ),
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             for i in range(len(p_values_list))
         ]
@@ -521,9 +533,9 @@ class TestPatternDetection:
                     start_time=datetime.utcnow(),
                     end_time=datetime.utcnow(),
                     duration_seconds=1.0,
-                    random_seed=42
+                    random_seed=42,
                 ),
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
         ]
 
@@ -535,15 +547,14 @@ class TestPatternDetection:
 
 # Significance Interpretation Tests
 
+
 class TestSignificanceInterpretation:
     """Tests for statistical significance interpretation."""
 
     def test_interpret_very_significant(self, data_analyst_agent):
         """Test interpretation of very significant result."""
         interpretation = data_analyst_agent.interpret_significance(
-            p_value=0.0001,
-            effect_size=0.8,
-            sample_size=100
+            p_value=0.0001, effect_size=0.8, sample_size=100
         )
 
         assert "very strong evidence" in interpretation.lower()
@@ -553,9 +564,7 @@ class TestSignificanceInterpretation:
     def test_interpret_significant_small_effect(self, data_analyst_agent):
         """Test interpretation of significant but small effect."""
         interpretation = data_analyst_agent.interpret_significance(
-            p_value=0.01,
-            effect_size=0.15,
-            sample_size=1000
+            p_value=0.01, effect_size=0.15, sample_size=1000
         )
 
         assert "strong evidence" in interpretation.lower()
@@ -565,21 +574,20 @@ class TestSignificanceInterpretation:
     def test_interpret_nonsignificant_large_effect(self, data_analyst_agent):
         """Test interpretation of non-significant but large effect."""
         interpretation = data_analyst_agent.interpret_significance(
-            p_value=0.08,
-            effect_size=0.75,
-            sample_size=20
+            p_value=0.08, effect_size=0.75, sample_size=20
         )
 
-        assert "suggestive" in interpretation.lower() or "not provide sufficient" in interpretation.lower()
+        assert (
+            "suggestive" in interpretation.lower()
+            or "not provide sufficient" in interpretation.lower()
+        )
         assert "large" in interpretation.lower()
         assert "small sample size" in interpretation.lower()
 
     def test_interpret_small_sample_warning(self, data_analyst_agent):
         """Test warning for small sample size."""
         interpretation = data_analyst_agent.interpret_significance(
-            p_value=0.05,
-            effect_size=0.5,
-            sample_size=15
+            p_value=0.05, effect_size=0.5, sample_size=15
         )
 
         assert "small sample size" in interpretation.lower()
@@ -588,24 +596,25 @@ class TestSignificanceInterpretation:
 
 # Agent Lifecycle Tests
 
+
 class TestAgentLifecycle:
     """Tests for agent lifecycle and task execution."""
 
     def test_agent_initialization(self):
         """Test agent initializes correctly."""
-        with patch('kosmos.agents.data_analyst.get_client'):
-            agent = DataAnalystAgent(config={
-                "use_literature_context": False,
-                "detailed_interpretation": True
-            })
+        with patch("kosmos.agents.data_analyst.get_client"):
+            agent = DataAnalystAgent(
+                config={"use_literature_context": False, "detailed_interpretation": True}
+            )
 
             assert agent.agent_type == "DataAnalystAgent"
             assert agent.use_literature_context is False
             assert agent.detailed_interpretation is True
             assert agent.interpretation_history == []
 
-    def test_execute_interpret_results_task(self, data_analyst_agent, sample_experiment_result,
-                                           mock_claude_interpretation):
+    def test_execute_interpret_results_task(
+        self, data_analyst_agent, sample_experiment_result, mock_claude_interpretation
+    ):
         """Test execute() with interpret_results action."""
         data_analyst_agent.llm_client.generate.return_value = mock_claude_interpretation
 
@@ -613,7 +622,7 @@ class TestAgentLifecycle:
             "action": "interpret_results",
             "result": sample_experiment_result,
             "hypothesis": None,
-            "literature_context": None
+            "literature_context": None,
         }
 
         result = data_analyst_agent.execute(task)
@@ -624,10 +633,7 @@ class TestAgentLifecycle:
 
     def test_execute_detect_anomalies_task(self, data_analyst_agent, sample_experiment_result):
         """Test execute() with detect_anomalies action."""
-        task = {
-            "action": "detect_anomalies",
-            "result": sample_experiment_result
-        }
+        task = {"action": "detect_anomalies", "result": sample_experiment_result}
 
         result = data_analyst_agent.execute(task)
 
@@ -655,17 +661,14 @@ class TestAgentLifecycle:
                     start_time=datetime.utcnow(),
                     end_time=datetime.utcnow(),
                     duration_seconds=1.0,
-                    random_seed=42
+                    random_seed=42,
                 ),
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             for i in range(3)
         ]
 
-        task = {
-            "action": "detect_patterns",
-            "results": results
-        }
+        task = {"action": "detect_patterns", "results": results}
 
         result = data_analyst_agent.execute(task)
 
@@ -675,9 +678,7 @@ class TestAgentLifecycle:
 
     def test_execute_unknown_action(self, data_analyst_agent):
         """Test execute() with unknown action."""
-        task = {
-            "action": "unknown_action"
-        }
+        task = {"action": "unknown_action"}
 
         result = data_analyst_agent.execute(task)
 
@@ -686,6 +687,7 @@ class TestAgentLifecycle:
 
 
 # ResultInterpretation Class Tests
+
 
 class TestResultInterpretationClass:
     """Tests for ResultInterpretation data class."""
@@ -705,7 +707,7 @@ class TestResultInterpretationClass:
             follow_up_experiments=["Experiment 1"],
             anomalies_detected=[],
             patterns_detected=[],
-            overall_assessment="Good quality"
+            overall_assessment="Good quality",
         )
 
         result_dict = interpretation.to_dict()

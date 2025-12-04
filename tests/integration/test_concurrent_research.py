@@ -5,14 +5,18 @@ Tests Research Director with concurrent hypothesis evaluation,
 experiment execution, and result analysis.
 """
 
-import pytest
 import asyncio
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from kosmos.agents.research_director import ResearchDirectorAgent
 
+
 # Skip all tests in this file - requires Phase 2/3 async features
-pytestmark = pytest.mark.skip(reason="Requires Phase 2/3 async implementation (AsyncClaudeClient, ParallelExperimentExecutor)")
+pytestmark = pytest.mark.skip(
+    reason="Requires Phase 2/3 async implementation (AsyncClaudeClient, ParallelExperimentExecutor)"
+)
 
 
 class TestConcurrentHypothesisEvaluation:
@@ -21,19 +25,20 @@ class TestConcurrentHypothesisEvaluation:
     @pytest.fixture
     def mock_async_client(self):
         """Mock AsyncClaudeClient."""
-        with patch('kosmos.agents.research_director.AsyncClaudeClient') as mock:
+        with patch("kosmos.agents.research_director.AsyncClaudeClient") as mock:
             client = AsyncMock()
 
             # Mock batch_generate to return evaluations
             async def mock_batch_generate(requests):
                 from kosmos.core.async_llm import BatchResponse
+
                 return [
                     BatchResponse(
                         id=req.id,
                         response='{"testability": 8, "novelty": 7, "impact": 9, "recommendation": "proceed", "reasoning": "Strong hypothesis"}',
                         success=True,
                         tokens_used=50,
-                        latency_ms=100.0
+                        latency_ms=100.0,
                     )
                     for req in requests
                 ]
@@ -49,13 +54,10 @@ class TestConcurrentHypothesisEvaluation:
         config = {
             "enable_concurrent_operations": True,
             "max_parallel_hypotheses": 3,
-            "max_concurrent_experiments": 4
+            "max_concurrent_experiments": 4,
         }
 
-        director = ResearchDirectorAgent(
-            research_question="Test question",
-            config=config
-        )
+        director = ResearchDirectorAgent(research_question="Test question", config=config)
         director.async_llm_client = mock_async_client
 
         # Mock hypothesis IDs
@@ -76,13 +78,14 @@ class TestConcurrentHypothesisEvaluation:
         async def slow_batch_generate(requests):
             await asyncio.sleep(0.1 * len(requests))  # Simulate API latency
             from kosmos.core.async_llm import BatchResponse
+
             return [
                 BatchResponse(
                     id=req.id,
                     response='{"testability": 8, "novelty": 7, "impact": 9, "recommendation": "proceed"}',
                     success=True,
                     tokens_used=50,
-                    latency_ms=100.0
+                    latency_ms=100.0,
                 )
                 for req in requests
             ]
@@ -111,7 +114,7 @@ class TestConcurrentExperimentExecution:
     @pytest.fixture
     def mock_parallel_executor(self):
         """Mock ParallelExperimentExecutor."""
-        with patch('kosmos.agents.research_director.ParallelExperimentExecutor') as mock:
+        with patch("kosmos.agents.research_director.ParallelExperimentExecutor") as mock:
             executor = MagicMock()
 
             # Mock execute_batch
@@ -121,7 +124,7 @@ class TestConcurrentExperimentExecution:
                         "protocol_id": pid,
                         "success": True,
                         "result_id": f"result_{pid}",
-                        "duration": 1.0
+                        "duration": 1.0,
                     }
                     for pid in protocol_ids
                 ]
@@ -133,10 +136,7 @@ class TestConcurrentExperimentExecution:
 
     def test_execute_multiple_experiments_in_parallel(self, mock_parallel_executor):
         """Test executing multiple experiments in parallel."""
-        config = {
-            "enable_concurrent_operations": True,
-            "max_concurrent_experiments": 4
-        }
+        config = {"enable_concurrent_operations": True, "max_concurrent_experiments": 4}
 
         director = ResearchDirectorAgent(research_question="Test", config=config)
         director.parallel_executor = mock_parallel_executor
@@ -175,18 +175,19 @@ class TestConcurrentResultAnalysis:
     @pytest.fixture
     def mock_async_client(self):
         """Mock AsyncClaudeClient for result analysis."""
-        with patch('kosmos.agents.research_director.AsyncClaudeClient') as mock:
+        with patch("kosmos.agents.research_director.AsyncClaudeClient") as mock:
             client = AsyncMock()
 
             async def mock_batch_generate(requests):
                 from kosmos.core.async_llm import BatchResponse
+
                 return [
                     BatchResponse(
                         id=req.id,
                         response='{"significance": "high", "hypothesis_supported": true, "key_finding": "Positive result", "next_steps": "Continue research"}',
                         success=True,
                         tokens_used=75,
-                        latency_ms=150.0
+                        latency_ms=150.0,
                     )
                     for req in requests
                 ]
@@ -228,10 +229,7 @@ class TestThreadSafetyInConcurrentOperations:
                 with director._research_plan_context():
                     director.research_plan.add_hypothesis(f"hyp_{thread_id}_{i}")
 
-        threads = [
-            threading.Thread(target=add_hypothesis, args=(i,))
-            for i in range(5)
-        ]
+        threads = [threading.Thread(target=add_hypothesis, args=(i,)) for i in range(5)]
 
         for t in threads:
             t.start()
@@ -251,16 +249,13 @@ class TestThreadSafetyInConcurrentOperations:
         director = ResearchDirectorAgent(research_question="Test", config=config)
 
         def update_stats(thread_id):
-            for i in range(100):
+            for _i in range(100):
                 with director._strategy_stats_context():
                     if "test_strategy" not in director.strategy_stats:
                         director.strategy_stats["test_strategy"] = {"attempts": 0, "successes": 0}
                     director.strategy_stats["test_strategy"]["attempts"] += 1
 
-        threads = [
-            threading.Thread(target=update_stats, args=(i,))
-            for i in range(5)
-        ]
+        threads = [threading.Thread(target=update_stats, args=(i,)) for i in range(5)]
 
         for t in threads:
             t.start()
@@ -279,35 +274,38 @@ class TestConcurrentOperationsIntegration:
     def fully_mocked_director(self):
         """Create director with all dependencies mocked."""
         with patch.multiple(
-            'kosmos.agents.research_director',
+            "kosmos.agents.research_director",
             AsyncClaudeClient=MagicMock(),
-            ParallelExperimentExecutor=MagicMock()
+            ParallelExperimentExecutor=MagicMock(),
         ):
             config = {
                 "enable_concurrent_operations": True,
                 "max_parallel_hypotheses": 3,
-                "max_concurrent_experiments": 4
+                "max_concurrent_experiments": 4,
             }
 
             director = ResearchDirectorAgent(
-                research_question="Test concurrent operations",
-                config=config
+                research_question="Test concurrent operations", config=config
             )
 
             # Setup mocks
             async_client = AsyncMock()
+
             async def mock_batch(requests):
                 from kosmos.core.async_llm import BatchResponse
+
                 return [
-                    BatchResponse(id=r.id, response="test", success=True, tokens_used=10, latency_ms=50.0)
+                    BatchResponse(
+                        id=r.id, response="test", success=True, tokens_used=10, latency_ms=50.0
+                    )
                     for r in requests
                 ]
+
             async_client.batch_generate = mock_batch
 
             parallel_exec = MagicMock()
             parallel_exec.execute_batch = lambda ids: [
-                {"protocol_id": i, "success": True, "result_id": f"r_{i}"}
-                for i in ids
+                {"protocol_id": i, "success": True, "result_id": f"r_{i}"} for i in ids
             ]
 
             director.async_llm_client = async_client
@@ -328,9 +326,7 @@ class TestConcurrentOperationsIntegration:
 
         # 2. Evaluate concurrently
         hypothesis_ids = ["hyp_1", "hyp_2", "hyp_3"]
-        evaluations = asyncio.run(
-            director.evaluate_hypotheses_concurrently(hypothesis_ids)
-        )
+        evaluations = asyncio.run(director.evaluate_hypotheses_concurrently(hypothesis_ids))
 
         assert len(evaluations) >= 0  # Mocked, may return empty
 
@@ -343,9 +339,7 @@ class TestConcurrentOperationsIntegration:
 
         # 4. Analyze results concurrently
         result_ids = ["result_1", "result_2"]
-        analyses = asyncio.run(
-            director.analyze_results_concurrently(result_ids)
-        )
+        analyses = asyncio.run(director.analyze_results_concurrently(result_ids))
 
         assert len(analyses) >= 0  # Mocked
 
@@ -378,8 +372,11 @@ class TestPerformanceMetrics:
             # Simulate 100ms per request (concurrent)
             await asyncio.sleep(0.1)
             from kosmos.core.async_llm import BatchResponse
+
             return [
-                BatchResponse(id=r.id, response="result", success=True, tokens_used=50, latency_ms=100.0)
+                BatchResponse(
+                    id=r.id, response="result", success=True, tokens_used=50, latency_ms=100.0
+                )
                 for r in requests
             ]
 
@@ -392,7 +389,7 @@ class TestPerformanceMetrics:
         hypothesis_ids = [f"hyp_{i}" for i in range(10)]
 
         start = time.time()
-        results = await director.evaluate_hypotheses_concurrently(hypothesis_ids)
+        await director.evaluate_hypotheses_concurrently(hypothesis_ids)
         duration = time.time() - start
 
         # Should complete in ~1s (concurrent) vs 10s (sequential)
@@ -410,23 +407,23 @@ class TestErrorHandlingInConcurrentMode:
 
         async def mixed_results_batch(requests):
             from kosmos.core.async_llm import BatchResponse
+
             results = []
             for i, req in enumerate(requests):
                 if i % 2 == 0:
-                    results.append(BatchResponse(
-                        id=req.id,
-                        response='{"recommendation": "proceed"}',
-                        success=True,
-                        tokens_used=50,
-                        latency_ms=100.0
-                    ))
+                    results.append(
+                        BatchResponse(
+                            id=req.id,
+                            response='{"recommendation": "proceed"}',
+                            success=True,
+                            tokens_used=50,
+                            latency_ms=100.0,
+                        )
+                    )
                 else:
-                    results.append(BatchResponse(
-                        id=req.id,
-                        response="",
-                        success=False,
-                        error="API error"
-                    ))
+                    results.append(
+                        BatchResponse(id=req.id, response="", success=False, error="API error")
+                    )
             return results
 
         client.batch_generate = mixed_results_batch

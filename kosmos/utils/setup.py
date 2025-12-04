@@ -7,7 +7,7 @@ Handles automatic .env creation and database migrations for pip-installed users.
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def ensure_env_file() -> bool:
         raise
 
 
-def run_database_migrations(database_url: str) -> tuple[bool, Optional[str]]:
+def run_database_migrations(database_url: str) -> tuple[bool, str | None]:
     """
     Run Alembic database migrations to ensure schema is up to date.
 
@@ -61,11 +61,12 @@ def run_database_migrations(database_url: str) -> tuple[bool, Optional[str]]:
         tuple: (success: bool, error_message: Optional[str])
     """
     try:
-        from alembic import command
         from alembic.config import Config
-        from alembic.script import ScriptDirectory
         from alembic.runtime.migration import MigrationContext
-        from sqlalchemy import create_engine, text
+        from alembic.script import ScriptDirectory
+        from sqlalchemy import create_engine
+
+        from alembic import command
 
         # Get alembic.ini location
         project_root = Path(__file__).parent.parent.parent
@@ -127,8 +128,8 @@ def validate_database_schema(database_url: str) -> dict:
             - current_revision: str
             - errors: list[str]
     """
-    from sqlalchemy import create_engine, inspect, text
     from alembic.runtime.migration import MigrationContext
+    from sqlalchemy import create_engine, inspect
 
     results = {
         "complete": True,
@@ -136,7 +137,7 @@ def validate_database_schema(database_url: str) -> dict:
         "missing_indexes": [],
         "current_revision": None,
         "head_revision": None,
-        "errors": []
+        "errors": [],
     }
 
     try:
@@ -151,9 +152,9 @@ def validate_database_schema(database_url: str) -> dict:
             "papers",
             "agents",
             "research_sessions",
-            "execution_profiles",       # From migration dc24ead48293 (profiling tables)
-            "profiling_bottlenecks",   # From migration dc24ead48293 (profiling tables)
-            "alembic_version"
+            "execution_profiles",  # From migration dc24ead48293 (profiling tables)
+            "profiling_bottlenecks",  # From migration dc24ead48293 (profiling tables)
+            "alembic_version",
         }
 
         # Check existing tables
@@ -169,7 +170,7 @@ def validate_database_schema(database_url: str) -> dict:
             "hypotheses": ["idx_hypotheses_domain_status"],
             "experiments": ["idx_experiments_created_at", "idx_experiments_domain_status"],
             "results": ["idx_results_experiment_id"],
-            "papers": ["idx_papers_domain_relevance"]
+            "papers": ["idx_papers_domain_relevance"],
         }
 
         # Check indexes for each table
@@ -191,6 +192,7 @@ def validate_database_schema(database_url: str) -> dict:
         try:
             from alembic.config import Config
             from alembic.script import ScriptDirectory
+
             project_root = Path(__file__).parent.parent.parent
             alembic_ini = project_root / "alembic.ini"
 
@@ -235,12 +237,7 @@ def first_time_setup(database_url: str) -> dict:
             - schema_valid: bool
             - errors: list[str]
     """
-    results = {
-        "env_created": False,
-        "migrations_run": False,
-        "schema_valid": False,
-        "errors": []
-    }
+    results = {"env_created": False, "migrations_run": False, "schema_valid": False, "errors": []}
 
     # Step 1: Ensure .env file exists
     try:

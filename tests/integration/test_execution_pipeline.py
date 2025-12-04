@@ -4,20 +4,30 @@ Integration tests for complete execution pipeline.
 Tests end-to-end workflow: Protocol → Code Generation → Execution → Result Collection.
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-from kosmos.models.experiment import ExperimentProtocol, ExperimentType, Variable, VariableType, ProtocolStep, ResourceRequirements, StatisticalTestSpec
+import numpy as np
+import pandas as pd
+import pytest
+
 from kosmos.execution.code_generator import ExperimentCodeGenerator
 from kosmos.execution.executor import CodeExecutor, execute_protocol_code
 from kosmos.execution.result_collector import ResultCollector
+from kosmos.models.experiment import (
+    ExperimentProtocol,
+    ExperimentType,
+    ProtocolStep,
+    ResourceRequirements,
+    StatisticalTest,
+    StatisticalTestSpec,
+    Variable,
+    VariableType,
+)
 from kosmos.models.result import ResultStatus
 
 
 # Fixtures
+
 
 @pytest.fixture
 def ttest_protocol():
@@ -36,7 +46,7 @@ def ttest_protocol():
                 test_type=StatisticalTest.T_TEST,
                 variables=["group", "score"],
                 description="Two-sample T-test comparing treatment vs control groups",
-                null_hypothesis="There is no difference in mean scores between groups"
+                null_hypothesis="There is no difference in mean scores between groups",
             )
         ],
         steps=[
@@ -45,22 +55,25 @@ def ttest_protocol():
                 title="Execute T-test Analysis",
                 description="Load CSV data and perform T-test comparison",
                 action="load_data_and_run_ttest",
-                expected_duration_minutes=5
+                expected_duration_minutes=5,
             )
         ],
         variables={
-            "group": Variable(name="group", type=VariableType.INDEPENDENT, description="Treatment group assignment"),
-            "score": Variable(name="score", type=VariableType.DEPENDENT, description="Test score measurement")
+            "group": Variable(
+                name="group",
+                type=VariableType.INDEPENDENT,
+                description="Treatment group assignment",
+            ),
+            "score": Variable(
+                name="score", type=VariableType.DEPENDENT, description="Test score measurement"
+            ),
         },
         resource_requirements=ResourceRequirements(
-            estimated_runtime_seconds=300,
-            cpu_cores=1,
-            memory_gb=1,
-            storage_gb=0.1
+            estimated_runtime_seconds=300, cpu_cores=1, memory_gb=1, storage_gb=0.1
         ),
         data_requirements={"format": "csv", "columns": ["group", "score"]},
         random_seed=42,
-        expected_duration_minutes=5
+        expected_duration_minutes=5,
     )
 
 
@@ -72,10 +85,12 @@ def sample_data_file(tmp_path):
     control = np.random.normal(75, 10, 50)
     treatment = np.random.normal(85, 10, 50)
 
-    df = pd.DataFrame({
-        'group': ['control'] * 50 + ['treatment'] * 50,
-        'score': np.concatenate([control, treatment])
-    })
+    df = pd.DataFrame(
+        {
+            "group": ["control"] * 50 + ["treatment"] * 50,
+            "score": np.concatenate([control, treatment]),
+        }
+    )
 
     data_file = tmp_path / "experiment_data.csv"
     df.to_csv(data_file, index=False)
@@ -84,6 +99,7 @@ def sample_data_file(tmp_path):
 
 
 # End-to-End Pipeline Tests
+
 
 class TestEndToEndPipeline:
     """Tests for complete execution pipeline."""
@@ -108,11 +124,11 @@ class TestEndToEndPipeline:
         collector = ResultCollector(store_in_db=False)
 
         execution_output = {
-            'success': execution_result.success,
-            'return_value': execution_result.return_value,
-            'stdout': execution_result.stdout,
-            'stderr': execution_result.stderr,
-            'execution_time': execution_result.execution_time
+            "success": execution_result.success,
+            "return_value": execution_result.return_value,
+            "stdout": execution_result.stdout,
+            "stderr": execution_result.stderr,
+            "execution_time": execution_result.execution_time,
         }
 
         result = collector.collect(ttest_protocol, execution_output)
@@ -129,13 +145,9 @@ class TestEndToEndPipeline:
         code = generator.generate(ttest_protocol)
 
         # Execute using convenience function
-        result = execute_protocol_code(
-            code,
-            data_path=sample_data_file,
-            validate_safety=True
-        )
+        result = execute_protocol_code(code, data_path=sample_data_file, validate_safety=True)
 
-        assert result['success'] is True
+        assert result["success"] is True
 
     def test_pipeline_handles_errors_gracefully(self, ttest_protocol):
         """Test pipeline handles errors at each stage."""
@@ -146,16 +158,15 @@ class TestEndToEndPipeline:
 
         # Execute with invalid data path
         result = execute_protocol_code(
-            code,
-            data_path="/nonexistent/path.csv",
-            validate_safety=True
+            code, data_path="/nonexistent/path.csv", validate_safety=True
         )
 
         # Should fail gracefully
-        assert result['success'] is False or 'error' in result
+        assert result["success"] is False or "error" in result
 
 
 # Template-Based Generation Tests
+
 
 class TestTemplatePipeline:
     """Tests for template-based code generation pipeline."""
@@ -168,8 +179,8 @@ class TestTemplatePipeline:
 
         result = execute_protocol_code(code, sample_data_file, validate_safety=False)
 
-        assert result['success'] is True
-        assert result['return_value'] is not None
+        assert result["success"] is True
+        assert result["return_value"] is not None
 
     def test_correlation_template_pipeline(self, sample_data_file):
         """Test correlation template pipeline."""
@@ -188,7 +199,7 @@ class TestTemplatePipeline:
                     test_type="correlation",
                     variables=["group", "score"],
                     description="Pearson correlation analysis between variables",
-                    null_hypothesis="There is no correlation between the variables"
+                    null_hypothesis="There is no correlation between the variables",
                 )
             ],
             steps=[
@@ -197,22 +208,27 @@ class TestTemplatePipeline:
                     title="Compute Correlation",
                     description="Compute correlation between variables",
                     action="compute_correlation",
-                    expected_duration_minutes=5
+                    expected_duration_minutes=5,
                 )
             ],
             variables={
-                "group": Variable(name="group", type=VariableType.INDEPENDENT, description="Independent X variable for correlation"),
-                "score": Variable(name="score", type=VariableType.DEPENDENT, description="Dependent Y variable for correlation")
+                "group": Variable(
+                    name="group",
+                    type=VariableType.INDEPENDENT,
+                    description="Independent X variable for correlation",
+                ),
+                "score": Variable(
+                    name="score",
+                    type=VariableType.DEPENDENT,
+                    description="Dependent Y variable for correlation",
+                ),
             },
             resource_requirements=ResourceRequirements(
-                estimated_runtime_seconds=300,
-                cpu_cores=1,
-                memory_gb=1,
-                storage_gb=0.1
+                estimated_runtime_seconds=300, cpu_cores=1, memory_gb=1, storage_gb=0.1
             ),
             data_requirements={},
             random_seed=42,
-            expected_duration_minutes=5
+            expected_duration_minutes=5,
         )
 
         generator = ExperimentCodeGenerator(use_templates=True, use_llm=False)
@@ -223,6 +239,7 @@ class TestTemplatePipeline:
 
 
 # Error Recovery Tests
+
 
 class TestErrorRecovery:
     """Tests for error recovery in pipeline."""
@@ -254,11 +271,12 @@ results = {}
 
         result = execute_protocol_code(unsafe_code, validate_safety=True)
 
-        assert result['success'] is False
-        assert 'validation_errors' in result
+        assert result["success"] is False
+        assert "validation_errors" in result
 
 
 # Data Flow Tests
+
 
 class TestDataFlow:
     """Tests for data flow through pipeline."""
@@ -301,6 +319,7 @@ df = pd.read_csv('{sample_data_file}')
 
 # Statistical Analysis Pipeline Tests
 
+
 class TestStatisticalPipeline:
     """Tests for statistical analysis in pipeline."""
 
@@ -313,11 +332,12 @@ class TestStatisticalPipeline:
         result = execute_protocol_code(code, sample_data_file, validate_safety=False)
 
         # Should have computed statistics
-        if result['success'] and result['return_value']:
-            assert 'p_value' in result['return_value'] or 't_statistic' in result['return_value']
+        if result["success"] and result["return_value"]:
+            assert "p_value" in result["return_value"] or "t_statistic" in result["return_value"]
 
 
 # Performance Tests
+
 
 class TestPipelinePerformance:
     """Tests for pipeline performance."""
@@ -330,7 +350,7 @@ class TestPipelinePerformance:
 
         generator = ExperimentCodeGenerator(use_templates=True, use_llm=False)
         code = generator.generate(ttest_protocol)
-        result = execute_protocol_code(code, sample_data_file, validate_safety=True)
+        execute_protocol_code(code, sample_data_file, validate_safety=True)
 
         duration = time.time() - start
 
@@ -340,11 +360,12 @@ class TestPipelinePerformance:
 
 # Sandbox Integration Tests (Mocked)
 
+
 class TestSandboxPipeline:
     """Tests for sandboxed execution pipeline."""
 
-    @patch('kosmos.execution.executor.SANDBOX_AVAILABLE', True)
-    @patch('kosmos.execution.executor.DockerSandbox')
+    @patch("kosmos.execution.executor.SANDBOX_AVAILABLE", True)
+    @patch("kosmos.execution.executor.DockerSandbox")
     def test_pipeline_with_sandbox(self, mock_sandbox_class, ttest_protocol, sample_data_file):
         """Test pipeline with sandbox execution."""
 
@@ -352,23 +373,20 @@ class TestSandboxPipeline:
         mock_sandbox = Mock()
         mock_sandbox.execute.return_value = Mock(
             success=True,
-            return_value={'p_value': 0.01},
+            return_value={"p_value": 0.01},
             stdout="Test output",
             stderr="",
             error=None,
             error_type=None,
-            execution_time=1.5
+            execution_time=1.5,
         )
         mock_sandbox_class.return_value = mock_sandbox
 
         generator = ExperimentCodeGenerator(use_templates=True, use_llm=False)
         code = generator.generate(ttest_protocol)
 
-        result = execute_protocol_code(
-            code,
-            data_path=sample_data_file,
-            use_sandbox=True,
-            validate_safety=True
+        execute_protocol_code(
+            code, data_path=sample_data_file, use_sandbox=True, validate_safety=True
         )
 
         # Sandbox should have been used

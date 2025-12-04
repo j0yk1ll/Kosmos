@@ -7,17 +7,19 @@ and respect rate limits.
 
 import hashlib
 import json
+import logging
 import pickle
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional, Dict
-import logging
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
 
 class LiteratureCacheError(Exception):
     """Exception raised for cache-related errors."""
+
     pass
 
 
@@ -33,7 +35,7 @@ class LiteratureCache:
         self,
         cache_dir: str = ".literature_cache",
         ttl_hours: int = 48,
-        max_cache_size_mb: int = 1000
+        max_cache_size_mb: int = 1000,
     ):
         """
         Initialize the literature cache.
@@ -52,7 +54,7 @@ class LiteratureCache:
 
         logger.info(f"Initialized cache: dir={cache_dir}, ttl={ttl_hours}h")
 
-    def _generate_cache_key(self, source: str, endpoint: str, params: Dict[str, Any]) -> str:
+    def _generate_cache_key(self, source: str, endpoint: str, params: dict[str, Any]) -> str:
         """
         Generate a unique cache key for the request.
 
@@ -102,7 +104,7 @@ class LiteratureCache:
         expiry = cached_at + timedelta(hours=self.ttl_hours)
         return datetime.utcnow() > expiry
 
-    def get(self, source: str, endpoint: str, params: Dict[str, Any]) -> Optional[Any]:
+    def get(self, source: str, endpoint: str, params: dict[str, Any]) -> Any | None:
         """
         Retrieve a cached response.
 
@@ -122,17 +124,17 @@ class LiteratureCache:
             return None
 
         try:
-            with open(cache_path, 'rb') as f:
+            with open(cache_path, "rb") as f:
                 cached_data = pickle.load(f)
 
             # Check if expired
-            if self._is_expired(cached_data['cached_at']):
+            if self._is_expired(cached_data["cached_at"]):
                 logger.debug(f"Cache expired: {source}/{endpoint}")
                 cache_path.unlink()  # Delete expired cache
                 return None
 
             logger.debug(f"Cache hit: {source}/{endpoint}")
-            return cached_data['response']
+            return cached_data["response"]
 
         except Exception as e:
             logger.warning(f"Error reading cache: {e}")
@@ -141,7 +143,7 @@ class LiteratureCache:
                 cache_path.unlink()
             return None
 
-    def set(self, source: str, endpoint: str, params: Dict[str, Any], response: Any):
+    def set(self, source: str, endpoint: str, params: dict[str, Any], response: Any):
         """
         Store a response in the cache.
 
@@ -156,14 +158,14 @@ class LiteratureCache:
 
         try:
             cached_data = {
-                'source': source,
-                'endpoint': endpoint,
-                'params': params,
-                'response': response,
-                'cached_at': datetime.utcnow()
+                "source": source,
+                "endpoint": endpoint,
+                "params": params,
+                "response": response,
+                "cached_at": datetime.utcnow(),
             }
 
-            with open(cache_path, 'wb') as f:
+            with open(cache_path, "wb") as f:
                 pickle.dump(cached_data, f)
 
             logger.debug(f"Cached: {source}/{endpoint}")
@@ -175,7 +177,7 @@ class LiteratureCache:
             logger.warning(f"Error writing cache: {e}")
             # Don't fail the request if caching fails
 
-    def invalidate(self, source: Optional[str] = None, endpoint: Optional[str] = None):
+    def invalidate(self, source: str | None = None, endpoint: str | None = None):
         """
         Invalidate cache entries.
 
@@ -187,15 +189,15 @@ class LiteratureCache:
 
         for cache_file in self.cache_dir.rglob("*.pkl"):
             try:
-                with open(cache_file, 'rb') as f:
+                with open(cache_file, "rb") as f:
                     cached_data = pickle.load(f)
 
                 should_delete = True
 
-                if source and cached_data['source'] != source:
+                if source and cached_data["source"] != source:
                     should_delete = False
 
-                if endpoint and cached_data.get('endpoint') != endpoint:
+                if endpoint and cached_data.get("endpoint") != endpoint:
                     should_delete = False
 
                 if should_delete:
@@ -230,10 +232,10 @@ class LiteratureCache:
 
         for cache_file in self.cache_dir.rglob("*.pkl"):
             try:
-                with open(cache_file, 'rb') as f:
+                with open(cache_file, "rb") as f:
                     cached_data = pickle.load(f)
 
-                if self._is_expired(cached_data['cached_at']):
+                if self._is_expired(cached_data["cached_at"]):
                     cache_file.unlink()
                     count += 1
 
@@ -250,13 +252,12 @@ class LiteratureCache:
         total_size_mb = sum(f.stat().st_size for f in self.cache_dir.rglob("*.pkl")) / (1024 * 1024)
 
         if total_size_mb > self.max_cache_size_mb:
-            logger.warning(f"Cache size ({total_size_mb:.1f} MB) exceeds limit ({self.max_cache_size_mb} MB)")
+            logger.warning(
+                f"Cache size ({total_size_mb:.1f} MB) exceeds limit ({self.max_cache_size_mb} MB)"
+            )
 
             # Delete oldest files first
-            cache_files = sorted(
-                self.cache_dir.rglob("*.pkl"),
-                key=lambda f: f.stat().st_mtime
-            )
+            cache_files = sorted(self.cache_dir.rglob("*.pkl"), key=lambda f: f.stat().st_mtime)
 
             deleted_mb = 0
             target_mb = self.max_cache_size_mb * 0.8  # Clean to 80% of max
@@ -271,7 +272,7 @@ class LiteratureCache:
 
             logger.info(f"Cleaned up {deleted_mb:.1f} MB from cache")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get cache statistics.
 
@@ -284,9 +285,9 @@ class LiteratureCache:
         expired_count = 0
         for cache_file in cache_files:
             try:
-                with open(cache_file, 'rb') as f:
+                with open(cache_file, "rb") as f:
                     cached_data = pickle.load(f)
-                if self._is_expired(cached_data['cached_at']):
+                if self._is_expired(cached_data["cached_at"]):
                     expired_count += 1
             except Exception:
                 expired_count += 1
@@ -296,18 +297,16 @@ class LiteratureCache:
             "size_mb": round(total_size_mb, 2),
             "expired_entries": expired_count,
             "ttl_hours": self.ttl_hours,
-            "cache_dir": str(self.cache_dir)
+            "cache_dir": str(self.cache_dir),
         }
 
 
 # Singleton cache instance
-_cache: Optional[LiteratureCache] = None
+_cache: LiteratureCache | None = None
 
 
 def get_cache(
-    cache_dir: str = ".literature_cache",
-    ttl_hours: int = 48,
-    max_cache_size_mb: int = 1000
+    cache_dir: str = ".literature_cache", ttl_hours: int = 48, max_cache_size_mb: int = 1000
 ) -> LiteratureCache:
     """
     Get or create the singleton cache instance.
@@ -323,9 +322,7 @@ def get_cache(
     global _cache
     if _cache is None:
         _cache = LiteratureCache(
-            cache_dir=cache_dir,
-            ttl_hours=ttl_hours,
-            max_cache_size_mb=max_cache_size_mb
+            cache_dir=cache_dir, ttl_hours=ttl_hours, max_cache_size_mb=max_cache_size_mb
         )
     return _cache
 

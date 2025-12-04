@@ -9,12 +9,12 @@ Assesses whether and how hypotheses can be tested:
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 import re
+from typing import Any
 
-from kosmos.models.hypothesis import Hypothesis, TestabilityReport, ExperimentType
 from kosmos.core.llm import get_client
+from kosmos.models.hypothesis import ExperimentType, Hypothesis, TestabilityReport
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +40,7 @@ class TestabilityAnalyzer:
         ```
     """
 
-    def __init__(
-        self,
-        testability_threshold: float = 0.3,
-        use_llm_for_assessment: bool = True
-    ):
+    def __init__(self, testability_threshold: float = 0.3, use_llm_for_assessment: bool = True):
         """
         Initialize testability analyzer.
 
@@ -125,7 +121,7 @@ class TestabilityAnalyzer:
             is_testable=is_testable,
             primary_experiment_type=primary_experiment_type,
             challenges=challenges,
-            estimated_cost=resource_estimates.get("cost_usd")
+            estimated_cost=resource_estimates.get("cost_usd"),
         )
 
         # Update hypothesis
@@ -147,7 +143,7 @@ class TestabilityAnalyzer:
             challenges=challenges,
             limitations=limitations,
             summary=summary,
-            recommended=recommended
+            recommended=recommended,
         )
 
     def _assess_basic_testability(self, hypothesis: Hypothesis) -> float:
@@ -166,12 +162,12 @@ class TestabilityAnalyzer:
 
         # Positive indicators
         positive_indicators = [
-            (r'\b(increase|decrease|improve|reduce)\b', 0.15, "Directional prediction"),
-            (r'\b(will|should|would)\b', 0.10, "Predictive statement"),
-            (r'\b\d+%|\d+\s*(percent|fold)\b', 0.15, "Quantitative prediction"),
-            (r'\b(correlat|associat|affect|influence|cause)\b', 0.10, "Causal/correlational claim"),
-            (r'\b(compare|contrast|differ|similar)\b', 0.10, "Comparative claim"),
-            (r'\b(measure|quantify|assess|evaluate)\b', 0.10, "Measurable outcome"),
+            (r"\b(increase|decrease|improve|reduce)\b", 0.15, "Directional prediction"),
+            (r"\b(will|should|would)\b", 0.10, "Predictive statement"),
+            (r"\b\d+%|\d+\s*(percent|fold)\b", 0.15, "Quantitative prediction"),
+            (r"\b(correlat|associat|affect|influence|cause)\b", 0.10, "Causal/correlational claim"),
+            (r"\b(compare|contrast|differ|similar)\b", 0.10, "Comparative claim"),
+            (r"\b(measure|quantify|assess|evaluate)\b", 0.10, "Measurable outcome"),
         ]
 
         for pattern, weight, description in positive_indicators:
@@ -181,10 +177,14 @@ class TestabilityAnalyzer:
 
         # Negative indicators
         negative_indicators = [
-            (r'\b(may|might|possibly|perhaps|potentially)\b', -0.15, "Vague/uncertain language"),
-            (r'\b(always|never|everyone|everything|all)\b', -0.10, "Absolute claim (hard to test)"),
-            (r'\b(consciousness|soul|essence|meaning of life)\b', -0.20, "Philosophical/untestable concept"),
-            (r'\?$', -0.20, "Question format (not a statement)"),
+            (r"\b(may|might|possibly|perhaps|potentially)\b", -0.15, "Vague/uncertain language"),
+            (r"\b(always|never|everyone|everything|all)\b", -0.10, "Absolute claim (hard to test)"),
+            (
+                r"\b(consciousness|soul|essence|meaning of life)\b",
+                -0.20,
+                "Philosophical/untestable concept",
+            ),
+            (r"\?$", -0.20, "Question format (not a statement)"),
         ]
 
         for pattern, weight, description in negative_indicators:
@@ -193,7 +193,10 @@ class TestabilityAnalyzer:
                 logger.debug(f"Negative indicator: {description} ({weight})")
 
         # Check for measurable variables
-        if any(term in statement for term in ["metric", "score", "rate", "ratio", "percentage", "accuracy"]):
+        if any(
+            term in statement
+            for term in ["metric", "score", "rate", "ratio", "percentage", "accuracy"]
+        ):
             score += 0.10
             logger.debug("Contains measurable metrics (+0.10)")
 
@@ -210,10 +213,7 @@ class TestabilityAnalyzer:
 
         return max(0.0, min(1.0, score))
 
-    def _suggest_experiment_types(
-        self,
-        hypothesis: Hypothesis
-    ) -> List[Dict[str, Any]]:
+    def _suggest_experiment_types(self, hypothesis: Hypothesis) -> list[dict[str, Any]]:
         """
         Suggest appropriate experiment types with rankings.
 
@@ -230,54 +230,83 @@ class TestabilityAnalyzer:
 
         # Computational experiment assessment
         comp_score = 0.3  # Base score
-        if any(term in statement for term in ["simulate", "model", "algorithm", "computation", "predict"]):
+        if any(
+            term in statement
+            for term in ["simulate", "model", "algorithm", "computation", "predict"]
+        ):
             comp_score += 0.4
-        if any(term in domain for term in ["machine_learning", "computer_science", "ai", "physics", "chemistry"]):
+        if any(
+            term in domain
+            for term in ["machine_learning", "computer_science", "ai", "physics", "chemistry"]
+        ):
             comp_score += 0.2
         if "data" not in statement and "dataset" not in statement:
             comp_score += 0.1  # No existing data needed
 
-        experiments.append({
-            "type": ExperimentType.COMPUTATIONAL,
-            "score": min(1.0, comp_score),
-            "description": "Computational simulation or algorithmic analysis",
-            "feasibility": "high" if comp_score > 0.7 else ("medium" if comp_score > 0.4 else "low"),
-            "rationale": "Hypothesis can be tested through simulation, modeling, or algorithmic analysis"
-        })
+        experiments.append(
+            {
+                "type": ExperimentType.COMPUTATIONAL,
+                "score": min(1.0, comp_score),
+                "description": "Computational simulation or algorithmic analysis",
+                "feasibility": (
+                    "high" if comp_score > 0.7 else ("medium" if comp_score > 0.4 else "low")
+                ),
+                "rationale": "Hypothesis can be tested through simulation, modeling, or algorithmic analysis",
+            }
+        )
 
         # Data analysis experiment assessment
         data_score = 0.3
-        if any(term in statement for term in ["correlat", "associat", "pattern", "trend", "relationship", "data"]):
+        if any(
+            term in statement
+            for term in ["correlat", "associat", "pattern", "trend", "relationship", "data"]
+        ):
             data_score += 0.4
-        if any(term in statement for term in ["dataset", "existing data", "historical", "observational"]):
+        if any(
+            term in statement
+            for term in ["dataset", "existing data", "historical", "observational"]
+        ):
             data_score += 0.2
-        if any(term in domain for term in ["data_science", "statistics", "epidemiology", "economics"]):
+        if any(
+            term in domain for term in ["data_science", "statistics", "epidemiology", "economics"]
+        ):
             data_score += 0.1
 
-        experiments.append({
-            "type": ExperimentType.DATA_ANALYSIS,
-            "score": min(1.0, data_score),
-            "description": "Statistical analysis of existing datasets",
-            "feasibility": "high" if data_score > 0.7 else ("medium" if data_score > 0.4 else "low"),
-            "rationale": "Hypothesis can be tested by analyzing existing datasets or collecting observational data"
-        })
+        experiments.append(
+            {
+                "type": ExperimentType.DATA_ANALYSIS,
+                "score": min(1.0, data_score),
+                "description": "Statistical analysis of existing datasets",
+                "feasibility": (
+                    "high" if data_score > 0.7 else ("medium" if data_score > 0.4 else "low")
+                ),
+                "rationale": "Hypothesis can be tested by analyzing existing datasets or collecting observational data",
+            }
+        )
 
         # Literature synthesis assessment
         lit_score = 0.2
-        if any(term in statement for term in ["literature", "studies", "research shows", "prior work", "existing"]):
+        if any(
+            term in statement
+            for term in ["literature", "studies", "research shows", "prior work", "existing"]
+        ):
             lit_score += 0.3
         if any(term in statement for term in ["review", "synthesis", "meta-analysis", "survey"]):
             lit_score += 0.3
         if "novel" in hypothesis.rationale.lower() or "gap" in hypothesis.rationale.lower():
             lit_score += 0.1  # Novelty suggests lit review needed
 
-        experiments.append({
-            "type": ExperimentType.LITERATURE_SYNTHESIS,
-            "score": min(1.0, lit_score),
-            "description": "Systematic review or meta-analysis of existing literature",
-            "feasibility": "high" if lit_score > 0.6 else ("medium" if lit_score > 0.3 else "low"),
-            "rationale": "Hypothesis can be evaluated by synthesizing findings from existing literature"
-        })
+        experiments.append(
+            {
+                "type": ExperimentType.LITERATURE_SYNTHESIS,
+                "score": min(1.0, lit_score),
+                "description": "Systematic review or meta-analysis of existing literature",
+                "feasibility": (
+                    "high" if lit_score > 0.6 else ("medium" if lit_score > 0.3 else "low")
+                ),
+                "rationale": "Hypothesis can be evaluated by synthesizing findings from existing literature",
+            }
+        )
 
         # Sort by score (highest first)
         experiments.sort(key=lambda x: x["score"], reverse=True)
@@ -285,10 +314,8 @@ class TestabilityAnalyzer:
         return experiments
 
     def _estimate_resources(
-        self,
-        hypothesis: Hypothesis,
-        suggested_experiments: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, hypothesis: Hypothesis, suggested_experiments: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Estimate resource requirements.
 
@@ -304,7 +331,7 @@ class TestabilityAnalyzer:
                 "compute_hours": None,
                 "cost_usd": None,
                 "duration_days": None,
-                "data_sources": []
+                "data_sources": [],
             }
 
         primary_exp = suggested_experiments[0]
@@ -345,10 +372,10 @@ class TestabilityAnalyzer:
             "compute_hours": round(compute_hours, 1),
             "cost_usd": round(cost_usd, 2),
             "duration_days": round(duration_days),
-            "data_sources": data_sources
+            "data_sources": data_sources,
         }
 
-    def _identify_challenges(self, hypothesis: Hypothesis) -> List[str]:
+    def _identify_challenges(self, hypothesis: Hypothesis) -> list[str]:
         """
         Identify challenges in testing the hypothesis.
 
@@ -362,17 +389,25 @@ class TestabilityAnalyzer:
         statement = hypothesis.statement.lower()
 
         # Check for vague language
-        if any(word in statement for word in ["maybe", "might", "possibly", "perhaps", "potentially"]):
-            challenges.append("Hypothesis uses vague language, making it difficult to define success criteria")
+        if any(
+            word in statement for word in ["maybe", "might", "possibly", "perhaps", "potentially"]
+        ):
+            challenges.append(
+                "Hypothesis uses vague language, making it difficult to define success criteria"
+            )
 
         # Check for unmeasurable outcomes
         abstract_terms = ["better", "worse", "good", "bad", "quality", "effectiveness"]
-        if any(term in statement for term in abstract_terms) and not any(q in statement for q in ["measure", "metric", "score"]):
+        if any(term in statement for term in abstract_terms) and not any(
+            q in statement for q in ["measure", "metric", "score"]
+        ):
             challenges.append("Outcome is abstract without clear measurement criteria")
 
         # Check for causal claims
         if any(word in statement for word in ["cause", "causes", "caused"]):
-            challenges.append("Causal claims require controlled experiments or robust causal inference methods")
+            challenges.append(
+                "Causal claims require controlled experiments or robust causal inference methods"
+            )
 
         # Check for absolute claims
         if any(word in statement for word in ["always", "never", "all", "none", "every"]):
@@ -380,14 +415,20 @@ class TestabilityAnalyzer:
 
         # Check for multiple variables
         if statement.count(" and ") > 2 or statement.count(",") > 2:
-            challenges.append("Hypothesis involves multiple variables, requiring careful experimental design")
+            challenges.append(
+                "Hypothesis involves multiple variables, requiring careful experimental design"
+            )
 
         # Domain-specific challenges
         if hypothesis.domain in ["biology", "medicine", "neuroscience"]:
-            challenges.append("Biological systems are complex; may require wet-lab experiments beyond computational scope")
+            challenges.append(
+                "Biological systems are complex; may require wet-lab experiments beyond computational scope"
+            )
 
         if hypothesis.domain in ["social_science", "psychology", "economics"]:
-            challenges.append("Human behavior is complex and context-dependent; may require large sample sizes")
+            challenges.append(
+                "Human behavior is complex and context-dependent; may require large sample sizes"
+            )
 
         # Check for data availability
         if "dataset" in statement or "data" in statement:
@@ -396,7 +437,7 @@ class TestabilityAnalyzer:
 
         return challenges
 
-    def _identify_limitations(self, hypothesis: Hypothesis) -> List[str]:
+    def _identify_limitations(self, hypothesis: Hypothesis) -> list[str]:
         """
         Identify limitations in testing the hypothesis.
 
@@ -409,27 +450,39 @@ class TestabilityAnalyzer:
         limitations = []
 
         # Computational testing limitations
-        limitations.append("Testing is limited to computational/analytical methods (no physical experiments)")
+        limitations.append(
+            "Testing is limited to computational/analytical methods (no physical experiments)"
+        )
 
         # Domain limitations
         if hypothesis.domain in ["physics", "chemistry", "materials_science"]:
-            limitations.append("Cannot perform physical experiments; limited to simulation and existing data")
+            limitations.append(
+                "Cannot perform physical experiments; limited to simulation and existing data"
+            )
 
         if hypothesis.domain in ["biology", "medicine"]:
-            limitations.append("Cannot perform wet-lab or clinical experiments; relying on computational biology and existing datasets")
+            limitations.append(
+                "Cannot perform wet-lab or clinical experiments; relying on computational biology and existing datasets"
+            )
 
         # Statistical limitations
-        if "correlation" in hypothesis.statement.lower() or "association" in hypothesis.statement.lower():
-            limitations.append("Correlation does not imply causation; causal claims require additional analysis")
+        if (
+            "correlation" in hypothesis.statement.lower()
+            or "association" in hypothesis.statement.lower()
+        ):
+            limitations.append(
+                "Correlation does not imply causation; causal claims require additional analysis"
+            )
 
         # Generalization limitations
-        limitations.append("Results may not generalize beyond the specific datasets or simulations used")
+        limitations.append(
+            "Results may not generalize beyond the specific datasets or simulations used"
+        )
 
         return limitations
 
     def _select_primary_experiment(
-        self,
-        suggested_experiments: List[Dict[str, Any]]
+        self, suggested_experiments: list[dict[str, Any]]
     ) -> ExperimentType:
         """
         Select the primary (most suitable) experiment type.
@@ -445,7 +498,7 @@ class TestabilityAnalyzer:
 
         return suggested_experiments[0]["type"]
 
-    def _llm_testability_assessment(self, hypothesis: Hypothesis) -> Optional[Dict[str, Any]]:
+    def _llm_testability_assessment(self, hypothesis: Hypothesis) -> dict[str, Any] | None:
         """
         Use LLM for detailed testability assessment.
 
@@ -478,9 +531,13 @@ Provide assessment as JSON:
 
             response = self.llm_client.generate_structured(
                 prompt=prompt,
-                schema={"confidence": "float", "additional_challenges": ["string"], "additional_limitations": ["string"]},
+                schema={
+                    "confidence": "float",
+                    "additional_challenges": ["string"],
+                    "additional_limitations": ["string"],
+                },
                 max_tokens=500,
-                temperature=0.3
+                temperature=0.3,
             )
 
             return response
@@ -494,8 +551,8 @@ Provide assessment as JSON:
         testability_score: float,
         is_testable: bool,
         primary_experiment_type: ExperimentType,
-        challenges: List[str],
-        estimated_cost: Optional[float]
+        challenges: list[str],
+        estimated_cost: float | None,
     ) -> str:
         """
         Generate human-readable testability summary.
@@ -546,8 +603,7 @@ Provide assessment as JSON:
 
 
 def analyze_hypothesis_testability(
-    hypothesis: Hypothesis,
-    testability_threshold: float = 0.3
+    hypothesis: Hypothesis, testability_threshold: float = 0.3
 ) -> TestabilityReport:
     """
     Convenience function to analyze hypothesis testability.

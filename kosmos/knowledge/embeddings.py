@@ -5,21 +5,25 @@ Uses the allenai/specter model optimized for scientific document similarity.
 SPECTER is trained on citation graphs and produces 768-dimensional embeddings.
 """
 
-from typing import List, Optional, Union
-import numpy as np
-from pathlib import Path
 import logging
+from pathlib import Path
+
+import numpy as np
 
 from kosmos.literature.base_client import PaperMetadata
+
 
 logger = logging.getLogger(__name__)
 
 # Optional dependency - sentence_transformers
 try:
     from sentence_transformers import SentenceTransformer
+
     HAS_SENTENCE_TRANSFORMERS = True
 except ImportError:
-    logger.warning("sentence_transformers not installed. Install with: pip install sentence-transformers")
+    logger.warning(
+        "sentence_transformers not installed. Install with: pip install sentence-transformers"
+    )
     HAS_SENTENCE_TRANSFORMERS = False
     SentenceTransformer = None
 
@@ -39,8 +43,8 @@ class PaperEmbedder:
     def __init__(
         self,
         model_name: str = "allenai/specter",
-        cache_dir: Optional[str] = None,
-        device: Optional[str] = None
+        cache_dir: str | None = None,
+        device: str | None = None,
     ):
         """
         Initialize the paper embedder.
@@ -71,11 +75,7 @@ class PaperEmbedder:
         logger.info("First run may take a few minutes to download model (~440MB)")
 
         try:
-            self.model = SentenceTransformer(
-                model_name,
-                cache_folder=cache_dir,
-                device=device
-            )
+            self.model = SentenceTransformer(model_name, cache_folder=cache_dir, device=device)
             self.embedding_dim = self.model.get_sentence_embedding_dimension()
 
             logger.info(
@@ -114,11 +114,7 @@ class PaperEmbedder:
             return np.zeros(self.embedding_dim, dtype=np.float32)
 
         try:
-            embedding = self.model.encode(
-                text,
-                convert_to_numpy=True,
-                show_progress_bar=False
-            )
+            embedding = self.model.encode(text, convert_to_numpy=True, show_progress_bar=False)
             return embedding
 
         except Exception as e:
@@ -127,10 +123,7 @@ class PaperEmbedder:
             return np.zeros(self.embedding_dim, dtype=np.float32)
 
     def embed_papers(
-        self,
-        papers: List[PaperMetadata],
-        batch_size: int = 32,
-        show_progress: bool = True
+        self, papers: list[PaperMetadata], batch_size: int = 32, show_progress: bool = True
     ) -> np.ndarray:
         """
         Generate embeddings for multiple papers in batches.
@@ -164,10 +157,7 @@ class PaperEmbedder:
 
         try:
             embeddings = self.model.encode(
-                texts,
-                batch_size=batch_size,
-                convert_to_numpy=True,
-                show_progress_bar=show_progress
+                texts, batch_size=batch_size, convert_to_numpy=True, show_progress_bar=show_progress
             )
 
             logger.info(f"Generated embeddings for {len(papers)} papers")
@@ -203,22 +193,14 @@ class PaperEmbedder:
             return np.zeros(self.embedding_dim, dtype=np.float32)
 
         try:
-            embedding = self.model.encode(
-                query,
-                convert_to_numpy=True,
-                show_progress_bar=False
-            )
+            embedding = self.model.encode(query, convert_to_numpy=True, show_progress_bar=False)
             return embedding
 
         except Exception as e:
             logger.error(f"Error embedding query: {e}")
             return np.zeros(self.embedding_dim, dtype=np.float32)
 
-    def compute_similarity(
-        self,
-        embedding1: np.ndarray,
-        embedding2: np.ndarray
-    ) -> float:
+    def compute_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
         """
         Compute cosine similarity between two embeddings.
 
@@ -248,11 +230,8 @@ class PaperEmbedder:
         return float(similarity)
 
     def find_most_similar(
-        self,
-        query_embedding: np.ndarray,
-        paper_embeddings: np.ndarray,
-        top_k: int = 5
-    ) -> List[tuple]:
+        self, query_embedding: np.ndarray, paper_embeddings: np.ndarray, top_k: int = 5
+    ) -> list[tuple]:
         """
         Find most similar papers to a query.
 
@@ -333,13 +312,11 @@ class PaperEmbedder:
 
 
 # Singleton embedder instance
-_embedder: Optional[PaperEmbedder] = None
+_embedder: PaperEmbedder | None = None
 
 
 def get_embedder(
-    model_name: str = "allenai/specter",
-    cache_dir: Optional[str] = None,
-    device: Optional[str] = None
+    model_name: str = "allenai/specter", cache_dir: str | None = None, device: str | None = None
 ) -> PaperEmbedder:
     """
     Get or create the singleton embedder instance.
@@ -354,11 +331,7 @@ def get_embedder(
     """
     global _embedder
     if _embedder is None:
-        _embedder = PaperEmbedder(
-            model_name=model_name,
-            cache_dir=cache_dir,
-            device=device
-        )
+        _embedder = PaperEmbedder(model_name=model_name, cache_dir=cache_dir, device=device)
     return _embedder
 
 

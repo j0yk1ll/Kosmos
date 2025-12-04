@@ -4,15 +4,16 @@ Unit tests for LiteLLMProvider.
 Tests the LiteLLM provider implementation with mocked LiteLLM calls.
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from datetime import datetime
+
 
 # Skip all tests if litellm is not installed
 pytest.importorskip("litellm")
 
-from kosmos.core.providers.litellm_provider import LiteLLMProvider
 from kosmos.core.providers.base import LLMResponse, Message
+from kosmos.core.providers.litellm_provider import LiteLLMProvider
 
 
 class TestLiteLLMProviderInit:
@@ -29,10 +30,9 @@ class TestLiteLLMProviderInit:
 
     def test_init_with_ollama_model(self):
         """Test initialization with Ollama model."""
-        provider = LiteLLMProvider({
-            "model": "ollama/llama3.1:8b",
-            "api_base": "http://localhost:11434"
-        })
+        provider = LiteLLMProvider(
+            {"model": "ollama/llama3.1:8b", "api_base": "http://localhost:11434"}
+        )
 
         assert provider.model == "ollama/llama3.1:8b"
         assert provider.provider_type == "ollama"
@@ -40,32 +40,25 @@ class TestLiteLLMProviderInit:
 
     def test_init_with_deepseek_model(self):
         """Test initialization with DeepSeek model."""
-        provider = LiteLLMProvider({
-            "model": "deepseek/deepseek-chat",
-            "api_key": "sk-test-key"
-        })
+        provider = LiteLLMProvider({"model": "deepseek/deepseek-chat", "api_key": "sk-test-key"})
 
         assert provider.model == "deepseek/deepseek-chat"
         assert provider.provider_type == "deepseek"
 
     def test_init_with_anthropic_model(self):
         """Test initialization with Anthropic model."""
-        provider = LiteLLMProvider({
-            "model": "claude-3-5-sonnet-20241022",
-            "api_key": "sk-ant-test"
-        })
+        provider = LiteLLMProvider(
+            {"model": "claude-3-5-sonnet-20241022", "api_key": "sk-ant-test"}
+        )
 
         assert provider.model == "claude-3-5-sonnet-20241022"
         assert provider.provider_type == "anthropic"
 
     def test_init_with_custom_config(self):
         """Test initialization with custom configuration."""
-        provider = LiteLLMProvider({
-            "model": "gpt-4-turbo",
-            "max_tokens": 8192,
-            "temperature": 0.5,
-            "timeout": 60
-        })
+        provider = LiteLLMProvider(
+            {"model": "gpt-4-turbo", "max_tokens": 8192, "temperature": 0.5, "timeout": 60}
+        )
 
         assert provider.max_tokens_default == 8192
         assert provider.temperature_default == 0.5
@@ -78,7 +71,9 @@ class TestLiteLLMProviderGenerate:
     @pytest.fixture
     def mock_provider(self):
         """Create a provider with mocked LiteLLM."""
-        with patch('kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__', return_value=None):
+        with patch(
+            "kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__", return_value=None
+        ):
             provider = LiteLLMProvider.__new__(LiteLLMProvider)
             provider.config = {"model": "gpt-3.5-turbo"}
             provider.provider_name = "litellm"
@@ -105,15 +100,10 @@ class TestLiteLLMProviderGenerate:
         """Test successful generation."""
         # Mock response
         mock_response = MagicMock()
-        mock_response.choices = [MagicMock(
-            message=MagicMock(content="Test response"),
-            finish_reason="stop"
-        )]
-        mock_response.usage = MagicMock(
-            prompt_tokens=10,
-            completion_tokens=20,
-            total_tokens=30
-        )
+        mock_response.choices = [
+            MagicMock(message=MagicMock(content="Test response"), finish_reason="stop")
+        ]
+        mock_response.usage = MagicMock(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         mock_response.model = "gpt-3.5-turbo"
 
         mock_provider.litellm.completion.return_value = mock_response
@@ -129,25 +119,15 @@ class TestLiteLLMProviderGenerate:
     def test_generate_with_options(self, mock_provider):
         """Test generation with custom options."""
         mock_response = MagicMock()
-        mock_response.choices = [MagicMock(
-            message=MagicMock(content="Response"),
-            finish_reason="stop"
-        )]
-        mock_response.usage = MagicMock(
-            prompt_tokens=5,
-            completion_tokens=10,
-            total_tokens=15
-        )
+        mock_response.choices = [
+            MagicMock(message=MagicMock(content="Response"), finish_reason="stop")
+        ]
+        mock_response.usage = MagicMock(prompt_tokens=5, completion_tokens=10, total_tokens=15)
         mock_response.model = "gpt-3.5-turbo"
 
         mock_provider.litellm.completion.return_value = mock_response
 
-        response = mock_provider.generate(
-            "Prompt",
-            max_tokens=100,
-            temperature=0.2,
-            stop_sequences=["END"]
-        )
+        mock_provider.generate("Prompt", max_tokens=100, temperature=0.2, stop_sequences=["END"])
 
         # Verify completion was called with correct args
         call_kwargs = mock_provider.litellm.completion.call_args.kwargs
@@ -162,7 +142,9 @@ class TestLiteLLMProviderStructured:
     @pytest.fixture
     def mock_provider(self):
         """Create a provider with mocked LiteLLM."""
-        with patch('kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__', return_value=None):
+        with patch(
+            "kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__", return_value=None
+        ):
             provider = LiteLLMProvider.__new__(LiteLLMProvider)
             provider.config = {"model": "gpt-3.5-turbo"}
             provider.provider_name = "litellm"
@@ -186,22 +168,18 @@ class TestLiteLLMProviderStructured:
     def test_generate_structured_success(self, mock_provider):
         """Test structured JSON generation."""
         mock_response = MagicMock()
-        mock_response.choices = [MagicMock(
-            message=MagicMock(content='{"name": "test", "value": 42}'),
-            finish_reason="stop"
-        )]
-        mock_response.usage = MagicMock(
-            prompt_tokens=10,
-            completion_tokens=10,
-            total_tokens=20
-        )
+        mock_response.choices = [
+            MagicMock(
+                message=MagicMock(content='{"name": "test", "value": 42}'), finish_reason="stop"
+            )
+        ]
+        mock_response.usage = MagicMock(prompt_tokens=10, completion_tokens=10, total_tokens=20)
         mock_response.model = "gpt-3.5-turbo"
 
         mock_provider.litellm.completion.return_value = mock_response
 
         result = mock_provider.generate_structured(
-            "Generate JSON",
-            schema={"name": "string", "value": "int"}
+            "Generate JSON", schema={"name": "string", "value": "int"}
         )
 
         assert result == {"name": "test", "value": 42}
@@ -209,23 +187,17 @@ class TestLiteLLMProviderStructured:
     def test_generate_structured_with_markdown(self, mock_provider):
         """Test structured output with markdown code block."""
         mock_response = MagicMock()
-        mock_response.choices = [MagicMock(
-            message=MagicMock(content='```json\n{"key": "value"}\n```'),
-            finish_reason="stop"
-        )]
-        mock_response.usage = MagicMock(
-            prompt_tokens=10,
-            completion_tokens=10,
-            total_tokens=20
-        )
+        mock_response.choices = [
+            MagicMock(
+                message=MagicMock(content='```json\n{"key": "value"}\n```'), finish_reason="stop"
+            )
+        ]
+        mock_response.usage = MagicMock(prompt_tokens=10, completion_tokens=10, total_tokens=20)
         mock_response.model = "gpt-3.5-turbo"
 
         mock_provider.litellm.completion.return_value = mock_response
 
-        result = mock_provider.generate_structured(
-            "Generate JSON",
-            schema={"key": "string"}
-        )
+        result = mock_provider.generate_structured("Generate JSON", schema={"key": "string"})
 
         assert result == {"key": "value"}
 
@@ -236,7 +208,9 @@ class TestLiteLLMProviderMessages:
     @pytest.fixture
     def mock_provider(self):
         """Create a provider with mocked LiteLLM."""
-        with patch('kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__', return_value=None):
+        with patch(
+            "kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__", return_value=None
+        ):
             provider = LiteLLMProvider.__new__(LiteLLMProvider)
             provider.config = {"model": "gpt-3.5-turbo"}
             provider.provider_name = "litellm"
@@ -260,15 +234,10 @@ class TestLiteLLMProviderMessages:
     def test_generate_with_messages(self, mock_provider):
         """Test generation with message history."""
         mock_response = MagicMock()
-        mock_response.choices = [MagicMock(
-            message=MagicMock(content="Reply to conversation"),
-            finish_reason="stop"
-        )]
-        mock_response.usage = MagicMock(
-            prompt_tokens=20,
-            completion_tokens=10,
-            total_tokens=30
-        )
+        mock_response.choices = [
+            MagicMock(message=MagicMock(content="Reply to conversation"), finish_reason="stop")
+        ]
+        mock_response.usage = MagicMock(prompt_tokens=20, completion_tokens=10, total_tokens=30)
         mock_response.model = "gpt-3.5-turbo"
 
         mock_provider.litellm.completion.return_value = mock_response
@@ -277,7 +246,7 @@ class TestLiteLLMProviderMessages:
             Message(role="system", content="You are helpful"),
             Message(role="user", content="Hello"),
             Message(role="assistant", content="Hi there!"),
-            Message(role="user", content="How are you?")
+            Message(role="user", content="How are you?"),
         ]
 
         response = mock_provider.generate_with_messages(messages)
@@ -304,10 +273,9 @@ class TestLiteLLMProviderModelInfo:
 
     def test_get_model_info_ollama(self):
         """Test model info for Ollama model (free)."""
-        provider = LiteLLMProvider({
-            "model": "ollama/llama3.1:8b",
-            "api_base": "http://localhost:11434"
-        })
+        provider = LiteLLMProvider(
+            {"model": "ollama/llama3.1:8b", "api_base": "http://localhost:11434"}
+        )
         info = provider.get_model_info()
 
         assert info["name"] == "ollama/llama3.1:8b"
@@ -330,10 +298,9 @@ class TestLiteLLMProviderCostEstimation:
 
     def test_cost_estimation_free_model(self):
         """Test cost estimation for free models (Ollama)."""
-        provider = LiteLLMProvider({
-            "model": "ollama/llama3.1:8b",
-            "api_base": "http://localhost:11434"
-        })
+        provider = LiteLLMProvider(
+            {"model": "ollama/llama3.1:8b", "api_base": "http://localhost:11434"}
+        )
 
         cost = provider._estimate_cost(10000, 5000)
         assert cost == 0.0  # Ollama is free
@@ -352,7 +319,9 @@ class TestLiteLLMProviderUsageTracking:
     @pytest.fixture
     def mock_provider(self):
         """Create a provider with mocked LiteLLM."""
-        with patch('kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__', return_value=None):
+        with patch(
+            "kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__", return_value=None
+        ):
             provider = LiteLLMProvider.__new__(LiteLLMProvider)
             provider.config = {"model": "gpt-3.5-turbo"}
             provider.provider_name = "litellm"
@@ -376,15 +345,10 @@ class TestLiteLLMProviderUsageTracking:
     def test_usage_tracking(self, mock_provider):
         """Test that usage is tracked across calls."""
         mock_response = MagicMock()
-        mock_response.choices = [MagicMock(
-            message=MagicMock(content="Response"),
-            finish_reason="stop"
-        )]
-        mock_response.usage = MagicMock(
-            prompt_tokens=100,
-            completion_tokens=50,
-            total_tokens=150
-        )
+        mock_response.choices = [
+            MagicMock(message=MagicMock(content="Response"), finish_reason="stop")
+        ]
+        mock_response.usage = MagicMock(prompt_tokens=100, completion_tokens=50, total_tokens=150)
         mock_response.model = "gpt-3.5-turbo"
 
         mock_provider.litellm.completion.return_value = mock_response
@@ -406,7 +370,9 @@ class TestLiteLLMProviderAsync:
     @pytest.fixture
     def mock_provider(self):
         """Create a provider with mocked async LiteLLM."""
-        with patch('kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__', return_value=None):
+        with patch(
+            "kosmos.core.providers.litellm_provider.LiteLLMProvider.__init__", return_value=None
+        ):
             provider = LiteLLMProvider.__new__(LiteLLMProvider)
             provider.config = {"model": "gpt-3.5-turbo"}
             provider.provider_name = "litellm"
@@ -430,15 +396,10 @@ class TestLiteLLMProviderAsync:
     async def test_generate_async_success(self, mock_provider):
         """Test async generation."""
         mock_response = MagicMock()
-        mock_response.choices = [MagicMock(
-            message=MagicMock(content="Async response"),
-            finish_reason="stop"
-        )]
-        mock_response.usage = MagicMock(
-            prompt_tokens=10,
-            completion_tokens=20,
-            total_tokens=30
-        )
+        mock_response.choices = [
+            MagicMock(message=MagicMock(content="Async response"), finish_reason="stop")
+        ]
+        mock_response.usage = MagicMock(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         mock_response.model = "gpt-3.5-turbo"
 
         # Use AsyncMock for acompletion

@@ -5,6 +5,7 @@ Ensures all integration tests use correct environment settings.
 """
 
 import os
+
 import pytest
 
 
@@ -12,17 +13,18 @@ import pytest
 def setup_integration_env():
     """Set up environment variables for integration tests."""
     # Force bolt:// protocol for Neo4j (py2neo requirement)
-    os.environ['NEO4J_URI'] = 'bolt://localhost:7687'
-    os.environ['NEO4J_USER'] = 'neo4j'
-    os.environ['NEO4J_PASSWORD'] = 'kosmos-password'
-    os.environ['NEO4J_DATABASE'] = 'neo4j'
+    os.environ["NEO4J_URI"] = "bolt://localhost:7687"
+    os.environ["NEO4J_USER"] = "neo4j"
+    os.environ["NEO4J_PASSWORD"] = "kosmos-password"
+    os.environ["NEO4J_DATABASE"] = "neo4j"
 
     # Ensure Anthropic API key is set (use Claude Code proxy)
-    if not os.getenv('ANTHROPIC_API_KEY'):
-        os.environ['ANTHROPIC_API_KEY'] = '999999999999999999999999999999999999999999999999'
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        os.environ["ANTHROPIC_API_KEY"] = "999999999999999999999999999999999999999999999999"
 
     # Force config reload to pick up new environment variables
     from kosmos.config import get_config
+
     try:
         get_config(reload=True)
     except Exception:
@@ -40,5 +42,5 @@ def reset_env_for_each_test():
 
     This prevents tests from inheriting stale config objects.
     """
-    os.environ['NEO4J_URI'] = 'bolt://localhost:7687'
+    os.environ["NEO4J_URI"] = "bolt://localhost:7687"
     yield

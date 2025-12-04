@@ -7,20 +7,22 @@ with LRU eviction, TTL support, and statistics tracking.
 
 import hashlib
 import json
+import logging
 import pickle
 import threading
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional, Dict, Tuple, List
-import logging
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
 
 class CacheError(Exception):
     """Exception raised for cache-related errors."""
+
     pass
 
 
@@ -67,7 +69,7 @@ class CacheStats:
         with self._lock:
             self._invalidations += count
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get current statistics.
 
@@ -86,7 +88,7 @@ class CacheStats:
                 "errors": self._errors,
                 "invalidations": self._invalidations,
                 "total_requests": total_requests,
-                "hit_rate_percent": round(hit_rate, 2)
+                "hit_rate_percent": round(hit_rate, 2),
             }
 
     def reset(self):
@@ -118,7 +120,7 @@ class BaseCache(ABC):
         self.stats = CacheStats()
 
     @abstractmethod
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """
         Retrieve a cached value.
 
@@ -190,14 +192,11 @@ class BaseCache(ABC):
             Hexadecimal cache key
         """
         # Sort kwargs for consistent key generation
-        key_data = {
-            'args': args,
-            'kwargs': sorted(kwargs.items())
-        }
+        key_data = {"args": args, "kwargs": sorted(kwargs.items())}
         key_str = json.dumps(key_data, sort_keys=True, default=str)
         return hashlib.sha256(key_str.encode()).hexdigest()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get cache statistics.
 
@@ -205,10 +204,12 @@ class BaseCache(ABC):
             Dictionary with cache statistics
         """
         base_stats = self.stats.get_stats()
-        base_stats.update({
-            "ttl_seconds": self.ttl_seconds,
-            "size": self.size(),
-        })
+        base_stats.update(
+            {
+                "ttl_seconds": self.ttl_seconds,
+                "size": self.size(),
+            }
+        )
         return base_stats
 
 
@@ -220,11 +221,7 @@ class InMemoryCache(BaseCache):
     for each entry.
     """
 
-    def __init__(
-        self,
-        max_size: int = 1000,
-        ttl_seconds: int = 172800  # 48 hours
-    ):
+    def __init__(self, max_size: int = 1000, ttl_seconds: int = 172800):  # 48 hours
         """
         Initialize the in-memory cache.
 
@@ -234,7 +231,7 @@ class InMemoryCache(BaseCache):
         """
         super().__init__(ttl_seconds=ttl_seconds)
         self.max_size = max_size
-        self._cache: OrderedDict[str, Tuple[Any, datetime]] = OrderedDict()
+        self._cache: OrderedDict[str, tuple[Any, datetime]] = OrderedDict()
         self._lock = threading.RLock()
 
         logger.info(f"Initialized InMemoryCache: max_size={max_size}, ttl={ttl_seconds}s")
@@ -243,7 +240,7 @@ class InMemoryCache(BaseCache):
         """Check if a cached item has expired."""
         return datetime.utcnow() > expires_at
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """
         Retrieve a cached value.
 
@@ -353,10 +350,7 @@ class InMemoryCache(BaseCache):
         """
         with self._lock:
             now = datetime.utcnow()
-            expired_keys = [
-                key for key, (_, expires_at) in self._cache.items()
-                if expires_at < now
-            ]
+            expired_keys = [key for key, (_, expires_at) in self._cache.items() if expires_at < now]
 
             for key in expired_keys:
                 del self._cache[key]
@@ -380,7 +374,7 @@ class DiskCache(BaseCache):
         self,
         cache_dir: str = ".kosmos_cache",
         ttl_seconds: int = 172800,  # 48 hours
-        max_size_mb: int = 5000  # 5GB default
+        max_size_mb: int = 5000,  # 5GB default
     ):
         """
         Initialize the disk cache.
@@ -412,7 +406,7 @@ class DiskCache(BaseCache):
         expiry = cached_at + timedelta(seconds=self.ttl_seconds)
         return datetime.utcnow() > expiry
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """
         Retrieve a cached value.
 
@@ -430,11 +424,11 @@ class DiskCache(BaseCache):
 
         with self._lock:
             try:
-                with open(cache_path, 'rb') as f:
+                with open(cache_path, "rb") as f:
                     cached_data = pickle.load(f)
 
                 # Check expiration
-                if self._is_expired(cached_data['cached_at']):
+                if self._is_expired(cached_data["cached_at"]):
                     logger.debug(f"Cache expired: {key[:8]}...")
                     cache_path.unlink()
                     self.stats.record_miss()
@@ -442,7 +436,7 @@ class DiskCache(BaseCache):
 
                 self.stats.record_hit()
                 logger.debug(f"Cache hit: {key[:8]}...")
-                return cached_data['value']
+                return cached_data["value"]
 
             except Exception as e:
                 logger.warning(f"Error reading cache: {e}")
@@ -467,13 +461,9 @@ class DiskCache(BaseCache):
 
         with self._lock:
             try:
-                cached_data = {
-                    'key': key,
-                    'value': value,
-                    'cached_at': datetime.utcnow()
-                }
+                cached_data = {"key": key, "value": value, "cached_at": datetime.utcnow()}
 
-                with open(cache_path, 'wb') as f:
+                with open(cache_path, "wb") as f:
                     pickle.dump(cached_data, f)
 
                 self.stats.record_set()
@@ -540,10 +530,10 @@ class DiskCache(BaseCache):
 
             for cache_file in self.cache_dir.rglob("*.pkl"):
                 try:
-                    with open(cache_file, 'rb') as f:
+                    with open(cache_file, "rb") as f:
                         cached_data = pickle.load(f)
 
-                    if self._is_expired(cached_data['cached_at']):
+                    if self._is_expired(cached_data["cached_at"]):
                         cache_file.unlink()
                         count += 1
 
@@ -565,8 +555,7 @@ class DiskCache(BaseCache):
 
         if total_size_mb > self.max_size_mb:
             logger.warning(
-                f"Cache size ({total_size_mb:.1f} MB) exceeds "
-                f"limit ({self.max_size_mb} MB)"
+                f"Cache size ({total_size_mb:.1f} MB) exceeds " f"limit ({self.max_size_mb} MB)"
             )
 
             # Delete oldest files first (LRU)
@@ -602,7 +591,7 @@ class HybridCache(BaseCache):
         memory_size: int = 1000,
         cache_dir: str = ".kosmos_cache",
         ttl_seconds: int = 172800,
-        max_size_mb: int = 5000
+        max_size_mb: int = 5000,
     ):
         """
         Initialize the hybrid cache.
@@ -616,14 +605,12 @@ class HybridCache(BaseCache):
         super().__init__(ttl_seconds=ttl_seconds)
         self.memory_cache = InMemoryCache(max_size=memory_size, ttl_seconds=ttl_seconds)
         self.disk_cache = DiskCache(
-            cache_dir=cache_dir,
-            ttl_seconds=ttl_seconds,
-            max_size_mb=max_size_mb
+            cache_dir=cache_dir, ttl_seconds=ttl_seconds, max_size_mb=max_size_mb
         )
 
         logger.info(f"Initialized HybridCache: memory={memory_size}, disk={cache_dir}")
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Retrieve from memory first, then disk."""
         # Try memory cache first
         value = self.memory_cache.get(key)
@@ -689,11 +676,13 @@ class HybridCache(BaseCache):
 
         return total
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics from both caches."""
         base_stats = super().get_stats()
-        base_stats.update({
-            "memory_cache": self.memory_cache.get_stats(),
-            "disk_cache": self.disk_cache.get_stats(),
-        })
+        base_stats.update(
+            {
+                "memory_cache": self.memory_cache.get_stats(),
+                "disk_cache": self.disk_cache.get_stats(),
+            }
+        )
         return base_stats

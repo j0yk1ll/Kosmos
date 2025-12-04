@@ -4,7 +4,6 @@ History command for Kosmos CLI.
 Browse past research runs and view detailed history.
 """
 
-from typing import Optional
 from datetime import datetime, timedelta
 
 import typer
@@ -12,23 +11,23 @@ from rich.prompt import Prompt
 
 from kosmos.cli.utils import (
     console,
-    print_error,
-    print_info,
-    get_icon,
-    create_table,
-    create_status_text,
     create_domain_text,
+    create_status_text,
+    create_table,
     format_timestamp,
     get_db_session,
+    get_icon,
+    print_error,
+    print_info,
 )
-from kosmos.cli.views.results_viewer import ResultsViewer, view_research_results
+from kosmos.cli.views.results_viewer import view_research_results
 
 
 def show_history(
     limit: int = typer.Option(10, "--limit", "-n", help="Number of runs to show"),
-    domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Filter by domain"),
-    status: Optional[str] = typer.Option(None, "--status", "-s", help="Filter by status"),
-    days: Optional[int] = typer.Option(None, "--days", help="Show runs from last N days"),
+    domain: str | None = typer.Option(None, "--domain", "-d", help="Filter by domain"),
+    status: str | None = typer.Option(None, "--status", "-s", help="Filter by status"),
+    days: int | None = typer.Option(None, "--days", help="Show runs from last N days"),
     show_details: bool = typer.Option(False, "--details", help="Show detailed view"),
 ):
     """
@@ -69,11 +68,10 @@ def show_history(
         if not show_details and len(runs) > 0:
             console.print()
             view_run = Prompt.ask(
-                "[cyan]View details for a run?[/cyan] (Enter run # or 'n' to skip)",
-                default="n"
+                "[cyan]View details for a run?[/cyan] (Enter run # or 'n' to skip)", default="n"
             )
 
-            if view_run.lower() != 'n':
+            if view_run.lower() != "n":
                 try:
                     run_idx = int(view_run) - 1
                     if 0 <= run_idx < len(runs):
@@ -84,18 +82,18 @@ def show_history(
 
     except KeyboardInterrupt:
         console.print("\n[warning]History display cancelled[/warning]")
-        raise typer.Exit(130)
+        raise typer.Exit(130) from None
 
     except Exception as e:
         print_error(f"Failed to get history: {str(e)}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def get_research_runs(
     limit: int = 10,
-    domain: Optional[str] = None,
-    status: Optional[str] = None,
-    days: Optional[int] = None,
+    domain: str | None = None,
+    status: str | None = None,
+    days: int | None = None,
 ) -> list:
     """
     Get research runs from database.
@@ -132,16 +130,18 @@ def get_research_runs(
             # Convert to dictionaries
             runs = []
             for run in query.all():
-                runs.append({
-                    "id": run.id,
-                    "question": run.research_question,
-                    "domain": run.domain or "general",
-                    "state": run.state,
-                    "current_iteration": run.current_iteration,
-                    "max_iterations": run.max_iterations,
-                    "created_at": run.created_at,
-                    "updated_at": run.updated_at,
-                })
+                runs.append(
+                    {
+                        "id": run.id,
+                        "question": run.research_question,
+                        "domain": run.domain or "general",
+                        "state": run.state,
+                        "current_iteration": run.current_iteration,
+                        "max_iterations": run.max_iterations,
+                        "created_at": run.created_at,
+                        "updated_at": run.updated_at,
+                    }
+                )
 
             return runs
 

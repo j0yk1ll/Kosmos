@@ -376,6 +376,38 @@ run_verification() {
 }
 
 #============================================================================
+# Pre-commit hooks installation
+#============================================================================
+install_precommit_hooks() {
+    print_step "Installing pre-commit hooks"
+
+    # We expect the virtualenv to be activated when this runs. Prefer the
+    # pre-commit binary on PATH, but fall back to python -m pre_commit.
+    if command -v pre-commit &> /dev/null || python -c "import pre_commit" &> /dev/null; then
+        print_info "Installing pre-commit git hooks (pre-commit + pre-push)..."
+
+        # Use the CLI if available (this will install the pre-commit hook)
+        if command -v pre-commit &> /dev/null; then
+            pre-commit install --install-hooks --hook-type pre-commit --hook-type pre-push || true
+        else
+            # Fallback to module invocation
+            python -m pre_commit install --install-hooks --hook-type pre-commit --hook-type pre-push || true
+        fi
+
+        # Verify installation
+        if [ -f ".git/hooks/pre-commit" ] || [ -f ".git/hooks/pre-push" ]; then
+            print_success "pre-commit hooks installed"
+        else
+            print_warning "pre-commit hooks were not installed automatically"
+            print_info "You can install them manually with: pre-commit install --hook-type pre-push"
+        fi
+    else
+        print_warning "pre-commit not found in the environment; skipping hook installation"
+        print_info "Install pre-commit and run: pre-commit install --hook-type pre-push"
+    fi
+}
+
+#============================================================================
 # Display Next Steps
 #============================================================================
 
@@ -455,6 +487,8 @@ main() {
     create_data_directories
     setup_databases
     run_verification
+    # Try to install pre-commit hooks so they run on commit/push by default
+    install_precommit_hooks
     display_next_steps
 
     print_success "Setup complete!"

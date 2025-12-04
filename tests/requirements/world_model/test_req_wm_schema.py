@@ -5,14 +5,14 @@ These tests validate the schema definition, validation, and enforcement for the
 knowledge graph including entity types, relationship types, properties, and constraints.
 """
 
-import pytest
 import uuid
 from datetime import datetime
-from typing import Dict, Any
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 
-from kosmos.world_model.models import Entity, Relationship, Annotation, EXPORT_FORMAT_VERSION
-from kosmos.world_model import get_world_model, reset_world_model
+import pytest
+
+from kosmos.world_model.models import EXPORT_FORMAT_VERSION, Annotation, Entity, Relationship
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -24,6 +24,7 @@ pytestmark = [
 # ============================================================================
 # REQ-WM-SCHEMA-001: Entity Type Definition (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-SCHEMA-001")
 @pytest.mark.priority("MUST")
@@ -37,25 +38,38 @@ class TestREQ_WM_SCHEMA_001_EntityTypeDefinition:
     def test_standard_entity_types_defined(self):
         """Verify all standard entity types are defined in Entity model."""
         expected_types = {
-            "Paper", "Concept", "Author", "Method",
-            "Experiment", "Hypothesis", "Finding", "Dataset",
-            "ResearchQuestion", "ExperimentProtocol", "ExperimentResult"
+            "Paper",
+            "Concept",
+            "Author",
+            "Method",
+            "Experiment",
+            "Hypothesis",
+            "Finding",
+            "Dataset",
+            "ResearchQuestion",
+            "ExperimentProtocol",
+            "ExperimentResult",
         }
 
         # Check Entity.VALID_TYPES includes all expected types
-        assert expected_types.issubset(Entity.VALID_TYPES), \
-            f"Missing entity types: {expected_types - Entity.VALID_TYPES}"
+        assert expected_types.issubset(
+            Entity.VALID_TYPES
+        ), f"Missing entity types: {expected_types - Entity.VALID_TYPES}"
 
     def test_entity_creation_with_valid_types(self):
         """Verify entities can be created with all standard types."""
-        standard_types = ["Paper", "Concept", "Author", "Method",
-                         "Hypothesis", "Finding", "Dataset"]
+        standard_types = [
+            "Paper",
+            "Concept",
+            "Author",
+            "Method",
+            "Hypothesis",
+            "Finding",
+            "Dataset",
+        ]
 
         for entity_type in standard_types:
-            entity = Entity(
-                type=entity_type,
-                properties={"name": f"Test {entity_type}"}
-            )
+            entity = Entity(type=entity_type, properties={"name": f"Test {entity_type}"})
             assert entity.type == entity_type
             assert entity.id is not None
             assert isinstance(entity.properties, dict)
@@ -63,10 +77,7 @@ class TestREQ_WM_SCHEMA_001_EntityTypeDefinition:
     def test_entity_creation_with_custom_type_warning(self):
         """Verify custom entity types generate warning but are allowed."""
         with pytest.warns(UserWarning, match="not a standard type"):
-            entity = Entity(
-                type="CustomType",
-                properties={"custom_prop": "value"}
-            )
+            entity = Entity(type="CustomType", properties={"custom_prop": "value"})
             assert entity.type == "CustomType"
             assert entity.id is not None
 
@@ -85,6 +96,7 @@ class TestREQ_WM_SCHEMA_001_EntityTypeDefinition:
 # REQ-WM-SCHEMA-002: Relationship Type Definition (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-SCHEMA-002")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_SCHEMA_002_RelationshipTypeDefinition:
@@ -97,13 +109,23 @@ class TestREQ_WM_SCHEMA_002_RelationshipTypeDefinition:
     def test_standard_relationship_types_defined(self):
         """Verify all standard relationship types are defined."""
         expected_types = {
-            "CITES", "AUTHOR_OF", "MENTIONS", "RELATES_TO",
-            "SUPPORTS", "REFUTES", "USES_METHOD", "PRODUCED_BY",
-            "DERIVED_FROM", "SPAWNED_BY", "TESTS", "REFINED_FROM"
+            "CITES",
+            "AUTHOR_OF",
+            "MENTIONS",
+            "RELATES_TO",
+            "SUPPORTS",
+            "REFUTES",
+            "USES_METHOD",
+            "PRODUCED_BY",
+            "DERIVED_FROM",
+            "SPAWNED_BY",
+            "TESTS",
+            "REFINED_FROM",
         }
 
-        assert expected_types.issubset(Relationship.VALID_TYPES), \
-            f"Missing relationship types: {expected_types - Relationship.VALID_TYPES}"
+        assert expected_types.issubset(
+            Relationship.VALID_TYPES
+        ), f"Missing relationship types: {expected_types - Relationship.VALID_TYPES}"
 
     def test_relationship_creation_with_valid_types(self):
         """Verify relationships can be created with all standard types."""
@@ -113,11 +135,7 @@ class TestREQ_WM_SCHEMA_002_RelationshipTypeDefinition:
         standard_types = ["CITES", "MENTIONS", "SUPPORTS", "REFUTES"]
 
         for rel_type in standard_types:
-            rel = Relationship(
-                source_id=source_id,
-                target_id=target_id,
-                type=rel_type
-            )
+            rel = Relationship(source_id=source_id, target_id=target_id, type=rel_type)
             assert rel.type == rel_type
             assert rel.source_id == source_id
             assert rel.target_id == target_id
@@ -127,9 +145,7 @@ class TestREQ_WM_SCHEMA_002_RelationshipTypeDefinition:
         """Verify custom relationship types generate warning."""
         with pytest.warns(UserWarning, match="not standard"):
             rel = Relationship(
-                source_id=str(uuid.uuid4()),
-                target_id=str(uuid.uuid4()),
-                type="CUSTOM_RELATION"
+                source_id=str(uuid.uuid4()), target_id=str(uuid.uuid4()), type="CUSTOM_RELATION"
             )
             assert rel.type == "CUSTOM_RELATION"
 
@@ -144,16 +160,13 @@ class TestREQ_WM_SCHEMA_002_RelationshipTypeDefinition:
     def test_relationship_type_required(self):
         """Verify relationship type is required."""
         with pytest.raises(ValueError, match="Relationship type is required"):
-            Relationship(
-                source_id=str(uuid.uuid4()),
-                target_id=str(uuid.uuid4()),
-                type=""
-            )
+            Relationship(source_id=str(uuid.uuid4()), target_id=str(uuid.uuid4()), type="")
 
 
 # ============================================================================
 # REQ-WM-SCHEMA-003: Property Validation (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-SCHEMA-003")
 @pytest.mark.priority("MUST")
@@ -183,22 +196,12 @@ class TestREQ_WM_SCHEMA_003_PropertyValidation:
         target_id = str(uuid.uuid4())
 
         # Valid confidence
-        rel = Relationship(
-            source_id=source_id,
-            target_id=target_id,
-            type="CITES",
-            confidence=0.95
-        )
+        rel = Relationship(source_id=source_id, target_id=target_id, type="CITES", confidence=0.95)
         assert rel.confidence == 0.95
 
         # Invalid confidence
         with pytest.raises(ValueError, match="Confidence must be between 0.0 and 1.0"):
-            Relationship(
-                source_id=source_id,
-                target_id=target_id,
-                type="CITES",
-                confidence=2.0
-            )
+            Relationship(source_id=source_id, target_id=target_id, type="CITES", confidence=2.0)
 
     def test_entity_timestamps_auto_generated(self):
         """Verify timestamps are automatically generated."""
@@ -245,6 +248,7 @@ class TestREQ_WM_SCHEMA_003_PropertyValidation:
 # REQ-WM-SCHEMA-004: Data Model Serialization (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-SCHEMA-004")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_SCHEMA_004_DataModelSerialization:
@@ -260,7 +264,7 @@ class TestREQ_WM_SCHEMA_004_DataModelSerialization:
             properties={"title": "Test Paper", "year": 2024},
             confidence=0.95,
             project="test_project",
-            created_by="test_agent"
+            created_by="test_agent",
         )
 
         entity_dict = entity.to_dict()
@@ -286,7 +290,7 @@ class TestREQ_WM_SCHEMA_004_DataModelSerialization:
             "updated_at": "2024-01-15T10:30:00",
             "created_by": "concept_extractor",
             "verified": True,
-            "annotations": []
+            "annotations": [],
         }
 
         entity = Entity.from_dict(entity_dict)
@@ -306,7 +310,7 @@ class TestREQ_WM_SCHEMA_004_DataModelSerialization:
             type="CITES",
             properties={"context": "introduction"},
             confidence=1.0,
-            created_by="citation_extractor"
+            created_by="citation_extractor",
         )
 
         rel_dict = rel.to_dict()
@@ -328,7 +332,7 @@ class TestREQ_WM_SCHEMA_004_DataModelSerialization:
             "properties": {"section": "methods"},
             "confidence": 0.85,
             "created_at": "2024-01-15T11:00:00",
-            "created_by": "text_analyzer"
+            "created_by": "text_analyzer",
         }
 
         rel = Relationship.from_dict(rel_dict)
@@ -346,8 +350,8 @@ class TestREQ_WM_SCHEMA_004_DataModelSerialization:
             properties={"title": "Annotated Paper"},
             annotations=[
                 Annotation(text="Important paper", created_by="reviewer1"),
-                Annotation(text="Check references", created_by="reviewer2")
-            ]
+                Annotation(text="Check references", created_by="reviewer2"),
+            ],
         )
 
         entity_dict = entity.to_dict()
@@ -360,6 +364,7 @@ class TestREQ_WM_SCHEMA_004_DataModelSerialization:
 # ============================================================================
 # REQ-WM-SCHEMA-005: Version Compatibility (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-SCHEMA-005")
 @pytest.mark.priority("MUST")
@@ -379,20 +384,18 @@ class TestREQ_WM_SCHEMA_005_VersionCompatibility:
         """Verify export format uses semantic versioning."""
         # Should be in format "X.Y" or "X.Y.Z"
         parts = EXPORT_FORMAT_VERSION.split(".")
-        assert len(parts) in [2, 3], \
-            f"Version should be semantic (e.g., '1.0' or '1.0.0'), got: {EXPORT_FORMAT_VERSION}"
+        assert len(parts) in [
+            2,
+            3,
+        ], f"Version should be semantic (e.g., '1.0' or '1.0.0'), got: {EXPORT_FORMAT_VERSION}"
 
         # Each part should be numeric
         for part in parts:
-            assert part.isdigit(), \
-                f"Version parts should be numeric, got: {EXPORT_FORMAT_VERSION}"
+            assert part.isdigit(), f"Version parts should be numeric, got: {EXPORT_FORMAT_VERSION}"
 
     def test_entity_serialization_includes_schema_metadata(self):
         """Verify serialized entities include necessary metadata for versioning."""
-        entity = Entity(
-            type="Paper",
-            properties={"title": "Version Test"}
-        )
+        entity = Entity(type="Paper", properties={"title": "Version Test"})
 
         entity_dict = entity.to_dict()
 
@@ -408,7 +411,7 @@ class TestREQ_WM_SCHEMA_005_VersionCompatibility:
         old_format = {
             "id": str(uuid.uuid4()),
             "type": "Paper",
-            "properties": {"title": "Old Format Paper"}
+            "properties": {"title": "Old Format Paper"},
             # Missing: confidence, project, timestamps, verified, annotations
         }
 
@@ -428,6 +431,7 @@ class TestREQ_WM_SCHEMA_005_VersionCompatibility:
 # REQ-WM-SCHEMA-006: Referential Integrity (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-SCHEMA-006")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_SCHEMA_006_ReferentialIntegrity:
@@ -439,11 +443,7 @@ class TestREQ_WM_SCHEMA_006_ReferentialIntegrity:
     def test_relationship_requires_valid_entity_ids(self):
         """Verify relationships require non-empty entity IDs."""
         # Valid relationship
-        rel = Relationship(
-            source_id="valid_id_1",
-            target_id="valid_id_2",
-            type="CITES"
-        )
+        rel = Relationship(source_id="valid_id_1", target_id="valid_id_2", type="CITES")
         assert rel.source_id == "valid_id_1"
         assert rel.target_id == "valid_id_2"
 
@@ -461,11 +461,7 @@ class TestREQ_WM_SCHEMA_006_ReferentialIntegrity:
         entity1_id = str(uuid.uuid4())
         entity2_id = str(uuid.uuid4())
 
-        rel = Relationship(
-            source_id=entity1_id,
-            target_id=entity2_id,
-            type="MENTIONS"
-        )
+        rel = Relationship(source_id=entity1_id, target_id=entity2_id, type="MENTIONS")
 
         # IDs should be stored as provided
         assert rel.source_id == entity1_id
@@ -475,7 +471,6 @@ class TestREQ_WM_SCHEMA_006_ReferentialIntegrity:
 
     def test_entity_from_hypothesis_preserves_relationships(self):
         """Verify Entity.from_hypothesis preserves relationship data."""
-        from unittest.mock import Mock
 
         # Create mock hypothesis
         hypothesis = Mock()
@@ -519,7 +514,7 @@ class TestREQ_WM_SCHEMA_006_ReferentialIntegrity:
             agent="DataAnalystAgent",
             confidence=0.95,
             p_value=0.001,
-            effect_size=0.78
+            effect_size=0.78,
         )
 
         assert rel.source_id == entity1_id

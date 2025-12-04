@@ -5,26 +5,15 @@ Provides an interactive interface for starting research with guided prompts,
 domain selection, and configuration options.
 """
 
-import sys
-from typing import Optional, List, Dict, Any
-from pathlib import Path
+from typing import Any
 
-from rich.prompt import Prompt, Confirm, IntPrompt
-from rich.panel import Panel
 from rich.markdown import Markdown
-from rich.table import Table
-from rich.console import Group
+from rich.panel import Panel
+from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.text import Text
 
-from kosmos.cli.utils import (
-    console,
-    print_info,
-    print_error,
-    print_success,
-    get_icon,
-    create_table,
-)
 from kosmos.cli.themes import get_domain_color
+from kosmos.cli.utils import console, create_table, get_icon, print_error, print_success
 
 
 # Example research questions by domain
@@ -119,11 +108,7 @@ def select_domain() -> str:
     domains = list(DOMAIN_DESCRIPTIONS.keys())
     for i, domain in enumerate(domains, 1):
         color = get_domain_color(domain)
-        table.add_row(
-            str(i),
-            Text(domain.title(), style=color),
-            DOMAIN_DESCRIPTIONS[domain]
-        )
+        table.add_row(str(i), Text(domain.title(), style=color), DOMAIN_DESCRIPTIONS[domain])
 
     console.print(table)
     console.print()
@@ -133,7 +118,7 @@ def select_domain() -> str:
         choice = Prompt.ask(
             "[cyan]Choose domain[/cyan]",
             choices=[str(i) for i in range(1, len(domains) + 1)],
-            default="6"  # general
+            default="6",  # general
         )
 
         try:
@@ -199,7 +184,7 @@ def get_research_question(domain: str) -> str:
         console.print()
 
 
-def configure_research_parameters() -> Dict[str, Any]:
+def configure_research_parameters() -> dict[str, Any]:
     """
     Configure research parameters.
 
@@ -263,11 +248,7 @@ def configure_research_parameters() -> Dict[str, Any]:
     return params
 
 
-def show_configuration_summary(
-    domain: str,
-    question: str,
-    params: Dict[str, Any]
-):
+def show_configuration_summary(domain: str, question: str, params: dict[str, Any]):
     """Show summary of research configuration."""
     console.print()
     console.print(f"[h2]{get_icon('info')} Research Configuration Summary[/h2]")
@@ -291,9 +272,22 @@ def show_configuration_summary(
     else:
         table.add_row("Budget", "[muted]No limit[/muted]")
 
-    table.add_row("Caching", "[success]Enabled[/success]" if params["enable_cache"] else "[error]Disabled[/error]")
-    table.add_row("Auto Model Selection", "[success]Enabled[/success]" if params["auto_model_selection"] else "[error]Disabled[/error]")
-    table.add_row("Parallel Execution", "[success]Enabled[/success]" if params["parallel_execution"] else "[error]Disabled[/error]")
+    table.add_row(
+        "Caching",
+        "[success]Enabled[/success]" if params["enable_cache"] else "[error]Disabled[/error]",
+    )
+    table.add_row(
+        "Auto Model Selection",
+        (
+            "[success]Enabled[/success]"
+            if params["auto_model_selection"]
+            else "[error]Disabled[/error]"
+        ),
+    )
+    table.add_row(
+        "Parallel Execution",
+        "[success]Enabled[/success]" if params["parallel_execution"] else "[error]Disabled[/error]",
+    )
 
     console.print(table)
     console.print()
@@ -309,10 +303,7 @@ def confirm_and_start() -> bool:
     console.print("[cyan]Ready to start research?[/cyan]")
     console.print()
 
-    confirmed = Confirm.ask(
-        "[bright_blue]Start autonomous research[/bright_blue]",
-        default=True
-    )
+    confirmed = Confirm.ask("[bright_blue]Start autonomous research[/bright_blue]", default=True)
 
     if not confirmed:
         console.print("[warning]Research cancelled by user.[/warning]")
@@ -321,14 +312,14 @@ def confirm_and_start() -> bool:
     console.print()
     print_success(
         "Research started! This may take several minutes to hours depending on complexity.",
-        title="Starting Research"
+        title="Starting Research",
     )
     console.print()
 
     return True
 
 
-def run_interactive_mode() -> Optional[Dict[str, Any]]:
+def run_interactive_mode() -> dict[str, Any] | None:
     """
     Run interactive research configuration mode.
 
@@ -356,11 +347,7 @@ def run_interactive_mode() -> Optional[Dict[str, Any]]:
             return None
 
         # Return configuration
-        return {
-            "domain": domain,
-            "question": question,
-            **params
-        }
+        return {"domain": domain, "question": question, **params}
 
     except KeyboardInterrupt:
         console.print("\n[warning]Operation cancelled by user[/warning]")

@@ -30,25 +30,26 @@ Example workflow:
     top_mechanisms = analyzer.rank_mechanisms(results, top_n=10)
 """
 
-from typing import Dict, List, Optional, Any, Tuple
 from enum import Enum
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from scipy import stats
 from pydantic import BaseModel, Field
 
 from kosmos.domains.biology.apis import (
-    GWASCatalogClient,
-    GTExClient,
     ENCODEClient,
+    EnsemblClient,
+    GTExClient,
+    GWASCatalogClient,
     dbSNPClient,
-    EnsemblClient
 )
 
 
 # Enums for genomic evidence
 class EvidenceLevel(str, Enum):
     """Level of evidence for genetic variant"""
+
     VERY_HIGH = "very_high"  # >40 points
     HIGH = "high"  # 30-40 points
     MODERATE = "moderate"  # 20-30 points
@@ -58,6 +59,7 @@ class EvidenceLevel(str, Enum):
 
 class EffectDirection(str, Enum):
     """Direction of genetic effect"""
+
     PROTECTIVE = "protective"
     RISK = "risk"
     NEUTRAL = "neutral"
@@ -67,6 +69,7 @@ class EffectDirection(str, Enum):
 # Pydantic models for genomics results
 class CompositeScore(BaseModel):
     """Composite score breakdown (max 55 points from Figure 5)"""
+
     gwas_score: float = Field(ge=0, le=10, description="GWAS evidence (0-10)")
     qtl_score: float = Field(ge=0, le=15, description="QTL evidence (0-15)")
     tf_score: float = Field(ge=0, le=10, description="TF disruption (0-10)")
@@ -90,43 +93,43 @@ class CompositeScore(BaseModel):
 
 class GenomicsResult(BaseModel):
     """Result from genomic multi-modal integration"""
+
     snp_id: str
     gene: str
-    chromosome: Optional[str] = None
-    position: Optional[int] = None
+    chromosome: str | None = None
+    position: int | None = None
 
     # GWAS data
-    gwas_p_value: Optional[float] = None
-    gwas_beta: Optional[float] = None
-    gwas_trait: Optional[str] = None
-    gwas_posterior_prob: Optional[float] = None
+    gwas_p_value: float | None = None
+    gwas_beta: float | None = None
+    gwas_trait: str | None = None
+    gwas_posterior_prob: float | None = None
 
     # eQTL data
     has_eqtl: bool = False
-    eqtl_beta: Optional[float] = None
-    eqtl_p_value: Optional[float] = None
-    eqtl_tissue: Optional[str] = None
+    eqtl_beta: float | None = None
+    eqtl_p_value: float | None = None
+    eqtl_tissue: str | None = None
 
     # pQTL data
     has_pqtl: bool = False
-    pqtl_beta: Optional[float] = None
-    pqtl_p_value: Optional[float] = None
+    pqtl_beta: float | None = None
+    pqtl_p_value: float | None = None
 
     # ATAC-seq data
     has_atac_peak: bool = False
-    atac_significance: Optional[float] = None
+    atac_significance: float | None = None
 
     # TF binding
     n_disrupted_tfs: int = 0
-    disrupted_tfs: List[str] = Field(default_factory=list)
+    disrupted_tfs: list[str] = Field(default_factory=list)
 
     # Analysis results
     composite_score: CompositeScore
     evidence_level: EvidenceLevel
     effect_direction: EffectDirection
     concordant: bool = Field(
-        default=False,
-        description="Whether eQTL/pQTL effects agree with GWAS direction"
+        default=False, description="Whether eQTL/pQTL effects agree with GWAS direction"
     )
 
     class Config:
@@ -135,14 +138,14 @@ class GenomicsResult(BaseModel):
 
 class MechanismRanking(BaseModel):
     """Ranked list of SNP-gene mechanisms"""
+
     snp_id: str
     gene: str
     total_score: float
     evidence_level: EvidenceLevel
     effect_direction: EffectDirection
-    key_evidence: List[str] = Field(
-        default_factory=list,
-        description="List of key supporting evidence"
+    key_evidence: list[str] = Field(
+        default_factory=list, description="List of key supporting evidence"
     )
     rank: int
 
@@ -163,11 +166,11 @@ class GenomicsAnalyzer:
 
     def __init__(
         self,
-        gwas_client: Optional[GWASCatalogClient] = None,
-        gtex_client: Optional[GTExClient] = None,
-        encode_client: Optional[ENCODEClient] = None,
-        dbsnp_client: Optional[dbSNPClient] = None,
-        ensembl_client: Optional[EnsemblClient] = None
+        gwas_client: GWASCatalogClient | None = None,
+        gtex_client: GTExClient | None = None,
+        encode_client: ENCODEClient | None = None,
+        dbsnp_client: dbSNPClient | None = None,
+        ensembl_client: EnsemblClient | None = None,
     ):
         """
         Initialize GenomicsAnalyzer with API clients.
@@ -189,12 +192,12 @@ class GenomicsAnalyzer:
         self,
         snp_id: str,
         gene: str,
-        gwas_data: Optional[Dict[str, Any]] = None,
-        eqtl_data: Optional[Dict[str, Any]] = None,
-        pqtl_data: Optional[Dict[str, Any]] = None,
-        atac_data: Optional[Dict[str, Any]] = None,
-        tf_data: Optional[List[str]] = None,
-        fetch_missing: bool = True
+        gwas_data: dict[str, Any] | None = None,
+        eqtl_data: dict[str, Any] | None = None,
+        pqtl_data: dict[str, Any] | None = None,
+        atac_data: dict[str, Any] | None = None,
+        tf_data: list[str] | None = None,
+        fetch_missing: bool = True,
     ) -> GenomicsResult:
         """
         Integrate multiple genomic data modalities for a SNP-gene pair.
@@ -247,27 +250,27 @@ class GenomicsAnalyzer:
         gwas_posterior = None
 
         if gwas_data:
-            chromosome = gwas_data.get('chromosome')
-            position = gwas_data.get('position')
-            gwas_p = gwas_data.get('p_value')
-            gwas_beta = gwas_data.get('beta')
-            gwas_trait = gwas_data.get('trait')
-            gwas_posterior = gwas_data.get('posterior_probability')
+            chromosome = gwas_data.get("chromosome")
+            position = gwas_data.get("position")
+            gwas_p = gwas_data.get("p_value")
+            gwas_beta = gwas_data.get("beta")
+            gwas_trait = gwas_data.get("trait")
+            gwas_posterior = gwas_data.get("posterior_probability")
 
         # eQTL data
         has_eqtl = eqtl_data is not None
-        eqtl_beta = eqtl_data.get('beta') if eqtl_data else None
-        eqtl_p = eqtl_data.get('p_value') if eqtl_data else None
-        eqtl_tissue = eqtl_data.get('tissue') if eqtl_data else None
+        eqtl_beta = eqtl_data.get("beta") if eqtl_data else None
+        eqtl_p = eqtl_data.get("p_value") if eqtl_data else None
+        eqtl_tissue = eqtl_data.get("tissue") if eqtl_data else None
 
         # pQTL data
         has_pqtl = pqtl_data is not None
-        pqtl_beta = pqtl_data.get('beta') if pqtl_data else None
-        pqtl_p = pqtl_data.get('p_value') if pqtl_data else None
+        pqtl_beta = pqtl_data.get("beta") if pqtl_data else None
+        pqtl_p = pqtl_data.get("p_value") if pqtl_data else None
 
         # ATAC-seq data
-        has_atac = atac_data is not None and atac_data.get('has_peak', False)
-        atac_sig = atac_data.get('significance') if atac_data else None
+        has_atac = atac_data is not None and atac_data.get("has_peak", False)
+        atac_sig = atac_data.get("significance") if atac_data else None
 
         # TF disruption data
         disrupted_tfs = tf_data or []
@@ -283,7 +286,7 @@ class GenomicsAnalyzer:
             has_pqtl=has_pqtl,
             pqtl_beta=pqtl_beta,
             has_atac=has_atac,
-            n_disrupted_tfs=n_tfs
+            n_disrupted_tfs=n_tfs,
         )
 
         # Determine effect direction
@@ -291,9 +294,7 @@ class GenomicsAnalyzer:
 
         # Check concordance
         concordant = self.check_concordance(
-            gwas_beta=gwas_beta,
-            eqtl_beta=eqtl_beta,
-            pqtl_beta=pqtl_beta
+            gwas_beta=gwas_beta, eqtl_beta=eqtl_beta, pqtl_beta=pqtl_beta
         )
 
         return GenomicsResult(
@@ -319,21 +320,21 @@ class GenomicsAnalyzer:
             composite_score=composite,
             evidence_level=composite.get_evidence_level(),
             effect_direction=effect_dir,
-            concordant=concordant
+            concordant=concordant,
         )
 
     def calculate_composite_score(
         self,
-        gwas_p: Optional[float] = None,
-        gwas_beta: Optional[float] = None,
-        gwas_posterior: Optional[float] = None,
+        gwas_p: float | None = None,
+        gwas_beta: float | None = None,
+        gwas_posterior: float | None = None,
         has_eqtl: bool = False,
-        eqtl_beta: Optional[float] = None,
+        eqtl_beta: float | None = None,
         has_pqtl: bool = False,
-        pqtl_beta: Optional[float] = None,
+        pqtl_beta: float | None = None,
         has_atac: bool = False,
         n_disrupted_tfs: int = 0,
-        gwas_beta_concordant: bool = True
+        gwas_beta_concordant: bool = True,
     ) -> CompositeScore:
         """
         Calculate composite score following Figure 5 framework.
@@ -432,14 +433,11 @@ class GenomicsAnalyzer:
             tf_score=tf_score,
             expression_score=expression_score,
             protective_score=protective_score,
-            total_score=total
+            total_score=total,
         )
 
     def check_concordance(
-        self,
-        gwas_beta: Optional[float],
-        eqtl_beta: Optional[float],
-        pqtl_beta: Optional[float]
+        self, gwas_beta: float | None, eqtl_beta: float | None, pqtl_beta: float | None
     ) -> bool:
         """
         Check if eQTL/pQTL effects are concordant with GWAS direction.
@@ -465,10 +463,7 @@ class GenomicsAnalyzer:
         signs = [np.sign(b) for b in betas]
         return len(set(signs)) == 1 and signs[0] != 0
 
-    def _determine_effect_direction(
-        self,
-        gwas_beta: Optional[float]
-    ) -> EffectDirection:
+    def _determine_effect_direction(self, gwas_beta: float | None) -> EffectDirection:
         """Determine effect direction from GWAS beta"""
         if gwas_beta is None:
             return EffectDirection.UNKNOWN
@@ -482,13 +477,13 @@ class GenomicsAnalyzer:
 
     def analyze_snp_list(
         self,
-        snp_ids: List[str],
+        snp_ids: list[str],
         gene: str,
-        gwas_df: Optional[pd.DataFrame] = None,
-        eqtl_df: Optional[pd.DataFrame] = None,
-        pqtl_df: Optional[pd.DataFrame] = None,
-        atac_df: Optional[pd.DataFrame] = None
-    ) -> List[GenomicsResult]:
+        gwas_df: pd.DataFrame | None = None,
+        eqtl_df: pd.DataFrame | None = None,
+        pqtl_df: pd.DataFrame | None = None,
+        atac_df: pd.DataFrame | None = None,
+    ) -> list[GenomicsResult]:
         """
         Batch analysis for multiple SNPs associated with a gene.
 
@@ -531,7 +526,7 @@ class GenomicsAnalyzer:
                 eqtl_data=eqtl_data,
                 pqtl_data=pqtl_data,
                 atac_data=atac_data,
-                fetch_missing=False  # Don't fetch, use provided data only
+                fetch_missing=False,  # Don't fetch, use provided data only
             )
 
             results.append(result)
@@ -539,11 +534,8 @@ class GenomicsAnalyzer:
         return results
 
     def rank_mechanisms(
-        self,
-        results: List[GenomicsResult],
-        top_n: Optional[int] = None,
-        min_score: float = 10.0
-    ) -> List[MechanismRanking]:
+        self, results: list[GenomicsResult], top_n: int | None = None, min_score: float = 10.0
+    ) -> list[MechanismRanking]:
         """
         Rank SNP-gene mechanisms by composite score.
 
@@ -559,11 +551,7 @@ class GenomicsAnalyzer:
         filtered = [r for r in results if r.composite_score.total_score >= min_score]
 
         # Sort by total score (descending)
-        sorted_results = sorted(
-            filtered,
-            key=lambda r: r.composite_score.total_score,
-            reverse=True
-        )
+        sorted_results = sorted(filtered, key=lambda r: r.composite_score.total_score, reverse=True)
 
         # Limit to top N if specified
         if top_n is not None:
@@ -596,7 +584,7 @@ class GenomicsAnalyzer:
                 evidence_level=result.evidence_level,
                 effect_direction=result.effect_direction,
                 key_evidence=key_evidence,
-                rank=rank
+                rank=rank,
             )
 
             rankings.append(ranking)

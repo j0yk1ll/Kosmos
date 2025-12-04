@@ -4,16 +4,15 @@ Unit tests for profiling system.
 Tests ExecutionProfiler, profile context manager, and performance tracking.
 """
 
-import pytest
 import time
-from unittest.mock import MagicMock, patch
+
+import pytest
 
 from kosmos.core.profiling import (
     ExecutionProfiler,
     ProfilingMode,
-    ProfileResult,
-    profile_experiment_execution,
     format_profile_summary,
+    profile_experiment_execution,
 )
 
 
@@ -47,10 +46,7 @@ class TestExecutionProfiler:
 
     def test_initialization_with_threshold(self):
         """Test profiler initialization with custom threshold."""
-        profiler = ExecutionProfiler(
-            mode=ProfilingMode.STANDARD,
-            bottleneck_threshold_percent=5.0
-        )
+        profiler = ExecutionProfiler(mode=ProfilingMode.STANDARD, bottleneck_threshold_percent=5.0)
         assert profiler.bottleneck_threshold == 5.0
 
     def test_context_manager_light_mode(self):
@@ -132,11 +128,11 @@ class TestProfileResult:
 
         result = profiler.get_result()
 
-        assert hasattr(result, 'execution_time')
-        assert hasattr(result, 'cpu_time')
-        assert hasattr(result, 'wall_time')
-        assert hasattr(result, 'memory_peak_mb')
-        assert hasattr(result, 'profiling_mode')
+        assert hasattr(result, "execution_time")
+        assert hasattr(result, "cpu_time")
+        assert hasattr(result, "wall_time")
+        assert hasattr(result, "memory_peak_mb")
+        assert hasattr(result, "profiling_mode")
 
     def test_profile_result_timing_consistency(self):
         """Test that wall_time == execution_time."""
@@ -160,10 +156,7 @@ class TestProfileExperiment:
 
         code = "result = sum(range(1000))"
 
-        profile = profiler.profile_experiment(
-            experiment_id="test_001",
-            code=code
-        )
+        profile = profiler.profile_experiment(experiment_id="test_001", code=code)
 
         assert profile is not None
         assert profile.execution_time >= 0
@@ -176,9 +169,7 @@ class TestProfileExperiment:
         local_vars = {"value": 42}
 
         profile = profiler.profile_experiment(
-            experiment_id="test_002",
-            code=code,
-            local_vars=local_vars
+            experiment_id="test_002", code=code, local_vars=local_vars
         )
 
         assert profile is not None
@@ -190,10 +181,7 @@ class TestProfileExperiment:
         code = "result = undefined_variable"
 
         with pytest.raises(NameError):
-            profiler.profile_experiment(
-                experiment_id="test_003",
-                code=code
-            )
+            profiler.profile_experiment(experiment_id="test_003", code=code)
 
 
 class TestConvenienceFunctions:
@@ -204,7 +192,7 @@ class TestConvenienceFunctions:
         result = profile_experiment_execution(
             experiment_id="test_123",
             code="result = [i**2 for i in range(100)]",
-            mode=ProfilingMode.LIGHT
+            mode=ProfilingMode.LIGHT,
         )
 
         assert result is not None
@@ -231,10 +219,7 @@ class TestMemoryTracking:
 
     def test_memory_tracking_standard_mode(self):
         """Test memory tracking in standard mode."""
-        profiler = ExecutionProfiler(
-            mode=ProfilingMode.STANDARD,
-            enable_memory_tracking=True
-        )
+        profiler = ExecutionProfiler(mode=ProfilingMode.STANDARD, enable_memory_tracking=True)
 
         with profiler.profile_context():
             # Allocate some memory
@@ -248,10 +233,7 @@ class TestMemoryTracking:
 
     def test_memory_tracking_disabled(self):
         """Test memory tracking can be disabled."""
-        profiler = ExecutionProfiler(
-            mode=ProfilingMode.STANDARD,
-            enable_memory_tracking=False
-        )
+        profiler = ExecutionProfiler(mode=ProfilingMode.STANDARD, enable_memory_tracking=False)
 
         with profiler.profile_context():
             data = [0] * 10000
@@ -268,8 +250,7 @@ class TestBottleneckDetection:
     def test_bottleneck_detection_standard_mode(self):
         """Test bottleneck detection in standard mode."""
         profiler = ExecutionProfiler(
-            mode=ProfilingMode.STANDARD,
-            bottleneck_threshold_percent=1.0  # Low threshold for test
+            mode=ProfilingMode.STANDARD, bottleneck_threshold_percent=1.0  # Low threshold for test
         )
 
         with profiler.profile_context():

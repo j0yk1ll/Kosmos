@@ -7,13 +7,15 @@ confidence intervals, and multiple testing correction.
 Based on kosmos-figures patterns and standard statistical practices.
 """
 
-import numpy as np
-from scipy import stats
-from typing import Dict, List, Tuple, Optional, Union, Any
 import logging
 import warnings
+from typing import Any
 
-warnings.filterwarnings('ignore', category=RuntimeWarning)
+import numpy as np
+from scipy import stats
+
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ class StatisticalValidator:
     """
 
     @staticmethod
-    def apply_significance_threshold(p_value: float) -> Dict[str, Any]:
+    def apply_significance_threshold(p_value: float) -> dict[str, Any]:
         """
         Standard significance thresholding from kosmos-figures.
 
@@ -48,22 +50,20 @@ class StatisticalValidator:
                 - significance_label: '***', '**', '*', or 'ns'
         """
         return {
-            'p_value': float(p_value),
-            'significant_0.05': bool(p_value < 0.05),
-            'significant_0.01': bool(p_value < 0.01),
-            'significant_0.001': bool(p_value < 0.001),
-            'significance_label': (
-                '***' if p_value < 0.001 else
-                '**' if p_value < 0.01 else
-                '*' if p_value < 0.05 else
-                'ns'
-            )
+            "p_value": float(p_value),
+            "significant_0.05": bool(p_value < 0.05),
+            "significant_0.01": bool(p_value < 0.01),
+            "significant_0.001": bool(p_value < 0.001),
+            "significance_label": (
+                "***"
+                if p_value < 0.001
+                else "**" if p_value < 0.01 else "*" if p_value < 0.05 else "ns"
+            ),
         }
 
     @staticmethod
     def calculate_cohens_d(
-        group1: Union[np.ndarray, List[float]],
-        group2: Union[np.ndarray, List[float]]
+        group1: np.ndarray | list[float], group2: np.ndarray | list[float]
     ) -> float:
         """
         Calculate Cohen's d effect size for two groups.
@@ -97,9 +97,7 @@ class StatisticalValidator:
         return mean_diff / pooled_std
 
     @staticmethod
-    def calculate_eta_squared(
-        groups: List[Union[np.ndarray, List[float]]]
-    ) -> float:
+    def calculate_eta_squared(groups: list[np.ndarray | list[float]]) -> float:
         """
         Calculate eta-squared (η²) effect size for ANOVA.
 
@@ -132,9 +130,7 @@ class StatisticalValidator:
         return ss_between / ss_total
 
     @staticmethod
-    def calculate_cramers_v(
-        contingency_table: Union[np.ndarray, List[List[int]]]
-    ) -> float:
+    def calculate_cramers_v(contingency_table: np.ndarray | list[list[int]]) -> float:
         """
         Calculate Cramér's V effect size for chi-square test.
 
@@ -166,10 +162,7 @@ class StatisticalValidator:
         return np.sqrt(chi2 / (n * k))
 
     @staticmethod
-    def interpret_effect_size(
-        effect_size: float,
-        measure: str
-    ) -> str:
+    def interpret_effect_size(effect_size: float, measure: str) -> str:
         """
         Interpret effect size magnitude.
 
@@ -182,44 +175,43 @@ class StatisticalValidator:
         """
         effect_size = abs(effect_size)
 
-        if measure == 'cohens_d':
+        if measure == "cohens_d":
             if effect_size < 0.2:
-                return 'negligible'
+                return "negligible"
             elif effect_size < 0.5:
-                return 'small'
+                return "small"
             elif effect_size < 0.8:
-                return 'medium'
+                return "medium"
             else:
-                return 'large'
+                return "large"
 
-        elif measure == 'eta_squared':
+        elif measure == "eta_squared":
             if effect_size < 0.01:
-                return 'negligible'
+                return "negligible"
             elif effect_size < 0.06:
-                return 'small'
+                return "small"
             elif effect_size < 0.14:
-                return 'medium'
+                return "medium"
             else:
-                return 'large'
+                return "large"
 
-        elif measure == 'cramers_v':
+        elif measure == "cramers_v":
             if effect_size < 0.1:
-                return 'negligible'
+                return "negligible"
             elif effect_size < 0.3:
-                return 'small'
+                return "small"
             elif effect_size < 0.5:
-                return 'medium'
+                return "medium"
             else:
-                return 'large'
+                return "large"
 
         else:
-            return 'unknown'
+            return "unknown"
 
     @staticmethod
     def parametric_confidence_interval(
-        data: Union[np.ndarray, List[float]],
-        confidence: float = 0.95
-    ) -> Tuple[float, float]:
+        data: np.ndarray | list[float], confidence: float = 0.95
+    ) -> tuple[float, float]:
         """
         Calculate parametric confidence interval for mean.
 
@@ -237,7 +229,7 @@ class StatisticalValidator:
 
         # t-distribution critical value
         alpha = 1 - confidence
-        t_crit = stats.t.ppf(1 - alpha/2, df=n-1)
+        t_crit = stats.t.ppf(1 - alpha / 2, df=n - 1)
 
         margin_of_error = t_crit * se
 
@@ -245,11 +237,11 @@ class StatisticalValidator:
 
     @staticmethod
     def bootstrap_confidence_interval(
-        data: Union[np.ndarray, List[float]],
+        data: np.ndarray | list[float],
         confidence: float = 0.95,
         n_iterations: int = 10000,
-        statistic: str = 'mean'
-    ) -> Tuple[float, float]:
+        statistic: str = "mean",
+    ) -> tuple[float, float]:
         """
         Calculate bootstrap confidence interval.
 
@@ -266,11 +258,11 @@ class StatisticalValidator:
         n = len(data)
 
         # Statistic function
-        if statistic == 'mean':
+        if statistic == "mean":
             stat_func = np.mean
-        elif statistic == 'median':
+        elif statistic == "median":
             stat_func = np.median
-        elif statistic == 'std':
+        elif statistic == "std":
             stat_func = np.std
         else:
             raise ValueError(f"Unknown statistic '{statistic}'. Use 'mean', 'median', or 'std'")
@@ -293,10 +285,7 @@ class StatisticalValidator:
         return (float(lower_bound), float(upper_bound))
 
     @staticmethod
-    def bonferroni_correction(
-        p_values: List[float],
-        alpha: float = 0.05
-    ) -> Dict[str, Any]:
+    def bonferroni_correction(p_values: list[float], alpha: float = 0.05) -> dict[str, Any]:
         """
         Apply Bonferroni correction for multiple comparisons.
 
@@ -317,18 +306,15 @@ class StatisticalValidator:
         significant = [p < corrected_alpha for p in p_values]
 
         return {
-            'corrected_alpha': corrected_alpha,
-            'significant': significant,
-            'n_tests': n_tests,
-            'n_significant': sum(significant),
-            'method': 'bonferroni'
+            "corrected_alpha": corrected_alpha,
+            "significant": significant,
+            "n_tests": n_tests,
+            "n_significant": sum(significant),
+            "method": "bonferroni",
         }
 
     @staticmethod
-    def benjamini_hochberg_fdr(
-        p_values: List[float],
-        alpha: float = 0.05
-    ) -> Dict[str, Any]:
+    def benjamini_hochberg_fdr(p_values: list[float], alpha: float = 0.05) -> dict[str, Any]:
         """
         Apply Benjamini-Hochberg FDR correction.
 
@@ -354,30 +340,24 @@ class StatisticalValidator:
         for i in range(n_tests - 1, -1, -1):
             critical_value = (i + 1) / n_tests * alpha
             if sorted_p_values[i] <= critical_value:
-                significant[sorted_indices[:(i+1)]] = True
+                significant[sorted_indices[: (i + 1)]] = True
                 break
 
         # Adjusted p-values
         adjusted_p_values = np.zeros(n_tests)
         for i in range(n_tests):
-            adjusted_p_values[sorted_indices[i]] = min(
-                sorted_p_values[i] * n_tests / (i + 1),
-                1.0
-            )
+            adjusted_p_values[sorted_indices[i]] = min(sorted_p_values[i] * n_tests / (i + 1), 1.0)
 
         return {
-            'significant': significant.tolist(),
-            'adjusted_p_values': adjusted_p_values.tolist(),
-            'n_tests': n_tests,
-            'n_significant': int(np.sum(significant)),
-            'method': 'benjamini_hochberg'
+            "significant": significant.tolist(),
+            "adjusted_p_values": adjusted_p_values.tolist(),
+            "n_tests": n_tests,
+            "n_significant": int(np.sum(significant)),
+            "method": "benjamini_hochberg",
         }
 
     @staticmethod
-    def holm_bonferroni_correction(
-        p_values: List[float],
-        alpha: float = 0.05
-    ) -> Dict[str, Any]:
+    def holm_bonferroni_correction(p_values: list[float], alpha: float = 0.05) -> dict[str, Any]:
         """
         Apply Holm-Bonferroni step-down correction.
 
@@ -408,18 +388,18 @@ class StatisticalValidator:
                 break
 
         return {
-            'significant': significant.tolist(),
-            'n_tests': n_tests,
-            'n_significant': int(np.sum(significant)),
-            'method': 'holm_bonferroni'
+            "significant": significant.tolist(),
+            "n_tests": n_tests,
+            "n_significant": int(np.sum(significant)),
+            "method": "holm_bonferroni",
         }
 
     @staticmethod
     def mann_whitney_u_test(
-        group1: Union[np.ndarray, List[float]],
-        group2: Union[np.ndarray, List[float]],
-        alternative: str = 'two-sided'
-    ) -> Dict[str, Any]:
+        group1: np.ndarray | list[float],
+        group2: np.ndarray | list[float],
+        alternative: str = "two-sided",
+    ) -> dict[str, Any]:
         """
         Perform Mann-Whitney U test (non-parametric alternative to t-test).
 
@@ -440,27 +420,22 @@ class StatisticalValidator:
         group1 = np.array(group1)
         group2 = np.array(group2)
 
-        u_stat, p_value = stats.mannwhitneyu(
-            group1, group2,
-            alternative=alternative
-        )
+        u_stat, p_value = stats.mannwhitneyu(group1, group2, alternative=alternative)
 
         sig_result = StatisticalValidator.apply_significance_threshold(p_value)
 
         return {
-            'u_statistic': float(u_stat),
-            'p_value': float(p_value),
+            "u_statistic": float(u_stat),
+            "p_value": float(p_value),
             **sig_result,
-            'median1': float(np.median(group1)),
-            'median2': float(np.median(group2)),
-            'n_group1': len(group1),
-            'n_group2': len(group2)
+            "median1": float(np.median(group1)),
+            "median2": float(np.median(group2)),
+            "n_group1": len(group1),
+            "n_group2": len(group2),
         }
 
     @staticmethod
-    def chi_square_test(
-        contingency_table: Union[np.ndarray, List[List[int]]]
-    ) -> Dict[str, Any]:
+    def chi_square_test(contingency_table: np.ndarray | list[list[int]]) -> dict[str, Any]:
         """
         Perform chi-square test of independence.
 
@@ -485,20 +460,20 @@ class StatisticalValidator:
         sig_result = StatisticalValidator.apply_significance_threshold(p_value)
 
         return {
-            'chi2_statistic': float(chi2),
-            'p_value': float(p_value),
-            'degrees_of_freedom': int(dof),
-            'expected_frequencies': expected.tolist(),
-            'cramers_v': float(cramers_v),
-            **sig_result
+            "chi2_statistic": float(chi2),
+            "p_value": float(p_value),
+            "degrees_of_freedom": int(dof),
+            "expected_frequencies": expected.tolist(),
+            "cramers_v": float(cramers_v),
+            **sig_result,
         }
 
     @staticmethod
     def generate_statistical_report(
         test_type: str,
-        test_results: Dict[str, Any],
-        effect_size: Optional[float] = None,
-        confidence_interval: Optional[Tuple[float, float]] = None
+        test_results: dict[str, Any],
+        effect_size: float | None = None,
+        confidence_interval: tuple[float, float] | None = None,
     ) -> str:
         """
         Generate comprehensive statistical report.
@@ -519,26 +494,26 @@ class StatisticalValidator:
         report_lines.append("")
 
         # Test results
-        if 't_statistic' in test_results:
+        if "t_statistic" in test_results:
             report_lines.append(f"t-statistic: {test_results['t_statistic']:.4f}")
-        if 'f_statistic' in test_results:
+        if "f_statistic" in test_results:
             report_lines.append(f"F-statistic: {test_results['f_statistic']:.4f}")
-        if 'u_statistic' in test_results:
+        if "u_statistic" in test_results:
             report_lines.append(f"U-statistic: {test_results['u_statistic']:.4f}")
-        if 'chi2_statistic' in test_results:
+        if "chi2_statistic" in test_results:
             report_lines.append(f"χ² statistic: {test_results['chi2_statistic']:.4f}")
 
         # P-value
-        p_value = test_results.get('p_value', 0)
+        p_value = test_results.get("p_value", 0)
         report_lines.append(f"p-value: {p_value:.6f}")
 
         # Significance
-        sig_label = test_results.get('significance_label', 'ns')
-        if sig_label == '***':
+        sig_label = test_results.get("significance_label", "ns")
+        if sig_label == "***":
             sig_text = "HIGHLY SIGNIFICANT (p < 0.001)"
-        elif sig_label == '**':
+        elif sig_label == "**":
             sig_text = "VERY SIGNIFICANT (p < 0.01)"
-        elif sig_label == '*':
+        elif sig_label == "*":
             sig_text = "SIGNIFICANT (p < 0.05)"
         else:
             sig_text = "NOT SIGNIFICANT (p ≥ 0.05)"
@@ -551,14 +526,18 @@ class StatisticalValidator:
             report_lines.append(f"Effect size: {effect_size:.4f}")
 
             # Determine measure type
-            if 'cohens_d' in str(test_type).lower():
-                interpretation = StatisticalValidator.interpret_effect_size(effect_size, 'cohens_d')
-            elif 'anova' in str(test_type).lower():
-                interpretation = StatisticalValidator.interpret_effect_size(effect_size, 'eta_squared')
-            elif 'chi' in str(test_type).lower():
-                interpretation = StatisticalValidator.interpret_effect_size(effect_size, 'cramers_v')
+            if "cohens_d" in str(test_type).lower():
+                interpretation = StatisticalValidator.interpret_effect_size(effect_size, "cohens_d")
+            elif "anova" in str(test_type).lower():
+                interpretation = StatisticalValidator.interpret_effect_size(
+                    effect_size, "eta_squared"
+                )
+            elif "chi" in str(test_type).lower():
+                interpretation = StatisticalValidator.interpret_effect_size(
+                    effect_size, "cramers_v"
+                )
             else:
-                interpretation = 'unknown'
+                interpretation = "unknown"
 
             report_lines.append(f"Effect magnitude: {interpretation.upper()}")
             report_lines.append("")
@@ -570,11 +549,11 @@ class StatisticalValidator:
             report_lines.append("")
 
         # Sample sizes
-        if 'n_group1' in test_results and 'n_group2' in test_results:
+        if "n_group1" in test_results and "n_group2" in test_results:
             report_lines.append(f"Sample size (group 1): {test_results['n_group1']}")
             report_lines.append(f"Sample size (group 2): {test_results['n_group2']}")
 
-        if 'n_groups' in test_results:
+        if "n_groups" in test_results:
             report_lines.append(f"Number of groups: {test_results['n_groups']}")
 
         report_lines.append("")
@@ -584,9 +563,8 @@ class StatisticalValidator:
 
     @staticmethod
     def check_assumptions(
-        data: Union[np.ndarray, List[float]],
-        test_type: str = 't-test'
-    ) -> Dict[str, Any]:
+        data: np.ndarray | list[float], test_type: str = "t-test"
+    ) -> dict[str, Any]:
         """
         Check statistical test assumptions.
 
@@ -619,7 +597,7 @@ class StatisticalValidator:
             )
 
         # Sample size check
-        if test_type in ['t-test', 'anova']:
+        if test_type in ["t-test", "anova"]:
             if len(data) < 30:
                 warnings_list.append(
                     f"Small sample size (n={len(data)}). "
@@ -627,11 +605,11 @@ class StatisticalValidator:
                 )
 
         return {
-            'normality_test': {
-                'statistic': float(shapiro_stat) if shapiro_stat is not None else None,
-                'p_value': float(shapiro_p) if shapiro_p is not None else None
+            "normality_test": {
+                "statistic": float(shapiro_stat) if shapiro_stat is not None else None,
+                "p_value": float(shapiro_p) if shapiro_p is not None else None,
             },
-            'normality_assumption_met': normality_met,
-            'warnings': warnings_list,
-            'sample_size': len(data)
+            "normality_assumption_met": normality_met,
+            "warnings": warnings_list,
+            "sample_size": len(data),
         }

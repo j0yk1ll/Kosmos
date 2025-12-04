@@ -1,7 +1,8 @@
 """Tests for world model factory."""
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock, PropertyMock
 
 from kosmos.world_model.factory import get_world_model, reset_world_model
 from kosmos.world_model.interface import WorldModelStorage
@@ -13,7 +14,7 @@ from kosmos.world_model.simple import Neo4jWorldModel
 def mock_neo4j_connection():
     """Mock Neo4j connection to avoid needing running instance."""
     # Patch at the point where it's used (in simple.py)
-    with patch('kosmos.world_model.simple.get_knowledge_graph') as mock_kg:
+    with patch("kosmos.world_model.simple.get_knowledge_graph") as mock_kg:
         # Create a mock knowledge graph with all needed attributes
         mock_graph_instance = Mock()
         mock_graph_instance.graph = Mock()
@@ -62,7 +63,7 @@ class TestGetWorldModel:
         """Test that reset=True forces new instance."""
         reset_world_model()
 
-        wm1 = get_world_model()
+        get_world_model()
         wm2 = get_world_model(reset=True)
 
         # Note: These might be the same object if Neo4j singleton isn't reset
@@ -135,7 +136,7 @@ class TestResetWorldModel:
         """Test that reset clears singleton."""
         reset_world_model()
 
-        wm1 = get_world_model()
+        get_world_model()
         reset_world_model()
         wm2 = get_world_model()
 
@@ -210,11 +211,11 @@ class TestConfigIntegration:
         mock_get_config.return_value = mock_config
 
         # First call reads config
-        wm1 = get_world_model()
+        get_world_model()
         assert mock_get_config.call_count == 1
 
         # Subsequent calls don't read config (singleton)
-        wm2 = get_world_model()
+        get_world_model()
         assert mock_get_config.call_count == 1
 
     @patch("kosmos.config.get_config")
@@ -326,13 +327,13 @@ class TestRealConfiguration:
 
     def test_factory_returns_usable_instance(self):
         """Test that factory returns instance that can be used."""
-        from kosmos.world_model import get_world_model, reset_world_model, Entity
+        from kosmos.world_model import Entity, get_world_model, reset_world_model
 
         reset_world_model()
         wm = get_world_model()
 
         # Should be able to create an entity
-        entity = Entity(type="Paper", properties={"title": "Test"})
+        Entity(type="Paper", properties={"title": "Test"})
 
         # Should have add_entity method
         assert hasattr(wm, "add_entity")

@@ -7,37 +7,32 @@ and analysis using Rich library components.
 
 import json
 from datetime import datetime
-from typing import Optional, List, Dict, Any
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich.tree import Tree
 from rich.syntax import Syntax
-from rich.markdown import Markdown
-from rich.text import Text
-from rich.columns import Columns
+from rich.tree import Tree
 
+from kosmos.cli.themes import get_box_style, get_domain_color
 from kosmos.cli.utils import (
     console,
-    create_table,
-    format_timestamp,
-    format_duration,
-    format_currency,
-    truncate_text,
-    create_status_text,
-    create_domain_text,
     create_metric_text,
+    create_status_text,
+    create_table,
+    format_currency,
+    format_duration,
+    format_timestamp,
     get_icon,
+    truncate_text,
 )
-from kosmos.cli.themes import get_domain_color, get_state_color, get_box_style
 
 
 class ResultsViewer:
     """Viewer for displaying research results in various formats."""
 
-    def __init__(self, console_instance: Optional[Console] = None):
+    def __init__(self, console_instance: Console | None = None):
         """
         Initialize results viewer.
 
@@ -46,7 +41,7 @@ class ResultsViewer:
         """
         self.console = console_instance or console
 
-    def display_research_overview(self, research_data: Dict[str, Any]):
+    def display_research_overview(self, research_data: dict[str, Any]):
         """
         Display overview of a research run.
 
@@ -81,7 +76,7 @@ class ResultsViewer:
         )
         self.console.print()
 
-    def display_hypotheses_table(self, hypotheses: List[Dict[str, Any]]):
+    def display_hypotheses_table(self, hypotheses: list[dict[str, Any]]):
         """
         Display table of hypotheses.
 
@@ -115,7 +110,7 @@ class ResultsViewer:
         self.console.print(table)
         self.console.print()
 
-    def display_hypothesis_tree(self, hypotheses: List[Dict[str, Any]]):
+    def display_hypothesis_tree(self, hypotheses: list[dict[str, Any]]):
         """
         Display hypothesis evolution as a tree.
 
@@ -128,8 +123,7 @@ class ResultsViewer:
 
         # Build tree structure
         tree = Tree(
-            f"[h2]{get_icon('brain')} Hypothesis Evolution[/h2]",
-            guide_style="bright_black"
+            f"[h2]{get_icon('brain')} Hypothesis Evolution[/h2]", guide_style="bright_black"
         )
 
         # Group by parent
@@ -149,10 +143,7 @@ class ResultsViewer:
             novelty = hypothesis.get("novelty_score", 0.0)
             status = hypothesis.get("status", "pending")
 
-            node_label = (
-                f"{claim}\n"
-                f"[muted]Novelty: {novelty:.2f} | Status: {status}[/muted]"
-            )
+            node_label = f"{claim}\n" f"[muted]Novelty: {novelty:.2f} | Status: {status}[/muted]"
 
             node = parent_node.add(node_label)
 
@@ -169,7 +160,7 @@ class ResultsViewer:
         self.console.print(tree)
         self.console.print()
 
-    def display_experiments_table(self, experiments: List[Dict[str, Any]]):
+    def display_experiments_table(self, experiments: list[dict[str, Any]]):
         """
         Display table of experiments.
 
@@ -210,7 +201,7 @@ class ResultsViewer:
         self.console.print(table)
         self.console.print()
 
-    def display_experiment_details(self, experiment: Dict[str, Any]):
+    def display_experiment_details(self, experiment: dict[str, Any]):
         """
         Display detailed view of a single experiment.
 
@@ -264,7 +255,7 @@ class ResultsViewer:
 
         self.console.print()
 
-    def display_metrics_summary(self, metrics: Dict[str, Any]):
+    def display_metrics_summary(self, metrics: dict[str, Any]):
         """
         Display research metrics summary.
 
@@ -303,13 +294,15 @@ class ResultsViewer:
 
         research_table.add_row("Hypotheses Generated", str(metrics.get("hypotheses_generated", 0)))
         research_table.add_row("Experiments Executed", str(metrics.get("experiments_executed", 0)))
-        research_table.add_row("Successful Experiments", str(metrics.get("successful_experiments", 0)))
+        research_table.add_row(
+            "Successful Experiments", str(metrics.get("successful_experiments", 0))
+        )
         research_table.add_row("Failed Experiments", str(metrics.get("failed_experiments", 0)))
 
         self.console.print(research_table)
         self.console.print()
 
-    def export_to_json(self, data: Dict[str, Any], output_path: Path):
+    def export_to_json(self, data: dict[str, Any], output_path: Path):
         """
         Export results to JSON file.
 
@@ -325,7 +318,7 @@ class ResultsViewer:
         except Exception as e:
             self.console.print(f"[error]Export failed: {str(e)}[/error]")
 
-    def export_to_markdown(self, data: Dict[str, Any], output_path: Path):
+    def export_to_markdown(self, data: dict[str, Any], output_path: Path):
         """
         Export results to Markdown file.
 
@@ -346,28 +339,34 @@ class ResultsViewer:
             ]
 
             for i, hyp in enumerate(data.get("hypotheses", []), 1):
-                lines.extend([
-                    f"### {i}. {hyp.get('claim', 'Unknown')}",
-                    f"",
-                    f"- **Novelty:** {hyp.get('novelty_score', 0):.2f}",
-                    f"- **Priority:** {hyp.get('priority_score', 0):.2f}",
-                    f"- **Status:** {hyp.get('status', 'Unknown')}",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        f"### {i}. {hyp.get('claim', 'Unknown')}",
+                        "",
+                        f"- **Novelty:** {hyp.get('novelty_score', 0):.2f}",
+                        f"- **Priority:** {hyp.get('priority_score', 0):.2f}",
+                        f"- **Status:** {hyp.get('status', 'Unknown')}",
+                        "",
+                    ]
+                )
 
-            lines.extend([
-                "## Experiments",
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Experiments",
+                    "",
+                ]
+            )
 
             for i, exp in enumerate(data.get("experiments", []), 1):
-                lines.extend([
-                    f"### {i}. {exp.get('type', 'Unknown')}",
-                    f"",
-                    f"- **Status:** {exp.get('status', 'Unknown')}",
-                    f"- **Duration:** {format_duration(exp.get('duration_seconds', 0))}",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        f"### {i}. {exp.get('type', 'Unknown')}",
+                        "",
+                        f"- **Status:** {exp.get('status', 'Unknown')}",
+                        f"- **Duration:** {format_duration(exp.get('duration_seconds', 0))}",
+                        "",
+                    ]
+                )
 
             with open(output_path, "w") as f:
                 f.write("\n".join(lines))
@@ -378,7 +377,7 @@ class ResultsViewer:
 
 
 # Convenience functions
-def view_research_results(research_data: Dict[str, Any]):
+def view_research_results(research_data: dict[str, Any]):
     """Display complete research results."""
     viewer = ResultsViewer()
 
@@ -390,13 +389,13 @@ def view_research_results(research_data: Dict[str, Any]):
         viewer.display_metrics_summary(research_data["metrics"])
 
 
-def view_hypothesis_evolution(hypotheses: List[Dict[str, Any]]):
+def view_hypothesis_evolution(hypotheses: list[dict[str, Any]]):
     """Display hypothesis evolution tree."""
     viewer = ResultsViewer()
     viewer.display_hypothesis_tree(hypotheses)
 
 
-def view_experiment_details(experiment: Dict[str, Any]):
+def view_experiment_details(experiment: dict[str, Any]):
     """Display detailed experiment view."""
     viewer = ResultsViewer()
     viewer.display_experiment_details(experiment)

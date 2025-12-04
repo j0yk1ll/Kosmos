@@ -5,18 +5,18 @@ These tests validate resource management including prompt caching, memory limits
 code/paper tracking, CPU usage, disk I/O, and resource cleanup.
 """
 
-import pytest
-import time
-import psutil
 import os
 import tempfile
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any, List
+import time
+from unittest.mock import Mock, patch
+
+import psutil
+import pytest
 
 from kosmos.agents.research_director import ResearchDirectorAgent
-from kosmos.core.workflow import ResearchPlan
-from kosmos.monitoring.metrics import MetricsCollector
 from kosmos.core.metrics import get_metrics
+from kosmos.monitoring.metrics import MetricsCollector
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -38,22 +38,20 @@ class TestREQ_PERF_RES_001_PromptCaching:
         metrics = get_metrics(reset=True)
 
         # Simulate cache hits and misses
-        total_requests = 100
         cache_hits = 60
         cache_misses = 40
 
-        for i in range(cache_hits):
+        for _i in range(cache_hits):
             metrics.record_cache_hit(cache_type="claude")
 
-        for i in range(cache_misses):
+        for _i in range(cache_misses):
             metrics.record_cache_miss(cache_type="claude")
 
         stats = metrics.get_cache_statistics()
 
         hit_rate = stats.get("cache_hit_rate_percent", 0)
 
-        assert hit_rate >= 50.0, \
-            f"Cache hit rate {hit_rate:.1f}% is below 50% requirement"
+        assert hit_rate >= 50.0, f"Cache hit rate {hit_rate:.1f}% is below 50% requirement"
 
     def test_prompt_cache_effectiveness(self):
         """Verify prompt caching reduces redundant API calls."""
@@ -71,7 +69,7 @@ class TestREQ_PERF_RES_001_PromptCaching:
 
         cache_hits = 0
         for i, prompt in enumerate(repeated_prompts):
-            if i > 0 and prompt == repeated_prompts[i-1]:
+            if i > 0 and prompt == repeated_prompts[i - 1]:
                 # Cache hit
                 metrics.record_cache_hit(cache_type="claude")
                 cache_hits += 1
@@ -83,8 +81,7 @@ class TestREQ_PERF_RES_001_PromptCaching:
         hit_rate = stats.get("cache_hit_rate_percent", 0)
 
         # With 3 repeated prompts out of 6 total, hit rate should be 50%
-        assert hit_rate >= 50.0, \
-            f"Cache hit rate {hit_rate:.1f}% below requirement"
+        assert hit_rate >= 50.0, f"Cache hit rate {hit_rate:.1f}% below requirement"
 
     def test_cache_improves_response_time(self):
         """Verify cache hits have lower latency than misses."""
@@ -93,13 +90,13 @@ class TestREQ_PERF_RES_001_PromptCaching:
         cache_hit_times = []
 
         # Cache misses: slower (actual API call)
-        for i in range(10):
+        for _i in range(10):
             start = time.time()
             time.sleep(0.01)  # Simulate API latency
             cache_miss_times.append(time.time() - start)
 
         # Cache hits: faster (cached response)
-        for i in range(10):
+        for _i in range(10):
             start = time.time()
             time.sleep(0.001)  # Simulate cache lookup
             cache_hit_times.append(time.time() - start)
@@ -109,25 +106,24 @@ class TestREQ_PERF_RES_001_PromptCaching:
 
         # Cache hits should be significantly faster
         speedup = avg_miss_time / avg_hit_time
-        assert speedup > 2.0, \
-            f"Cache only provides {speedup:.1f}x speedup, expected >2x"
+        assert speedup > 2.0, f"Cache only provides {speedup:.1f}x speedup, expected >2x"
 
     def test_cache_cost_savings(self):
         """Verify cache provides cost savings."""
         metrics = get_metrics(reset=True)
 
         # Simulate operations with good cache hit rate
-        for i in range(60):
+        for _i in range(60):
             metrics.record_cache_hit(cache_type="claude")
 
-        for i in range(40):
+        for _i in range(40):
             metrics.record_cache_miss(cache_type="claude")
             # Cache miss requires API call
             metrics.record_api_call(
                 model="claude-3-5-sonnet",
                 input_tokens=1000,
                 output_tokens=500,
-                duration_seconds=1.0
+                duration_seconds=1.0,
             )
 
         stats = metrics.get_cache_statistics()
@@ -158,14 +154,13 @@ class TestREQ_PERF_RES_002_MemoryLimits:
         # Set reasonable limit (e.g., 500MB growth)
         memory_limit_mb = 500
 
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
-                    research_question="Test memory limits",
-                    config={"max_iterations": 100}
+                    research_question="Test memory limits", config={"max_iterations": 100}
                 )
 
                 # Simulate memory-intensive operations
@@ -176,8 +171,9 @@ class TestREQ_PERF_RES_002_MemoryLimits:
                 current_memory = process.memory_info().rss / 1024 / 1024
                 memory_used = current_memory - initial_memory
 
-                assert memory_used < memory_limit_mb, \
-                    f"Memory usage {memory_used:.1f}MB exceeds limit of {memory_limit_mb}MB"
+                assert (
+                    memory_used < memory_limit_mb
+                ), f"Memory usage {memory_used:.1f}MB exceeds limit of {memory_limit_mb}MB"
 
     def test_memory_limit_enforcement(self):
         """Verify system respects configured memory limits."""
@@ -193,8 +189,7 @@ class TestREQ_PERF_RES_002_MemoryLimits:
 
         # Check if memory percent is reasonable
         memory_percent = process.memory_percent()
-        assert memory_percent < 90, \
-            f"Memory usage at {memory_percent:.1f}% is too high"
+        assert memory_percent < 90, f"Memory usage at {memory_percent:.1f}% is too high"
 
     def test_memory_alerts_triggered(self):
         """Verify memory alerts are triggered when approaching limits."""
@@ -222,17 +217,14 @@ class TestREQ_PERF_RES_003_CodeLineTracking:
     and referenced across all experiments.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_code_line_tracking(self, mock_wm, mock_llm):
         """Verify system tracks lines of code."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
-        director = ResearchDirectorAgent(
-            research_question="Test code tracking",
-            config={"max_iterations": 10}
-        )
+        ResearchDirectorAgent(research_question="Test code tracking", config={"max_iterations": 10})
 
         # Simulate code analysis
         code_samples = [
@@ -244,7 +236,7 @@ class TestREQ_PERF_RES_003_CodeLineTracking:
         total_lines_analyzed = 0
 
         for code in code_samples:
-            lines = code.count('\n') + 1
+            lines = code.count("\n") + 1
             total_lines_analyzed += lines
 
         # Verify tracking capability
@@ -276,24 +268,23 @@ class TestREQ_PERF_RES_003_CodeLineTracking:
 
     def test_code_line_metadata_storage(self):
         """Verify code line counts are stored in metadata."""
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
-                    research_question="Test metadata",
-                    config={"max_iterations": 1}
+                    research_question="Test metadata", config={"max_iterations": 1}
                 )
 
                 # Store code line count in metadata
-                if not hasattr(director.research_plan, 'metadata'):
+                if not hasattr(director.research_plan, "metadata"):
                     director.research_plan.metadata = {}
 
-                director.research_plan.metadata['total_code_lines'] = 1000
+                director.research_plan.metadata["total_code_lines"] = 1000
 
                 # Verify it can be retrieved
-                assert director.research_plan.metadata.get('total_code_lines') == 1000
+                assert director.research_plan.metadata.get("total_code_lines") == 1000
 
 
 @pytest.mark.requirement("REQ-PERF-RES-004")
@@ -304,16 +295,15 @@ class TestREQ_PERF_RES_004_PaperTracking:
     analyzed and referenced in literature review.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_paper_count_tracking(self, mock_wm, mock_llm):
         """Verify system tracks number of papers."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
         director = ResearchDirectorAgent(
-            research_question="Test paper tracking",
-            config={"max_iterations": 10}
+            research_question="Test paper tracking", config={"max_iterations": 10}
         )
 
         # Simulate paper analysis
@@ -324,13 +314,13 @@ class TestREQ_PERF_RES_004_PaperTracking:
         ]
 
         # Track papers
-        if not hasattr(director.research_plan, 'metadata'):
+        if not hasattr(director.research_plan, "metadata"):
             director.research_plan.metadata = {}
 
-        director.research_plan.metadata['papers_analyzed'] = len(papers)
+        director.research_plan.metadata["papers_analyzed"] = len(papers)
 
         # Verify tracking
-        assert director.research_plan.metadata['papers_analyzed'] == 3
+        assert director.research_plan.metadata["papers_analyzed"] == 3
 
     def test_paper_accumulation_across_iterations(self):
         """Verify paper counts accumulate across iterations."""
@@ -355,26 +345,25 @@ class TestREQ_PERF_RES_004_PaperTracking:
 
     def test_paper_metadata_persistence(self):
         """Verify paper tracking metadata persists."""
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
-                    research_question="Test persistence",
-                    config={"max_iterations": 1}
+                    research_question="Test persistence", config={"max_iterations": 1}
                 )
 
                 # Set paper count
-                if not hasattr(director.research_plan, 'metadata'):
+                if not hasattr(director.research_plan, "metadata"):
                     director.research_plan.metadata = {}
 
-                director.research_plan.metadata['total_papers'] = 100
-                director.research_plan.metadata['papers_cited'] = 50
+                director.research_plan.metadata["total_papers"] = 100
+                director.research_plan.metadata["papers_cited"] = 50
 
                 # Verify retrieval
-                assert director.research_plan.metadata.get('total_papers') == 100
-                assert director.research_plan.metadata.get('papers_cited') == 50
+                assert director.research_plan.metadata.get("total_papers") == 100
+                assert director.research_plan.metadata.get("papers_cited") == 50
 
 
 @pytest.mark.requirement("REQ-PERF-RES-005")
@@ -394,7 +383,7 @@ class TestREQ_PERF_RES_005_CPUUsageMonitoring:
 
         # Verify monitoring works
         assert cpu_percent >= 0
-        assert isinstance(cpu_percent, (int, float))
+        assert isinstance(cpu_percent, int | float)
 
     def test_cpu_usage_stays_reasonable(self):
         """Verify CPU usage stays within reasonable bounds."""
@@ -410,14 +399,13 @@ class TestREQ_PERF_RES_005_CPUUsageMonitoring:
 
         # Should not exceed 100% (single core)
         # In multi-core systems, this can be higher, but per-process should be reasonable
-        assert cpu_percent < 200, \
-            f"CPU usage {cpu_percent:.1f}% is excessive"
+        assert cpu_percent < 200, f"CPU usage {cpu_percent:.1f}% is excessive"
 
     def test_cpu_metrics_collection(self):
         """Verify CPU metrics are collected."""
-        metrics = MetricsCollector() if hasattr(MetricsCollector, '__init__') else None
+        metrics = MetricsCollector() if hasattr(MetricsCollector, "__init__") else None
 
-        if metrics and hasattr(metrics, 'update_system_metrics'):
+        if metrics and hasattr(metrics, "update_system_metrics"):
             process = psutil.Process(os.getpid())
             memory = process.memory_info()
 
@@ -428,7 +416,7 @@ class TestREQ_PERF_RES_005_CPUUsageMonitoring:
                 memory_vms=memory.vms,
                 disk_total=0,
                 disk_used=0,
-                disk_free=0
+                disk_free=0,
             )
 
             # Verify no errors
@@ -467,7 +455,7 @@ class TestREQ_PERF_RES_006_DiskIOLimits:
             io_before = process.io_counters()
 
             # Perform some file operations
-            with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
                 temp_file = f.name
                 # Write modest amount of data
                 for i in range(100):
@@ -479,8 +467,9 @@ class TestREQ_PERF_RES_006_DiskIOLimits:
             bytes_written = io_after.write_bytes - io_before.write_bytes
 
             # Should be reasonable amount (< 1MB for this test)
-            assert bytes_written < 1024 * 1024, \
-                f"Wrote {bytes_written} bytes, excessive for test operation"
+            assert (
+                bytes_written < 1024 * 1024
+            ), f"Wrote {bytes_written} bytes, excessive for test operation"
 
             # Cleanup
             os.unlink(temp_file)
@@ -490,7 +479,7 @@ class TestREQ_PERF_RES_006_DiskIOLimits:
 
     def test_disk_usage_monitoring(self):
         """Verify disk usage can be monitored."""
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
 
         assert disk.total > 0
         assert disk.used >= 0
@@ -509,7 +498,7 @@ class TestREQ_PERF_RES_007_NetworkBandwidth:
 
     def test_api_call_rate_limiting(self):
         """Verify API call rate limiting is enforced."""
-        metrics = get_metrics(reset=True)
+        get_metrics(reset=True)
 
         # Configure rate limit
         max_calls_per_minute = 60
@@ -526,8 +515,9 @@ class TestREQ_PERF_RES_007_NetworkBandwidth:
         recent_calls = [t for t in call_times if t > one_minute_ago]
 
         # Verify under limit
-        assert len(recent_calls) <= max_calls_per_minute, \
-            f"Exceeded rate limit: {len(recent_calls)} calls in last minute"
+        assert (
+            len(recent_calls) <= max_calls_per_minute
+        ), f"Exceeded rate limit: {len(recent_calls)} calls in last minute"
 
     def test_bandwidth_monitoring(self):
         """Verify network bandwidth can be monitored."""
@@ -544,13 +534,13 @@ class TestREQ_PERF_RES_007_NetworkBandwidth:
         metrics = get_metrics(reset=True)
 
         # Simulate API calls
-        for i in range(10):
+        for _i in range(10):
             metrics.record_api_call(
                 model="claude-3-5-sonnet",
                 input_tokens=1000,
                 output_tokens=500,
                 duration_seconds=1.0,
-                success=True
+                success=True,
             )
 
         stats = metrics.get_api_statistics()
@@ -562,17 +552,14 @@ class TestREQ_PERF_RES_007_NetworkBandwidth:
 
     def test_rate_limit_configuration(self):
         """Verify rate limits can be configured."""
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
                     research_question="Test rate limits",
-                    config={
-                        "llm_rate_limit_per_minute": 100,
-                        "max_concurrent_llm_calls": 10
-                    }
+                    config={"llm_rate_limit_per_minute": 100, "max_concurrent_llm_calls": 10},
                 )
 
                 # Verify config is set
@@ -600,13 +587,13 @@ class TestREQ_PERF_RES_008_ResourceCleanup:
 
         # Perform file operations
         temp_files = []
-        for i in range(10):
-            with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+        for _i in range(10):
+            with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
                 temp_files.append(f.name)
                 f.write("test data")
 
         # Files should be closed
-        current_fds = process.num_fds()
+        process.num_fds()
 
         # Cleanup temp files
         for temp_file in temp_files:
@@ -616,8 +603,7 @@ class TestREQ_PERF_RES_008_ResourceCleanup:
 
         # File descriptors should return to baseline
         fd_leak = final_fds - initial_fds
-        assert fd_leak < 5, \
-            f"File descriptor leak detected: {fd_leak} descriptors not cleaned up"
+        assert fd_leak < 5, f"File descriptor leak detected: {fd_leak} descriptors not cleaned up"
 
     def test_connection_cleanup(self):
         """Verify database connections are properly closed."""
@@ -639,16 +625,15 @@ class TestREQ_PERF_RES_008_ResourceCleanup:
 
         initial_memory = process.memory_info().rss / 1024 / 1024
 
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 # Create and destroy multiple directors
                 for i in range(5):
                     director = ResearchDirectorAgent(
-                        research_question=f"Test cleanup {i}",
-                        config={"max_iterations": 1}
+                        research_question=f"Test cleanup {i}", config={"max_iterations": 1}
                     )
 
                     # Simulate work
@@ -665,8 +650,9 @@ class TestREQ_PERF_RES_008_ResourceCleanup:
                 memory_retained = final_memory - initial_memory
 
                 # Allow some growth but should be minimal
-                assert memory_retained < 50, \
-                    f"Memory not cleaned up properly: {memory_retained:.1f}MB retained"
+                assert (
+                    memory_retained < 50
+                ), f"Memory not cleaned up properly: {memory_retained:.1f}MB retained"
 
 
 @pytest.mark.requirement("REQ-PERF-RES-009")
@@ -689,14 +675,13 @@ class TestREQ_PERF_RES_009_MemoryLeakPrevention:
         # Sample memory at intervals
         for iteration in range(10):
             # Perform operations
-            with patch('kosmos.agents.research_director.get_client') as mock_llm:
-                with patch('kosmos.world_model.get_world_model') as mock_wm:
+            with patch("kosmos.agents.research_director.get_client") as mock_llm:
+                with patch("kosmos.world_model.get_world_model") as mock_wm:
                     mock_llm.return_value = Mock()
                     mock_wm.return_value = None
 
                     director = ResearchDirectorAgent(
-                        research_question=f"Iteration {iteration}",
-                        config={"max_iterations": 1}
+                        research_question=f"Iteration {iteration}", config={"max_iterations": 1}
                     )
 
                     # Simulate work
@@ -726,8 +711,7 @@ class TestREQ_PERF_RES_009_MemoryLeakPrevention:
                 slope = numerator / denominator
 
                 # Slope should be minimal (< 1MB per iteration)
-                assert slope < 1.0, \
-                    f"Memory leak detected: {slope:.2f}MB growth per iteration"
+                assert slope < 1.0, f"Memory leak detected: {slope:.2f}MB growth per iteration"
 
     def test_object_lifecycle_management(self):
         """Verify objects are properly garbage collected."""
@@ -739,15 +723,14 @@ class TestREQ_PERF_RES_009_MemoryLeakPrevention:
         weak_refs = []
 
         # Create objects with weak references
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 for i in range(5):
                     director = ResearchDirectorAgent(
-                        research_question=f"Test {i}",
-                        config={"max_iterations": 1}
+                        research_question=f"Test {i}", config={"max_iterations": 1}
                     )
                     weak_refs.append(weakref.ref(director))
                     del director
@@ -757,8 +740,7 @@ class TestREQ_PERF_RES_009_MemoryLeakPrevention:
 
         # All weak references should be dead
         alive_count = sum(1 for ref in weak_refs if ref() is not None)
-        assert alive_count == 0, \
-            f"{alive_count} objects not garbage collected (memory leak)"
+        assert alive_count == 0, f"{alive_count} objects not garbage collected (memory leak)"
 
     def test_circular_reference_detection(self):
         """Verify no circular references prevent garbage collection."""
@@ -767,22 +749,22 @@ class TestREQ_PERF_RES_009_MemoryLeakPrevention:
 
         gc.collect()
 
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
-                    research_question="Test circular refs",
-                    config={"max_iterations": 1}
+                    research_question="Test circular refs", config={"max_iterations": 1}
                 )
 
                 # Get reference count
                 initial_refcount = sys.getrefcount(director)
 
                 # Director should not have excessive references
-                assert initial_refcount < 10, \
-                    f"Object has {initial_refcount} references, possible circular references"
+                assert (
+                    initial_refcount < 10
+                ), f"Object has {initial_refcount} references, possible circular references"
 
                 del director
                 gc.collect()
@@ -794,19 +776,18 @@ class TestREQ_PERF_RES_009_MemoryLeakPrevention:
         process = psutil.Process(os.getpid())
         gc.collect()
 
-        initial_memory = process.memory_info().rss / 1024 / 1024
+        process.memory_info().rss / 1024 / 1024
         memory_samples = []
 
         # Perform many operations
         for i in range(20):
-            with patch('kosmos.agents.research_director.get_client') as mock_llm:
-                with patch('kosmos.world_model.get_world_model') as mock_wm:
+            with patch("kosmos.agents.research_director.get_client") as mock_llm:
+                with patch("kosmos.world_model.get_world_model") as mock_wm:
                     mock_llm.return_value = Mock()
                     mock_wm.return_value = None
 
                     director = ResearchDirectorAgent(
-                        research_question=f"Test {i}",
-                        config={"max_iterations": 1}
+                        research_question=f"Test {i}", config={"max_iterations": 1}
                     )
 
                     # Simulate work
@@ -823,5 +804,6 @@ class TestREQ_PERF_RES_009_MemoryLeakPrevention:
         # Verify memory hasn't grown excessively
         if len(memory_samples) > 1:
             memory_growth = memory_samples[-1] - memory_samples[0]
-            assert memory_growth < 50, \
-                f"Memory grew by {memory_growth:.1f}MB over 20 iterations (leak suspected)"
+            assert (
+                memory_growth < 50
+            ), f"Memory grew by {memory_growth:.1f}MB over 20 iterations (leak suspected)"

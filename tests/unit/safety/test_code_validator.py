@@ -4,16 +4,11 @@ Tests for code safety validator.
 Tests code validation, ethical guidelines, and approval gate logic.
 """
 
-import pytest
 import json
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
+from kosmos.models.safety import ApprovalStatus, RiskLevel, SafetyReport, ViolationType
 from kosmos.safety.code_validator import CodeValidator
-from kosmos.models.safety import (
-    SafetyReport, ViolationType, RiskLevel, EthicalGuideline,
-    ApprovalRequest, ApprovalStatus
-)
 
 
 class TestCodeValidatorInitialization:
@@ -30,11 +25,7 @@ class TestCodeValidatorInitialization:
 
     def test_init_custom_permissions(self):
         """Test initialization with custom permission settings."""
-        validator = CodeValidator(
-            allow_file_read=False,
-            allow_file_write=True,
-            allow_network=True
-        )
+        validator = CodeValidator(allow_file_read=False, allow_file_write=True, allow_network=True)
 
         assert validator.allow_file_read is False
         assert validator.allow_file_write is True
@@ -55,19 +46,23 @@ class TestCodeValidatorInitialization:
     def test_init_with_custom_guidelines_file(self, tmp_path):
         """Test loading ethical guidelines from file."""
         guidelines_file = tmp_path / "guidelines.json"
-        guidelines_file.write_text(json.dumps({
-            "guidelines": [
+        guidelines_file.write_text(
+            json.dumps(
                 {
-                    "guideline_id": "custom_1",
-                    "category": "test",
-                    "description": "Test guideline",
-                    "required": True,
-                    "validation_method": "keyword",
-                    "keywords": ["test_keyword"],
-                    "severity_if_violated": "high"
+                    "guidelines": [
+                        {
+                            "guideline_id": "custom_1",
+                            "category": "test",
+                            "description": "Test guideline",
+                            "required": True,
+                            "validation_method": "keyword",
+                            "keywords": ["test_keyword"],
+                            "severity_if_violated": "high",
+                        }
+                    ]
                 }
-            ]
-        }))
+            )
+        )
 
         validator = CodeValidator(ethical_guidelines_path=str(guidelines_file))
 
@@ -123,7 +118,7 @@ class TestDangerousImportsDetection:
         report = validator.validate(code)
 
         assert not report.passed
-        os_violations = [v for v in report.violations if 'os' in v.message]
+        os_violations = [v for v in report.violations if "os" in v.message]
         assert len(os_violations) > 0
         assert os_violations[0].severity == RiskLevel.CRITICAL
 
@@ -135,7 +130,7 @@ class TestDangerousImportsDetection:
         report = validator.validate(code)
 
         assert not report.passed
-        assert any('subprocess' in v.message for v in report.violations)
+        assert any("subprocess" in v.message for v in report.violations)
 
     def test_from_import_blocked(self):
         """Test that 'from X import Y' dangerous imports are blocked."""
@@ -145,7 +140,7 @@ class TestDangerousImportsDetection:
         report = validator.validate(code)
 
         assert not report.passed
-        assert any('os' in v.message for v in report.violations)
+        assert any("os" in v.message for v in report.violations)
 
     def test_safe_imports_allowed(self):
         """Test that safe imports are allowed."""
@@ -158,10 +153,7 @@ from scipy import stats
         report = validator.validate(code)
 
         # Should pass (no dangerous imports)
-        import_violations = [
-            v for v in report.violations
-            if v.type == ViolationType.DANGEROUS_CODE
-        ]
+        import_violations = [v for v in report.violations if v.type == ViolationType.DANGEROUS_CODE]
         assert len(import_violations) == 0
 
     def test_multiple_dangerous_imports(self):
@@ -189,7 +181,7 @@ class TestDangerousPatternsDetection:
         report = validator.validate(code)
 
         assert not report.passed
-        assert any('eval' in v.message.lower() for v in report.violations)
+        assert any("eval" in v.message.lower() for v in report.violations)
 
     def test_exec_blocked(self):
         """Test that exec() is blocked."""
@@ -199,7 +191,7 @@ class TestDangerousPatternsDetection:
         report = validator.validate(code)
 
         assert not report.passed
-        assert any('exec' in v.message.lower() for v in report.violations)
+        assert any("exec" in v.message.lower() for v in report.violations)
 
     def test_file_read_allowed_when_permitted(self):
         """Test that file read is allowed when permitted."""
@@ -220,10 +212,7 @@ class TestDangerousPatternsDetection:
         report = validator.validate(code)
 
         assert not report.passed
-        assert any(
-            v.type == ViolationType.FILE_SYSTEM_ACCESS
-            for v in report.violations
-        )
+        assert any(v.type == ViolationType.FILE_SYSTEM_ACCESS for v in report.violations)
 
     def test_file_write_allowed_when_permitted(self):
         """Test that file write is allowed when permitted."""
@@ -243,7 +232,7 @@ class TestDangerousPatternsDetection:
         report = validator.validate(code)
 
         assert not report.passed
-        assert any('compile' in v.message.lower() for v in report.violations)
+        assert any("compile" in v.message.lower() for v in report.violations)
 
 
 class TestNetworkOperationsDetection:
@@ -270,7 +259,7 @@ response = requests.get('http://example.com')
         report = validator.validate(code)
 
         assert len(report.warnings) > 0
-        assert any('http' in w.lower() for w in report.warnings)
+        assert any("http" in w.lower() for w in report.warnings)
 
 
 class TestEthicalGuidelinesValidation:
@@ -285,8 +274,7 @@ class TestEthicalGuidelinesValidation:
 
         # Should detect ethical violation
         ethical_violations = [
-            v for v in report.violations
-            if v.type == ViolationType.ETHICAL_VIOLATION
+            v for v in report.violations if v.type == ViolationType.ETHICAL_VIOLATION
         ]
         assert len(ethical_violations) > 0
         assert ethical_violations[0].severity in [RiskLevel.HIGH, RiskLevel.CRITICAL]
@@ -299,8 +287,7 @@ class TestEthicalGuidelinesValidation:
         report = validator.validate("import pandas", context=context)
 
         ethical_violations = [
-            v for v in report.violations
-            if v.type == ViolationType.ETHICAL_VIOLATION
+            v for v in report.violations if v.type == ViolationType.ETHICAL_VIOLATION
         ]
         assert len(ethical_violations) > 0
 
@@ -312,8 +299,7 @@ class TestEthicalGuidelinesValidation:
         report = validator.validate(code)
 
         ethical_violations = [
-            v for v in report.violations
-            if v.type == ViolationType.ETHICAL_VIOLATION
+            v for v in report.violations if v.type == ViolationType.ETHICAL_VIOLATION
         ]
         assert len(ethical_violations) > 0
 
@@ -328,8 +314,7 @@ mean = np.mean(data, axis=0)
         report = validator.validate(code)
 
         ethical_violations = [
-            v for v in report.violations
-            if v.type == ViolationType.ETHICAL_VIOLATION
+            v for v in report.violations if v.type == ViolationType.ETHICAL_VIOLATION
         ]
         assert len(ethical_violations) == 0
 
@@ -343,8 +328,7 @@ mean = np.mean(data, axis=0)
 
         # Should detect ethical violations in context
         ethical_violations = [
-            v for v in report.violations
-            if v.type == ViolationType.ETHICAL_VIOLATION
+            v for v in report.violations if v.type == ViolationType.ETHICAL_VIOLATION
         ]
         assert len(ethical_violations) > 0
 
@@ -395,7 +379,7 @@ import os     # Critical severity
 class TestApprovalRequirements:
     """Tests for approval requirement logic."""
 
-    @patch('kosmos.safety.code_validator.get_config')
+    @patch("kosmos.safety.code_validator.get_config")
     def test_requires_approval_when_configured(self, mock_get_config):
         """Test that approval is required when configured."""
         mock_config = Mock()
@@ -403,16 +387,11 @@ class TestApprovalRequirements:
         mock_get_config.return_value = mock_config
 
         validator = CodeValidator()
-        report = SafetyReport(
-            passed=True,
-            risk_level=RiskLevel.LOW,
-            violations=[],
-            warnings=[]
-        )
+        report = SafetyReport(passed=True, risk_level=RiskLevel.LOW, violations=[], warnings=[])
 
         assert validator.requires_approval(report) is True
 
-    @patch('kosmos.safety.code_validator.get_config')
+    @patch("kosmos.safety.code_validator.get_config")
     def test_requires_approval_for_high_risk(self, mock_get_config):
         """Test that approval is required for high risk."""
         mock_config = Mock()
@@ -420,15 +399,11 @@ class TestApprovalRequirements:
         mock_get_config.return_value = mock_config
 
         validator = CodeValidator()
-        report = SafetyReport(
-            passed=False,
-            risk_level=RiskLevel.HIGH,
-            violations=[]
-        )
+        report = SafetyReport(passed=False, risk_level=RiskLevel.HIGH, violations=[])
 
         assert validator.requires_approval(report) is True
 
-    @patch('kosmos.safety.code_validator.get_config')
+    @patch("kosmos.safety.code_validator.get_config")
     def test_requires_approval_for_critical_violations(self, mock_get_config):
         """Test that approval is required for critical violations."""
         mock_config = Mock()
@@ -444,7 +419,7 @@ class TestApprovalRequirements:
 
         assert validator.requires_approval(report) is True
 
-    @patch('kosmos.safety.code_validator.get_config')
+    @patch("kosmos.safety.code_validator.get_config")
     def test_requires_approval_for_ethical_violations(self, mock_get_config):
         """Test that approval is required for ethical violations."""
         from kosmos.models.safety import SafetyViolation
@@ -461,14 +436,14 @@ class TestApprovalRequirements:
                 SafetyViolation(
                     type=ViolationType.ETHICAL_VIOLATION,
                     severity=RiskLevel.HIGH,
-                    message="Ethical issue detected"
+                    message="Ethical issue detected",
                 )
-            ]
+            ],
         )
 
         assert validator.requires_approval(report) is True
 
-    @patch('kosmos.safety.code_validator.get_config')
+    @patch("kosmos.safety.code_validator.get_config")
     def test_no_approval_needed_for_safe_code(self, mock_get_config):
         """Test that approval is not required for safe code."""
         mock_config = Mock()
@@ -476,11 +451,7 @@ class TestApprovalRequirements:
         mock_get_config.return_value = mock_config
 
         validator = CodeValidator()
-        report = SafetyReport(
-            passed=True,
-            risk_level=RiskLevel.LOW,
-            violations=[]
-        )
+        report = SafetyReport(passed=True, risk_level=RiskLevel.LOW, violations=[])
 
         assert validator.requires_approval(report) is False
 
@@ -501,9 +472,9 @@ class TestApprovalRequestCreation:
                 SafetyViolation(
                     type=ViolationType.DANGEROUS_CODE,
                     severity=RiskLevel.CRITICAL,
-                    message="Dangerous import: os"
+                    message="Dangerous import: os",
                 )
-            ]
+            ],
         )
 
         request = validator.create_approval_request(code, report)
@@ -525,11 +496,9 @@ class TestApprovalRequestCreation:
             risk_level=RiskLevel.HIGH,
             violations=[
                 SafetyViolation(
-                    type=ViolationType.DANGEROUS_CODE,
-                    severity=RiskLevel.HIGH,
-                    message="Issue"
+                    type=ViolationType.DANGEROUS_CODE, severity=RiskLevel.HIGH, message="Issue"
                 )
-            ]
+            ],
         )
         context = {"experiment_id": "exp_123", "hypothesis": "Test hypothesis"}
 
@@ -549,11 +518,9 @@ class TestApprovalRequestCreation:
             risk_level=RiskLevel.LOW,
             violations=[
                 SafetyViolation(
-                    type=ViolationType.DANGEROUS_CODE,
-                    severity=RiskLevel.LOW,
-                    message="Issue"
+                    type=ViolationType.DANGEROUS_CODE, severity=RiskLevel.LOW, message="Issue"
                 )
-            ]
+            ],
         )
 
         request1 = validator.create_approval_request(code, report)
@@ -575,17 +542,11 @@ class TestSafetyReportMethods:
             risk_level=RiskLevel.HIGH,
             violations=[
                 SafetyViolation(
-                    type=ViolationType.DANGEROUS_CODE,
-                    severity=RiskLevel.HIGH,
-                    message="Issue"
+                    type=ViolationType.DANGEROUS_CODE, severity=RiskLevel.HIGH, message="Issue"
                 )
-            ]
+            ],
         )
-        report_without = SafetyReport(
-            passed=True,
-            risk_level=RiskLevel.LOW,
-            violations=[]
-        )
+        report_without = SafetyReport(passed=True, risk_level=RiskLevel.LOW, violations=[])
 
         assert report_with.has_violations() is True
         assert report_without.has_violations() is False
@@ -601,20 +562,18 @@ class TestSafetyReportMethods:
                 SafetyViolation(
                     type=ViolationType.DANGEROUS_CODE,
                     severity=RiskLevel.CRITICAL,
-                    message="Critical issue"
+                    message="Critical issue",
                 )
-            ]
+            ],
         )
         report_low = SafetyReport(
             passed=False,
             risk_level=RiskLevel.LOW,
             violations=[
                 SafetyViolation(
-                    type=ViolationType.DANGEROUS_CODE,
-                    severity=RiskLevel.LOW,
-                    message="Minor issue"
+                    type=ViolationType.DANGEROUS_CODE, severity=RiskLevel.LOW, message="Minor issue"
                 )
-            ]
+            ],
         )
 
         assert report_critical.has_critical_violations() is True
@@ -629,21 +588,19 @@ class TestSafetyReportMethods:
             risk_level=RiskLevel.HIGH,
             violations=[
                 SafetyViolation(
-                    type=ViolationType.DANGEROUS_CODE,
-                    severity=RiskLevel.HIGH,
-                    message="Code issue"
+                    type=ViolationType.DANGEROUS_CODE, severity=RiskLevel.HIGH, message="Code issue"
                 ),
                 SafetyViolation(
                     type=ViolationType.ETHICAL_VIOLATION,
                     severity=RiskLevel.HIGH,
-                    message="Ethical issue"
+                    message="Ethical issue",
                 ),
                 SafetyViolation(
                     type=ViolationType.DANGEROUS_CODE,
                     severity=RiskLevel.MEDIUM,
-                    message="Another code issue"
-                )
-            ]
+                    message="Another code issue",
+                ),
+            ],
         )
 
         code_violations = report.get_violations_by_type(ViolationType.DANGEROUS_CODE)
@@ -654,11 +611,7 @@ class TestSafetyReportMethods:
 
     def test_summary_passed(self):
         """Test summary for passed report."""
-        report = SafetyReport(
-            passed=True,
-            risk_level=RiskLevel.LOW,
-            violations=[]
-        )
+        report = SafetyReport(passed=True, risk_level=RiskLevel.LOW, violations=[])
 
         summary = report.summary()
 
@@ -674,12 +627,10 @@ class TestSafetyReportMethods:
             risk_level=RiskLevel.HIGH,
             violations=[
                 SafetyViolation(
-                    type=ViolationType.DANGEROUS_CODE,
-                    severity=RiskLevel.HIGH,
-                    message="Issue"
+                    type=ViolationType.DANGEROUS_CODE, severity=RiskLevel.HIGH, message="Issue"
                 )
             ],
-            warnings=["Warning 1"]
+            warnings=["Warning 1"],
         )
 
         summary = report.summary()

@@ -13,9 +13,8 @@ import sqlite3
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from kosmos.core.cache_manager import CacheType, get_cache_manager
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +26,12 @@ class ExperimentCacheEntry:
         self,
         experiment_id: str,
         hypothesis: str,
-        parameters: Dict[str, Any],
-        results: Dict[str, Any],
+        parameters: dict[str, Any],
+        results: dict[str, Any],
         execution_time: float,
         timestamp: datetime,
-        metadata: Optional[Dict[str, Any]] = None,
-        embedding: Optional[List[float]] = None,
+        metadata: dict[str, Any] | None = None,
+        embedding: list[float] | None = None,
     ):
         """
         Initialize experiment cache entry.
@@ -56,31 +55,31 @@ class ExperimentCacheEntry:
         self.metadata = metadata or {}
         self.embedding = embedding
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'experiment_id': self.experiment_id,
-            'hypothesis': self.hypothesis,
-            'parameters': self.parameters,
-            'results': self.results,
-            'execution_time': self.execution_time,
-            'timestamp': self.timestamp.isoformat(),
-            'metadata': self.metadata,
-            'embedding': self.embedding,
+            "experiment_id": self.experiment_id,
+            "hypothesis": self.hypothesis,
+            "parameters": self.parameters,
+            "results": self.results,
+            "execution_time": self.execution_time,
+            "timestamp": self.timestamp.isoformat(),
+            "metadata": self.metadata,
+            "embedding": self.embedding,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ExperimentCacheEntry':
+    def from_dict(cls, data: dict[str, Any]) -> "ExperimentCacheEntry":
         """Create from dictionary."""
         return cls(
-            experiment_id=data['experiment_id'],
-            hypothesis=data['hypothesis'],
-            parameters=data['parameters'],
-            results=data['results'],
-            execution_time=data['execution_time'],
-            timestamp=datetime.fromisoformat(data['timestamp']),
-            metadata=data.get('metadata', {}),
-            embedding=data.get('embedding'),
+            experiment_id=data["experiment_id"],
+            hypothesis=data["hypothesis"],
+            parameters=data["parameters"],
+            results=data["results"],
+            execution_time=data["execution_time"],
+            timestamp=datetime.fromisoformat(data["timestamp"]),
+            metadata=data.get("metadata", {}),
+            embedding=data.get("embedding"),
         )
 
 
@@ -93,7 +92,7 @@ class ExperimentNormalizer:
     """
 
     @staticmethod
-    def normalize_parameters(params: Dict[str, Any]) -> Dict[str, Any]:
+    def normalize_parameters(params: dict[str, Any]) -> dict[str, Any]:
         """
         Normalize experiment parameters.
 
@@ -123,10 +122,7 @@ class ExperimentNormalizer:
         return normalized
 
     @staticmethod
-    def generate_fingerprint(
-        hypothesis: str,
-        parameters: Dict[str, Any]
-    ) -> str:
+    def generate_fingerprint(hypothesis: str, parameters: dict[str, Any]) -> str:
         """
         Generate unique fingerprint for experiment.
 
@@ -141,19 +137,13 @@ class ExperimentNormalizer:
         norm_params = ExperimentNormalizer.normalize_parameters(parameters)
 
         # Create fingerprint from hypothesis + normalized params
-        fingerprint_data = {
-            'hypothesis': hypothesis.strip().lower(),
-            'parameters': norm_params
-        }
+        fingerprint_data = {"hypothesis": hypothesis.strip().lower(), "parameters": norm_params}
 
         fingerprint_str = json.dumps(fingerprint_data, sort_keys=True, default=str)
         return hashlib.sha256(fingerprint_str.encode()).hexdigest()
 
     @staticmethod
-    def extract_searchable_text(
-        hypothesis: str,
-        parameters: Dict[str, Any]
-    ) -> str:
+    def extract_searchable_text(hypothesis: str, parameters: dict[str, Any]) -> str:
         """
         Extract searchable text for embedding generation.
 
@@ -169,7 +159,7 @@ class ExperimentNormalizer:
 
         # Add important parameters as text
         for key, value in sorted(parameters.items()):
-            if isinstance(value, (str, int, float, bool)):
+            if isinstance(value, str | int | float | bool):
                 text_parts.append(f"{key}: {value}")
 
         return " | ".join(text_parts)
@@ -189,7 +179,7 @@ class ExperimentCache:
 
     def __init__(
         self,
-        cache_dir: Optional[str] = None,
+        cache_dir: str | None = None,
         similarity_threshold: float = 0.90,
         enable_similarity: bool = True,
         max_similar_results: int = 5,
@@ -244,7 +234,8 @@ class ExperimentCache:
             cursor = conn.cursor()
 
             # Create experiments table
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS experiments (
                     experiment_id TEXT PRIMARY KEY,
                     hypothesis TEXT NOT NULL,
@@ -258,41 +249,52 @@ class ExperimentCache:
                     searchable_text TEXT,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             # Create indexes for faster lookups
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_fingerprint
                 ON experiments(fingerprint)
-            """)
+            """
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_timestamp
                 ON experiments(timestamp DESC)
-            """)
+            """
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_hypothesis
                 ON experiments(hypothesis)
-            """)
+            """
+            )
 
             # Create statistics table
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS cache_stats (
                     stat_key TEXT PRIMARY KEY,
                     stat_value INTEGER DEFAULT 0,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             # Initialize stats
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR IGNORE INTO cache_stats (stat_key, stat_value)
                 VALUES ('total_experiments', 0),
                        ('cache_hits', 0),
                        ('cache_misses', 0),
                        ('similar_hits', 0)
-            """)
+            """
+            )
 
             conn.commit()
             conn.close()
@@ -302,11 +304,11 @@ class ExperimentCache:
     def cache_result(
         self,
         hypothesis: str,
-        parameters: Dict[str, Any],
-        results: Dict[str, Any],
+        parameters: dict[str, Any],
+        results: dict[str, Any],
         execution_time: float,
-        metadata: Optional[Dict[str, Any]] = None,
-        embedding: Optional[List[float]] = None,
+        metadata: dict[str, Any] | None = None,
+        embedding: list[float] | None = None,
     ) -> str:
         """
         Cache an experiment result.
@@ -328,9 +330,7 @@ class ExperimentCache:
             experiment_id = f"exp_{fingerprint[:16]}"
 
             # Extract searchable text
-            searchable_text = self.normalizer.extract_searchable_text(
-                hypothesis, parameters
-            )
+            searchable_text = self.normalizer.extract_searchable_text(hypothesis, parameters)
 
             # Create entry
             entry = ExperimentCacheEntry(
@@ -356,31 +356,36 @@ class ExperimentCache:
                 embedding_json = json.dumps(embedding) if embedding else None
 
                 # Insert or replace
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO experiments
                     (experiment_id, hypothesis, parameters, results, execution_time,
                      timestamp, metadata, embedding, fingerprint, searchable_text)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    experiment_id,
-                    hypothesis,
-                    params_json,
-                    results_json,
-                    execution_time,
-                    entry.timestamp.isoformat(),
-                    metadata_json,
-                    embedding_json,
-                    fingerprint,
-                    searchable_text,
-                ))
+                """,
+                    (
+                        experiment_id,
+                        hypothesis,
+                        params_json,
+                        results_json,
+                        execution_time,
+                        entry.timestamp.isoformat(),
+                        metadata_json,
+                        embedding_json,
+                        fingerprint,
+                        searchable_text,
+                    ),
+                )
 
                 # Update stats
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE cache_stats
                     SET stat_value = stat_value + 1,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE stat_key = 'total_experiments'
-                """)
+                """
+                )
 
                 conn.commit()
                 conn.close()
@@ -393,10 +398,8 @@ class ExperimentCache:
                 raise
 
     def get_cached_result(
-        self,
-        hypothesis: str,
-        parameters: Dict[str, Any]
-    ) -> Optional[ExperimentCacheEntry]:
+        self, hypothesis: str, parameters: dict[str, Any]
+    ) -> ExperimentCacheEntry | None:
         """
         Get cached experiment result by exact match.
 
@@ -416,14 +419,17 @@ class ExperimentCache:
                 cursor = conn.cursor()
 
                 # Query by fingerprint
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT experiment_id, hypothesis, parameters, results,
                            execution_time, timestamp, metadata, embedding
                     FROM experiments
                     WHERE fingerprint = ?
                     ORDER BY timestamp DESC
                     LIMIT 1
-                """, (fingerprint,))
+                """,
+                    (fingerprint,),
+                )
 
                 row = cursor.fetchone()
                 conn.close()
@@ -432,12 +438,12 @@ class ExperimentCache:
                     # Parse entry
                     entry = self._row_to_entry(row)
                     self.hits += 1
-                    self._increment_stat('cache_hits')
+                    self._increment_stat("cache_hits")
                     logger.info(f"Cache hit: {entry.experiment_id}")
                     return entry
                 else:
                     self.misses += 1
-                    self._increment_stat('cache_misses')
+                    self._increment_stat("cache_misses")
                     logger.debug("Cache miss: no exact match")
                     return None
 
@@ -448,9 +454,9 @@ class ExperimentCache:
     def find_similar(
         self,
         hypothesis: str,
-        parameters: Dict[str, Any],
-        embedding: Optional[List[float]] = None,
-    ) -> List[Tuple[ExperimentCacheEntry, float]]:
+        parameters: dict[str, Any],
+        embedding: list[float] | None = None,
+    ) -> list[tuple[ExperimentCacheEntry, float]]:
         """
         Find similar cached experiments.
 
@@ -471,13 +477,15 @@ class ExperimentCache:
                 cursor = conn.cursor()
 
                 # Get all experiments with embeddings
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT experiment_id, hypothesis, parameters, results,
                            execution_time, timestamp, metadata, embedding
                     FROM experiments
                     WHERE embedding IS NOT NULL
                     ORDER BY timestamp DESC
-                """)
+                """
+                )
 
                 rows = cursor.fetchall()
                 conn.close()
@@ -493,10 +501,7 @@ class ExperimentCache:
 
                     if entry.embedding:
                         # Cosine similarity
-                        similarity = self._cosine_similarity(
-                            embedding,
-                            entry.embedding
-                        )
+                        similarity = self._cosine_similarity(embedding, entry.embedding)
 
                         if similarity >= self.similarity_threshold:
                             similar_experiments.append((entry, similarity))
@@ -505,11 +510,11 @@ class ExperimentCache:
                 similar_experiments.sort(key=lambda x: x[1], reverse=True)
 
                 # Limit results
-                similar_experiments = similar_experiments[:self.max_similar_results]
+                similar_experiments = similar_experiments[: self.max_similar_results]
 
                 if similar_experiments:
                     self.similar_hits += 1
-                    self._increment_stat('similar_hits')
+                    self._increment_stat("similar_hits")
                     logger.info(
                         f"Found {len(similar_experiments)} similar experiments "
                         f"(best match: {similar_experiments[0][1]:.3f})"
@@ -521,10 +526,18 @@ class ExperimentCache:
                 logger.error(f"Failed to find similar experiments: {e}")
                 return []
 
-    def _row_to_entry(self, row: Tuple) -> ExperimentCacheEntry:
+    def _row_to_entry(self, row: tuple) -> ExperimentCacheEntry:
         """Convert database row to ExperimentCacheEntry."""
-        experiment_id, hypothesis, params_json, results_json, \
-            execution_time, timestamp, metadata_json, embedding_json = row
+        (
+            experiment_id,
+            hypothesis,
+            params_json,
+            results_json,
+            execution_time,
+            timestamp,
+            metadata_json,
+            embedding_json,
+        ) = row
 
         # Parse JSON fields
         parameters = json.loads(params_json)
@@ -543,11 +556,7 @@ class ExperimentCache:
             embedding=embedding,
         )
 
-    def _cosine_similarity(
-        self,
-        vec1: List[float],
-        vec2: List[float]
-    ) -> float:
+    def _cosine_similarity(self, vec1: list[float], vec2: list[float]) -> float:
         """
         Calculate cosine similarity between two vectors.
 
@@ -562,7 +571,7 @@ class ExperimentCache:
             return 0.0
 
         # Dot product
-        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        dot_product = sum(a * b for a, b in zip(vec1, vec2, strict=False))
 
         # Magnitudes
         mag1 = sum(a * a for a in vec1) ** 0.5
@@ -579,12 +588,15 @@ class ExperimentCache:
             conn = sqlite3.connect(str(self.db_path))
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE cache_stats
                 SET stat_value = stat_value + 1,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE stat_key = ?
-            """, (stat_key,))
+            """,
+                (stat_key,),
+            )
 
             conn.commit()
             conn.close()
@@ -592,7 +604,7 @@ class ExperimentCache:
         except Exception as e:
             logger.error(f"Failed to increment stat {stat_key}: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get experiment cache statistics.
 
@@ -605,10 +617,12 @@ class ExperimentCache:
                 cursor = conn.cursor()
 
                 # Get stats from database
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT stat_key, stat_value
                     FROM cache_stats
-                """)
+                """
+                )
 
                 db_stats = {row[0]: row[1] for row in cursor.fetchall()}
 
@@ -619,35 +633,34 @@ class ExperimentCache:
                 conn.close()
 
                 # Calculate hit rate
-                total_requests = (
-                    db_stats.get('cache_hits', 0) +
-                    db_stats.get('cache_misses', 0)
-                )
+                total_requests = db_stats.get("cache_hits", 0) + db_stats.get("cache_misses", 0)
                 hit_rate = (
-                    (db_stats.get('cache_hits', 0) / total_requests * 100)
+                    (db_stats.get("cache_hits", 0) / total_requests * 100)
                     if total_requests > 0
                     else 0.0
                 )
 
                 return {
-                    'total_experiments': total_count,
-                    'cache_hits': db_stats.get('cache_hits', 0),
-                    'cache_misses': db_stats.get('cache_misses', 0),
-                    'similar_hits': db_stats.get('similar_hits', 0),
-                    'hit_rate_percent': round(hit_rate, 2),
-                    'similarity_enabled': self.enable_similarity,
-                    'similarity_threshold': self.similarity_threshold,
-                    'database_path': str(self.db_path),
-                    'database_size_mb': round(
-                        self.db_path.stat().st_size / (1024 * 1024), 2
-                    ) if self.db_path.exists() else 0,
+                    "total_experiments": total_count,
+                    "cache_hits": db_stats.get("cache_hits", 0),
+                    "cache_misses": db_stats.get("cache_misses", 0),
+                    "similar_hits": db_stats.get("similar_hits", 0),
+                    "hit_rate_percent": round(hit_rate, 2),
+                    "similarity_enabled": self.enable_similarity,
+                    "similarity_threshold": self.similarity_threshold,
+                    "database_path": str(self.db_path),
+                    "database_size_mb": (
+                        round(self.db_path.stat().st_size / (1024 * 1024), 2)
+                        if self.db_path.exists()
+                        else 0
+                    ),
                 }
 
             except Exception as e:
                 logger.error(f"Failed to get stats: {e}")
                 return {
-                    'error': str(e),
-                    'total_experiments': 0,
+                    "error": str(e),
+                    "total_experiments": 0,
                 }
 
     def clear(self) -> int:
@@ -670,11 +683,13 @@ class ExperimentCache:
                 cursor.execute("DELETE FROM experiments")
 
                 # Reset stats
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE cache_stats
                     SET stat_value = 0,
                         updated_at = CURRENT_TIMESTAMP
-                """)
+                """
+                )
 
                 conn.commit()
                 conn.close()
@@ -686,10 +701,7 @@ class ExperimentCache:
                 logger.error(f"Failed to clear cache: {e}")
                 return 0
 
-    def get_recent_experiments(
-        self,
-        limit: int = 10
-    ) -> List[ExperimentCacheEntry]:
+    def get_recent_experiments(self, limit: int = 10) -> list[ExperimentCacheEntry]:
         """
         Get most recent experiments.
 
@@ -704,13 +716,16 @@ class ExperimentCache:
                 conn = sqlite3.connect(str(self.db_path))
                 cursor = conn.cursor()
 
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT experiment_id, hypothesis, parameters, results,
                            execution_time, timestamp, metadata, embedding
                     FROM experiments
                     ORDER BY timestamp DESC
                     LIMIT ?
-                """, (limit,))
+                """,
+                    (limit,),
+                )
 
                 rows = cursor.fetchall()
                 conn.close()
@@ -723,12 +738,11 @@ class ExperimentCache:
 
 
 # Global experiment cache instance
-_experiment_cache: Optional[ExperimentCache] = None
+_experiment_cache: ExperimentCache | None = None
 
 
 def get_experiment_cache(
-    similarity_threshold: float = 0.90,
-    enable_similarity: bool = True
+    similarity_threshold: float = 0.90, enable_similarity: bool = True
 ) -> ExperimentCache:
     """
     Get or create the global experiment cache instance.
@@ -744,8 +758,7 @@ def get_experiment_cache(
 
     if _experiment_cache is None:
         _experiment_cache = ExperimentCache(
-            similarity_threshold=similarity_threshold,
-            enable_similarity=enable_similarity
+            similarity_threshold=similarity_threshold, enable_similarity=enable_similarity
         )
 
     return _experiment_cache

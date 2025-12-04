@@ -25,10 +25,11 @@ Performance Targets:
 - Novelty threshold: 75% similarity = redundant
 """
 
-from .plan_creator import PlanCreatorAgent
-from .plan_reviewer import PlanReviewerAgent
 from .delegation import DelegationManager
 from .novelty_detector import NoveltyDetector
+from .plan_creator import PlanCreatorAgent
+from .plan_reviewer import PlanReviewerAgent
+
 
 __all__ = [
     "PlanCreatorAgent",

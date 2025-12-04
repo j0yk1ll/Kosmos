@@ -4,17 +4,16 @@ Unit tests for cache system.
 Tests all cache types (Memory, Disk, Hybrid, Redis) and cache manager.
 """
 
-import pytest
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
-from datetime import datetime, timedelta
+
+import pytest
 
 from kosmos.core.cache import (
-    InMemoryCache as MemoryCache,
     DiskCache,
     HybridCache,
-    CacheStats,
+    InMemoryCache as MemoryCache,
 )
 
 
@@ -119,7 +118,7 @@ class TestDiskCache:
 
     def test_set_and_get(self, temp_cache_dir):
         """Test basic set and get operations."""
-        cache = DiskCache(cache_dir=temp_cache_dir, max_size=1024*1024)
+        cache = DiskCache(cache_dir=temp_cache_dir, max_size=1024 * 1024)
 
         cache.set("key1", {"data": "value1"})
         result = cache.get("key1")
@@ -128,23 +127,23 @@ class TestDiskCache:
 
     def test_persistence(self, temp_cache_dir):
         """Test data persists across cache instances."""
-        cache1 = DiskCache(cache_dir=temp_cache_dir, max_size=1024*1024)
+        cache1 = DiskCache(cache_dir=temp_cache_dir, max_size=1024 * 1024)
         cache1.set("key1", "value1")
 
         # Create new cache instance with same directory
-        cache2 = DiskCache(cache_dir=temp_cache_dir, max_size=1024*1024)
+        cache2 = DiskCache(cache_dir=temp_cache_dir, max_size=1024 * 1024)
         assert cache2.get("key1") == "value1"
 
     def test_ttl_expiration(self, temp_cache_dir):
         """Test TTL expiration on disk."""
-        cache = DiskCache(cache_dir=temp_cache_dir, max_size=1024*1024)
+        cache = DiskCache(cache_dir=temp_cache_dir, max_size=1024 * 1024)
 
         cache.set("key1", "value1", ttl=0)
         assert cache.get("key1") is None
 
     def test_file_creation(self, temp_cache_dir):
         """Test cache files are created."""
-        cache = DiskCache(cache_dir=temp_cache_dir, max_size=1024*1024)
+        cache = DiskCache(cache_dir=temp_cache_dir, max_size=1024 * 1024)
 
         cache.set("test_key", "test_value")
 
@@ -154,7 +153,7 @@ class TestDiskCache:
 
     def test_cleanup_expired(self, temp_cache_dir):
         """Test cleanup of expired entries."""
-        cache = DiskCache(cache_dir=temp_cache_dir, max_size=1024*1024)
+        cache = DiskCache(cache_dir=temp_cache_dir, max_size=1024 * 1024)
 
         # Set with immediate expiration
         cache.set("expired", "value", ttl=0)
@@ -180,9 +179,7 @@ class TestHybridCache:
     def test_memory_then_disk(self, temp_cache_dir):
         """Test hybrid cache checks memory first, then disk."""
         cache = HybridCache(
-            memory_max_size=100,
-            disk_cache_dir=temp_cache_dir,
-            disk_max_size=1024*1024
+            memory_max_size=100, disk_cache_dir=temp_cache_dir, disk_max_size=1024 * 1024
         )
 
         # Set in cache (should go to memory)
@@ -200,9 +197,7 @@ class TestHybridCache:
     def test_stats_aggregation(self, temp_cache_dir):
         """Test stats aggregate from both caches."""
         cache = HybridCache(
-            memory_max_size=100,
-            disk_cache_dir=temp_cache_dir,
-            disk_max_size=1024*1024
+            memory_max_size=100, disk_cache_dir=temp_cache_dir, disk_max_size=1024 * 1024
         )
 
         cache.set("key1", "value1")
@@ -274,11 +269,12 @@ class TestRedisCache:
         """Check if Redis is available for testing."""
         try:
             import redis
+
             client = redis.from_url("redis://localhost:6379/15", socket_timeout=1)
             client.ping()
             client.flushdb()  # Clean test database
             return True
-        except:
+        except Exception:
             pytest.skip("Redis not available for testing")
 
     def test_redis_set_get(self, redis_available):
@@ -301,6 +297,7 @@ class TestRedisCache:
         cache.set("test_key", "test_value", ttl=1)
 
         import time
+
         time.sleep(2)
 
         assert cache.get("test_key") is None

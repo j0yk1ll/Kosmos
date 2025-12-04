@@ -19,24 +19,25 @@ Requirements tested:
 - REQ-LLM-012 (MUST): No prompt exposure
 """
 
-import os
-import time
 import json
-import pytest
 import logging
-from typing import Dict, Any, Optional
-from unittest.mock import Mock, patch, MagicMock, call
-from pydantic import BaseModel, ValidationError
+import os
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+from pydantic import BaseModel, Field, ValidationError
 
 
 # ============================================================================
 # REQ-LLM-001: Authenticated Connections (MUST)
 # ============================================================================
 
+
 class TestREQ_LLM_001_AuthenticatedConnections:
     """Test REQ-LLM-001: LLM connections must be properly authenticated."""
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_api_key_required(self, mock_anthropic):
         """Verify API key is required for initialization."""
         from kosmos.core.llm import ClaudeClient
@@ -46,48 +47,48 @@ class TestREQ_LLM_001_AuthenticatedConnections:
             with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
                 ClaudeClient()
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_api_key_from_environment(self, mock_anthropic):
         """Verify API key is loaded from environment variable."""
         from kosmos.core.llm import ClaudeClient
 
-        test_key = 'sk-ant-test-key-12345'
+        test_key = "sk-ant-test-key-12345"
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': test_key}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": test_key}):
             client = ClaudeClient()
             assert client.api_key == test_key
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_api_key_passed_directly(self, mock_anthropic):
         """Verify API key can be passed directly to client."""
         from kosmos.core.llm import ClaudeClient
 
-        test_key = 'sk-ant-direct-key-67890'
+        test_key = "sk-ant-direct-key-67890"
         client = ClaudeClient(api_key=test_key)
 
         assert client.api_key == test_key
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_authenticated_client_creation(self, mock_anthropic):
         """Verify Anthropic client is created with API key."""
         from kosmos.core.llm import ClaudeClient
 
-        test_key = 'sk-ant-test-key-auth'
+        test_key = "sk-ant-test-key-auth"
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': test_key}):
-            client = ClaudeClient()
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": test_key}):
+            ClaudeClient()
 
             # Verify Anthropic client was initialized with API key
             mock_anthropic.assert_called_once_with(api_key=test_key)
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_cli_mode_detection(self, mock_anthropic):
         """Verify CLI mode is detected with special API key format."""
         from kosmos.core.llm import ClaudeClient
 
-        cli_key = '9' * 48  # All 9s indicates CLI mode
+        cli_key = "9" * 48  # All 9s indicates CLI mode
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': cli_key}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": cli_key}):
             client = ClaudeClient()
 
             assert client.is_cli_mode is True
@@ -98,10 +99,11 @@ class TestREQ_LLM_001_AuthenticatedConnections:
 # REQ-LLM-002: Validate Connectivity on Init (MUST)
 # ============================================================================
 
+
 class TestREQ_LLM_002_ValidateConnectivity:
     """Test REQ-LLM-002: System validates LLM connectivity on initialization."""
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_initialization_succeeds_with_valid_setup(self, mock_anthropic):
         """Verify initialization succeeds with valid configuration."""
         from kosmos.core.llm import ClaudeClient
@@ -110,14 +112,14 @@ class TestREQ_LLM_002_ValidateConnectivity:
         mock_client = MagicMock()
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-valid-key'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-valid-key"}):
             client = ClaudeClient()
 
             # Should successfully initialize
             assert client.client is not None
             assert client.client == mock_client
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_initialization_fails_with_invalid_client(self, mock_anthropic):
         """Verify initialization fails gracefully with invalid client setup."""
         from kosmos.core.llm import ClaudeClient
@@ -125,22 +127,21 @@ class TestREQ_LLM_002_ValidateConnectivity:
         # Mock failed client creation
         mock_anthropic.side_effect = Exception("Connection failed")
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-invalid'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-invalid"}):
             with pytest.raises(Exception, match="Connection failed"):
                 ClaudeClient()
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_provider_detection_from_config(self, mock_anthropic):
         """Test provider detection from configuration."""
-        from kosmos.core.llm import get_client
         from kosmos.config import reset_config
+        from kosmos.core.llm import get_client
 
         reset_config()
 
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test-key',
-            'LLM_PROVIDER': 'anthropic'
-        }):
+        with patch.dict(
+            os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test-key", "LLM_PROVIDER": "anthropic"}
+        ):
             # This tests that get_client validates provider config
             try:
                 client = get_client(reset=True, use_provider_system=False)
@@ -156,10 +157,11 @@ class TestREQ_LLM_002_ValidateConnectivity:
 # REQ-LLM-003: Retry Logic with Exponential Backoff (MUST)
 # ============================================================================
 
+
 class TestREQ_LLM_003_RetryLogicExponentialBackoff:
     """Test REQ-LLM-003: System implements retry logic with exponential backoff."""
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_retry_on_temporary_failure(self, mock_anthropic):
         """Verify system retries on temporary failures."""
         from kosmos.core.llm import ClaudeClient
@@ -173,13 +175,13 @@ class TestREQ_LLM_003_RetryLogicExponentialBackoff:
         mock_client.messages.create.side_effect = [
             Exception("Rate limit"),
             Exception("Rate limit"),
-            mock_response
+            mock_response,
         ]
 
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
-            client = ClaudeClient()
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
+            ClaudeClient()
 
             # Note: ClaudeClient doesn't implement retry logic itself
             # This would be tested in a wrapper that adds retry logic
@@ -187,10 +189,13 @@ class TestREQ_LLM_003_RetryLogicExponentialBackoff:
 
     def test_exponential_backoff_timing(self):
         """Test exponential backoff calculation pattern."""
+
         # Test the exponential backoff pattern: 1s, 2s, 4s, 8s, etc.
-        def calculate_backoff(attempt: int, base_delay: float = 1.0, max_delay: float = 60.0) -> float:
+        def calculate_backoff(
+            attempt: int, base_delay: float = 1.0, max_delay: float = 60.0
+        ) -> float:
             """Calculate exponential backoff delay."""
-            delay = base_delay * (2 ** attempt)
+            delay = base_delay * (2**attempt)
             return min(delay, max_delay)
 
         # Verify exponential growth
@@ -210,10 +215,10 @@ class TestREQ_LLM_003_RetryLogicExponentialBackoff:
             attempt: int,
             base_delay: float = 1.0,
             max_delay: float = 60.0,
-            jitter_factor: float = 0.1
+            jitter_factor: float = 0.1,
         ) -> float:
             """Calculate exponential backoff with jitter."""
-            delay = base_delay * (2 ** attempt)
+            delay = base_delay * (2**attempt)
             delay = min(delay, max_delay)
 
             # Add random jitter (±10%)
@@ -232,10 +237,11 @@ class TestREQ_LLM_003_RetryLogicExponentialBackoff:
 # REQ-LLM-004: Graceful Error Handling (MUST)
 # ============================================================================
 
+
 class TestREQ_LLM_004_GracefulErrorHandling:
     """Test REQ-LLM-004: System handles LLM errors gracefully."""
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_handles_api_error_gracefully(self, mock_anthropic):
         """Verify API errors are handled gracefully."""
         from kosmos.core.llm import ClaudeClient
@@ -244,13 +250,13 @@ class TestREQ_LLM_004_GracefulErrorHandling:
         mock_client.messages.create.side_effect = Exception("API Error")
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
-            with pytest.raises(Exception):
+            with pytest.raises((AttributeError, ImportError, RuntimeError)):
                 client.generate("test prompt")
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_handles_network_error(self, mock_anthropic):
         """Verify network errors are handled gracefully."""
         from kosmos.core.llm import ClaudeClient
@@ -259,13 +265,13 @@ class TestREQ_LLM_004_GracefulErrorHandling:
         mock_client.messages.create.side_effect = ConnectionError("Network unreachable")
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
             with pytest.raises((ConnectionError, Exception)):
                 client.generate("test prompt")
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_error_logging(self, mock_anthropic, caplog):
         """Verify errors are properly logged."""
         from kosmos.core.llm import ClaudeClient
@@ -275,17 +281,19 @@ class TestREQ_LLM_004_GracefulErrorHandling:
         mock_client.messages.create.side_effect = Exception(error_msg)
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
             with caplog.at_level(logging.ERROR):
-                with pytest.raises(Exception):
+                with pytest.raises((AttributeError, ImportError, RuntimeError)):
                     client.generate("test prompt")
 
                 # Verify error was logged
-                assert any("Claude generation failed" in record.message for record in caplog.records)
+                assert any(
+                    "Claude generation failed" in record.message for record in caplog.records
+                )
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_handles_invalid_response_structure(self, mock_anthropic):
         """Verify system handles malformed responses."""
         from kosmos.core.llm import ClaudeClient
@@ -299,7 +307,7 @@ class TestREQ_LLM_004_GracefulErrorHandling:
         mock_client.messages.create.return_value = mock_response
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
             # Should handle malformed response gracefully
@@ -311,6 +319,7 @@ class TestREQ_LLM_004_GracefulErrorHandling:
 # REQ-LLM-005: Parse to Structured Data (Pydantic) (MUST)
 # ============================================================================
 
+
 class TestREQ_LLM_005_ParseStructuredData:
     """Test REQ-LLM-005: System parses LLM output to structured data using Pydantic."""
 
@@ -320,6 +329,7 @@ class TestREQ_LLM_005_ParseStructuredData:
 
         class HypothesisOutput(BaseModel):
             """Example Pydantic model for LLM output."""
+
             hypothesis: str = Field(..., description="The hypothesis text")
             confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
             evidence: list[str] = Field(default_factory=list, description="Supporting evidence")
@@ -328,7 +338,7 @@ class TestREQ_LLM_005_ParseStructuredData:
         valid_data = {
             "hypothesis": "Test hypothesis",
             "confidence": 0.85,
-            "evidence": ["Evidence 1", "Evidence 2"]
+            "evidence": ["Evidence 1", "Evidence 2"],
         }
 
         model = HypothesisOutput(**valid_data)
@@ -351,7 +361,7 @@ class TestREQ_LLM_005_ParseStructuredData:
         with pytest.raises(ValidationError):
             StrictModel(score="not a number")
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_structured_generation_with_schema(self, mock_anthropic):
         """Test generating structured output with JSON schema."""
         from kosmos.core.llm import ClaudeClient
@@ -366,15 +376,12 @@ class TestREQ_LLM_005_ParseStructuredData:
         mock_client.messages.create.return_value = mock_response
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
             schema = {
                 "type": "object",
-                "properties": {
-                    "result": {"type": "string"},
-                    "confidence": {"type": "number"}
-                }
+                "properties": {"result": {"type": "string"}, "confidence": {"type": "number"}},
             }
 
             result = client.generate_structured("test prompt", schema)
@@ -383,7 +390,7 @@ class TestREQ_LLM_005_ParseStructuredData:
             assert result["result"] == "test"
             assert result["confidence"] == 0.9
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_json_extraction_from_markdown(self, mock_anthropic):
         """Test extracting JSON from markdown code blocks."""
         from kosmos.core.llm import ClaudeClient
@@ -400,7 +407,7 @@ class TestREQ_LLM_005_ParseStructuredData:
         mock_client.messages.create.return_value = mock_response
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
             result = client.generate_structured("test", {"type": "object"})
@@ -411,6 +418,7 @@ class TestREQ_LLM_005_ParseStructuredData:
 # ============================================================================
 # REQ-LLM-006: Distinguish Output Types >95% (MUST)
 # ============================================================================
+
 
 class TestREQ_LLM_006_DistinguishOutputTypes:
     """Test REQ-LLM-006: System distinguishes different output types with >95% accuracy."""
@@ -423,7 +431,7 @@ class TestREQ_LLM_006_DistinguishOutputTypes:
             text_lower = text.lower()
 
             # JSON detection
-            if text.strip().startswith('{') and text.strip().endswith('}'):
+            if text.strip().startswith("{") and text.strip().endswith("}"):
                 return "json"
             if "```json" in text:
                 return "json"
@@ -433,11 +441,17 @@ class TestREQ_LLM_006_DistinguishOutputTypes:
                 return "code"
 
             # Hypothesis detection
-            if any(keyword in text_lower for keyword in ["hypothesis:", "we hypothesize", "propose that"]):
+            if any(
+                keyword in text_lower
+                for keyword in ["hypothesis:", "we hypothesize", "propose that"]
+            ):
                 return "hypothesis"
 
             # Analysis detection
-            if any(keyword in text_lower for keyword in ["analysis:", "results show", "findings indicate"]):
+            if any(
+                keyword in text_lower
+                for keyword in ["analysis:", "results show", "findings indicate"]
+            ):
                 return "analysis"
 
             # Default to text
@@ -447,9 +461,9 @@ class TestREQ_LLM_006_DistinguishOutputTypes:
         assert classify_output_type('{"key": "value"}') == "json"
         assert classify_output_type('```json\n{"test": 1}\n```') == "json"
         assert classify_output_type('```python\nprint("hello")\n```') == "code"
-        assert classify_output_type('Hypothesis: Dark matter exists') == "hypothesis"
-        assert classify_output_type('Analysis: The results show...') == "analysis"
-        assert classify_output_type('This is plain text') == "text"
+        assert classify_output_type("Hypothesis: Dark matter exists") == "hypothesis"
+        assert classify_output_type("Analysis: The results show...") == "analysis"
+        assert classify_output_type("This is plain text") == "text"
 
     def test_structured_vs_unstructured_detection(self):
         """Test distinguishing structured from unstructured output."""
@@ -459,8 +473,9 @@ class TestREQ_LLM_006_DistinguishOutputTypes:
             text = text.strip()
 
             # Check for JSON
-            if (text.startswith('{') and text.endswith('}')) or \
-               (text.startswith('[') and text.endswith(']')):
+            if (text.startswith("{") and text.endswith("}")) or (
+                text.startswith("[") and text.endswith("]")
+            ):
                 try:
                     json.loads(text)
                     return True
@@ -480,20 +495,20 @@ class TestREQ_LLM_006_DistinguishOutputTypes:
         # Test cases
         assert is_structured_output('{"structured": true}') is True
         assert is_structured_output('```json\n{"test": 1}\n```') is True
-        assert is_structured_output('Plain text response') is False
-        assert is_structured_output('This is a paragraph.') is False
+        assert is_structured_output("Plain text response") is False
+        assert is_structured_output("This is a paragraph.") is False
 
     def test_confidence_in_classification(self):
         """Test that output type classification includes confidence scores."""
 
-        def classify_with_confidence(text: str) -> Dict[str, Any]:
+        def classify_with_confidence(text: str) -> dict[str, Any]:
             """Classify output with confidence score."""
             text_lower = text.lower()
             confidence = 0.0
             output_type = "unknown"
 
             # High confidence JSON
-            if text.strip().startswith('{') and text.strip().endswith('}'):
+            if text.strip().startswith("{") and text.strip().endswith("}"):
                 try:
                     json.loads(text)
                     output_type = "json"
@@ -533,39 +548,40 @@ class TestREQ_LLM_006_DistinguishOutputTypes:
 # REQ-LLM-007: Prompt Caching (MUST)
 # ============================================================================
 
+
 class TestREQ_LLM_007_PromptCaching:
     """Test REQ-LLM-007: System implements prompt caching to reduce costs."""
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_cache_enabled_by_default(self, mock_anthropic):
         """Verify caching is enabled by default."""
         from kosmos.core.llm import ClaudeClient
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
             assert client.enable_cache is True
             assert client.cache is not None
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_cache_can_be_disabled(self, mock_anthropic):
         """Verify caching can be disabled."""
         from kosmos.core.llm import ClaudeClient
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient(enable_cache=False)
 
             assert client.enable_cache is False
 
-    @patch('kosmos.core.llm.Anthropic')
-    @patch('kosmos.core.llm.get_claude_cache')
+    @patch("kosmos.core.llm.Anthropic")
+    @patch("kosmos.core.llm.get_claude_cache")
     def test_cache_hit_on_duplicate_request(self, mock_get_cache, mock_anthropic):
         """Verify cache returns cached response for duplicate requests."""
         from kosmos.core.llm import ClaudeClient
 
         # Mock cache
         mock_cache = MagicMock()
-        cached_response = {'response': 'Cached response', 'cache_hit_type': 'exact'}
+        cached_response = {"response": "Cached response", "cache_hit_type": "exact"}
         mock_cache.get.return_value = cached_response
         mock_get_cache.return_value = mock_cache
 
@@ -573,19 +589,19 @@ class TestREQ_LLM_007_PromptCaching:
         mock_client = MagicMock()
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
             response = client.generate("test prompt")
 
             # Should return cached response
-            assert response == 'Cached response'
+            assert response == "Cached response"
 
             # API should not have been called
             mock_client.messages.create.assert_not_called()
 
-    @patch('kosmos.core.llm.Anthropic')
-    @patch('kosmos.core.llm.get_claude_cache')
+    @patch("kosmos.core.llm.Anthropic")
+    @patch("kosmos.core.llm.get_claude_cache")
     def test_cache_miss_calls_api(self, mock_get_cache, mock_anthropic):
         """Verify cache miss results in API call."""
         from kosmos.core.llm import ClaudeClient
@@ -604,10 +620,10 @@ class TestREQ_LLM_007_PromptCaching:
         mock_client.messages.create.return_value = mock_response
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
-            response = client.generate("new prompt")
+            client.generate("new prompt")
 
             # Should call API
             mock_client.messages.create.assert_called_once()
@@ -615,12 +631,12 @@ class TestREQ_LLM_007_PromptCaching:
             # Should cache the response
             mock_cache.set.assert_called_once()
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_cache_statistics_tracking(self, mock_anthropic):
         """Verify cache hit/miss statistics are tracked."""
         from kosmos.core.llm import ClaudeClient
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
             # Initially should have zero stats
@@ -636,50 +652,51 @@ class TestREQ_LLM_007_PromptCaching:
 # REQ-LLM-008: No API Key Exposure (MUST)
 # ============================================================================
 
+
 class TestREQ_LLM_008_NoAPIKeyExposure:
     """Test REQ-LLM-008: System never exposes API keys in logs or outputs."""
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_api_key_not_in_logs(self, mock_anthropic, caplog):
         """Verify API key is not logged."""
         from kosmos.core.llm import ClaudeClient
 
-        test_key = 'sk-ant-secret-key-12345'
+        test_key = "sk-ant-secret-key-12345"
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': test_key}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": test_key}):
             with caplog.at_level(logging.DEBUG):
-                client = ClaudeClient()
+                ClaudeClient()
 
                 # Check all log messages
                 for record in caplog.records:
                     assert test_key not in record.message, "API key found in logs!"
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_api_key_not_in_repr(self, mock_anthropic):
         """Verify API key is not in string representation."""
         from kosmos.core.llm import ClaudeClient
 
-        test_key = 'sk-ant-secret-key-67890'
+        test_key = "sk-ant-secret-key-67890"
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': test_key}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": test_key}):
             client = ClaudeClient()
 
             # String representation should not contain full API key
-            repr_str = str(client.__dict__)
+            str(client.__dict__)
             # Note: API key might be stored internally, but should be masked in any output
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_api_key_not_in_error_messages(self, mock_anthropic):
         """Verify API key is not included in error messages."""
         from kosmos.core.llm import ClaudeClient
 
-        test_key = 'sk-ant-secret-error-test'
+        test_key = "sk-ant-secret-error-test"
 
         mock_client = MagicMock()
         mock_client.messages.create.side_effect = Exception("API call failed")
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': test_key}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": test_key}):
             client = ClaudeClient()
 
             try:
@@ -712,6 +729,7 @@ class TestREQ_LLM_008_NoAPIKeyExposure:
 # REQ-LLM-009: No Raw Sensitive Data (MUST)
 # ============================================================================
 
+
 class TestREQ_LLM_009_NoRawSensitiveData:
     """Test REQ-LLM-009: System never sends raw sensitive data to LLM."""
 
@@ -722,15 +740,15 @@ class TestREQ_LLM_009_NoRawSensitiveData:
         def contains_pii(text: str) -> bool:
             """Detect potential PII in text."""
             # Email pattern
-            if re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text):
+            if re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", text):
                 return True
 
             # Phone pattern
-            if re.search(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b', text):
+            if re.search(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b", text):
                 return True
 
             # SSN pattern
-            if re.search(r'\b\d{3}-\d{2}-\d{4}\b', text):
+            if re.search(r"\b\d{3}-\d{2}-\d{4}\b", text):
                 return True
 
             return False
@@ -750,24 +768,14 @@ class TestREQ_LLM_009_NoRawSensitiveData:
 
             # Redact emails
             text = re.sub(
-                r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-                '[EMAIL_REDACTED]',
-                text
+                r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL_REDACTED]", text
             )
 
             # Redact phone numbers
-            text = re.sub(
-                r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b',
-                '[PHONE_REDACTED]',
-                text
-            )
+            text = re.sub(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b", "[PHONE_REDACTED]", text)
 
             # Redact API keys
-            text = re.sub(
-                r'sk-[a-zA-Z0-9]{40,}',
-                '[API_KEY_REDACTED]',
-                text
-            )
+            text = re.sub(r"sk-[a-zA-Z0-9]{40,}", "[API_KEY_REDACTED]", text)
 
             return text
 
@@ -784,36 +792,32 @@ class TestREQ_LLM_009_NoRawSensitiveData:
     def test_data_anonymization(self):
         """Test anonymization of data before LLM processing."""
 
-        def anonymize_data(data: Dict[str, Any]) -> Dict[str, Any]:
+        def anonymize_data(data: dict[str, Any]) -> dict[str, Any]:
             """Anonymize sensitive fields in data."""
-            sensitive_fields = ['email', 'phone', 'ssn', 'api_key', 'password']
+            sensitive_fields = ["email", "phone", "ssn", "api_key", "password"]
 
             anonymized = data.copy()
             for field in sensitive_fields:
                 if field in anonymized:
-                    anonymized[field] = f'[{field.upper()}_REDACTED]'
+                    anonymized[field] = f"[{field.upper()}_REDACTED]"
 
             return anonymized
 
         # Test anonymization
-        data = {
-            'name': 'Test User',
-            'email': 'test@example.com',
-            'phone': '555-1234',
-            'result': 42
-        }
+        data = {"name": "Test User", "email": "test@example.com", "phone": "555-1234", "result": 42}
 
         anonymized = anonymize_data(data)
 
-        assert anonymized['name'] == 'Test User'  # Not sensitive
-        assert anonymized['result'] == 42  # Not sensitive
-        assert anonymized['email'] == '[EMAIL_REDACTED]'
-        assert anonymized['phone'] == '[PHONE_REDACTED]'
+        assert anonymized["name"] == "Test User"  # Not sensitive
+        assert anonymized["result"] == 42  # Not sensitive
+        assert anonymized["email"] == "[EMAIL_REDACTED]"
+        assert anonymized["phone"] == "[PHONE_REDACTED]"
 
 
 # ============================================================================
 # REQ-LLM-010: No Unvalidated Ground Truth (MUST)
 # ============================================================================
+
 
 class TestREQ_LLM_010_NoUnvalidatedGroundTruth:
     """Test REQ-LLM-010: System never uses unvalidated LLM outputs as ground truth."""
@@ -824,7 +828,7 @@ class TestREQ_LLM_010_NoUnvalidatedGroundTruth:
         class LLMOutput(BaseModel):
             content: str
             validated: bool = False
-            validation_score: Optional[float] = None
+            validation_score: float | None = None
 
         # Unvalidated output
         output = LLMOutput(content="LLM generated result")
@@ -832,37 +836,35 @@ class TestREQ_LLM_010_NoUnvalidatedGroundTruth:
 
         # Validated output
         validated_output = LLMOutput(
-            content="Validated result",
-            validated=True,
-            validation_score=0.95
+            content="Validated result", validated=True, validation_score=0.95
         )
         assert validated_output.validated is True
 
     def test_validation_required_before_use(self):
         """Test that validation is enforced before using results."""
 
-        def use_result(result: Dict[str, Any]) -> str:
+        def use_result(result: dict[str, Any]) -> str:
             """Use result only if validated."""
-            if not result.get('validated', False):
+            if not result.get("validated", False):
                 raise ValueError("Result must be validated before use")
 
-            return result['content']
+            return result["content"]
 
         # Should reject unvalidated
         with pytest.raises(ValueError, match="must be validated"):
-            use_result({'content': 'test', 'validated': False})
+            use_result({"content": "test", "validated": False})
 
         # Should accept validated
-        result = use_result({'content': 'test', 'validated': True})
-        assert result == 'test'
+        result = use_result({"content": "test", "validated": True})
+        assert result == "test"
 
     def test_multiple_validation_sources(self):
         """Test that outputs are validated against multiple sources."""
 
-        def validate_output(llm_output: str, sources: list[str]) -> Dict[str, Any]:
+        def validate_output(llm_output: str, sources: list[str]) -> dict[str, Any]:
             """Validate LLM output against multiple sources."""
             if len(sources) < 2:
-                return {'validated': False, 'reason': 'Insufficient sources'}
+                return {"validated": False, "reason": "Insufficient sources"}
 
             # Simple agreement check (would be more sophisticated in practice)
             agreement_count = sum(1 for s in sources if llm_output.lower() in s.lower())
@@ -871,31 +873,30 @@ class TestREQ_LLM_010_NoUnvalidatedGroundTruth:
             confidence = agreement_count / len(sources)
 
             return {
-                'validated': validated,
-                'confidence': confidence,
-                'sources_checked': len(sources),
-                'sources_agreeing': agreement_count
+                "validated": validated,
+                "confidence": confidence,
+                "sources_checked": len(sources),
+                "sources_agreeing": agreement_count,
             }
 
         # Test with agreement
         result = validate_output(
-            "The sky is blue",
-            ["The sky is blue.", "Blue sky", "Sky appears blue"]
+            "The sky is blue", ["The sky is blue.", "Blue sky", "Sky appears blue"]
         )
-        assert result['validated'] is True
-        assert result['sources_agreeing'] >= 2
+        assert result["validated"] is True
+        assert result["sources_agreeing"] >= 2
 
         # Test without agreement
         result = validate_output(
-            "The sky is green",
-            ["The sky is blue.", "Blue sky", "Sky appears blue"]
+            "The sky is green", ["The sky is blue.", "Blue sky", "Sky appears blue"]
         )
-        assert result['validated'] is False
+        assert result["validated"] is False
 
 
 # ============================================================================
 # REQ-LLM-011: Retry Limit Enforcement (MUST)
 # ============================================================================
+
 
 class TestREQ_LLM_011_RetryLimitEnforcement:
     """Test REQ-LLM-011: System enforces maximum retry limits."""
@@ -930,17 +931,17 @@ class TestREQ_LLM_011_RetryLimitEnforcement:
                     # Continue to next retry
 
         # Test successful case
-        counter = {'attempts': 0}
+        counter = {"attempts": 0}
 
         def succeeds_on_second():
-            counter['attempts'] += 1
-            if counter['attempts'] < 2:
+            counter["attempts"] += 1
+            if counter["attempts"] < 2:
                 raise Exception("Temporary failure")
             return "Success"
 
         result = retry_with_limit(succeeds_on_second, max_retries=3)
         assert result == "Success"
-        assert counter['attempts'] == 2
+        assert counter["attempts"] == 2
 
         # Test failure case
         def always_fails():
@@ -969,7 +970,7 @@ class TestREQ_LLM_011_RetryLimitEnforcement:
                     try:
                         result = func()
                         return result
-                    except Exception as e:
+                    except Exception:
                         if self.attempt_count > self.max_retries:
                             raise
                         self.retry_count += 1
@@ -977,11 +978,11 @@ class TestREQ_LLM_011_RetryLimitEnforcement:
         tracker = RetryTracker(max_retries=3)
 
         # Track successful retry
-        attempts = {'count': 0}
+        attempts = {"count": 0}
 
         def succeed_on_third():
-            attempts['count'] += 1
-            if attempts['count'] < 3:
+            attempts["count"] += 1
+            if attempts["count"] < 3:
                 raise Exception("Not yet")
             return "Done"
 
@@ -996,10 +997,11 @@ class TestREQ_LLM_011_RetryLimitEnforcement:
 # REQ-LLM-012: No Prompt Exposure (MUST)
 # ============================================================================
 
+
 class TestREQ_LLM_012_NoPromptExposure:
     """Test REQ-LLM-012: System protects prompts from exposure in logs/outputs."""
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_prompts_not_in_standard_logs(self, mock_anthropic, caplog):
         """Verify prompts are not logged at standard log levels."""
         from kosmos.core.llm import ClaudeClient
@@ -1012,7 +1014,7 @@ class TestREQ_LLM_012_NoPromptExposure:
         mock_client.messages.create.return_value = mock_response
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             client = ClaudeClient()
 
             sensitive_prompt = "Secret research question about proprietary data"
@@ -1022,7 +1024,7 @@ class TestREQ_LLM_012_NoPromptExposure:
 
                 # Prompt should not appear in INFO level logs
                 for record in caplog.records:
-                    if record.levelname in ['INFO', 'WARNING', 'ERROR']:
+                    if record.levelname in ["INFO", "WARNING", "ERROR"]:
                         assert sensitive_prompt not in record.message
 
     def test_prompt_sanitization_for_logging(self):
@@ -1036,8 +1038,13 @@ class TestREQ_LLM_012_NoPromptExposure:
 
             # Redact sensitive patterns
             import re
-            sanitized = re.sub(r'api[_-]?key[=:]\s*\S+', 'api_key=[REDACTED]', prompt, flags=re.IGNORECASE)
-            sanitized = re.sub(r'password[=:]\s*\S+', 'password=[REDACTED]', sanitized, flags=re.IGNORECASE)
+
+            sanitized = re.sub(
+                r"api[_-]?key[=:]\s*\S+", "api_key=[REDACTED]", prompt, flags=re.IGNORECASE
+            )
+            sanitized = re.sub(
+                r"password[=:]\s*\S+", "password=[REDACTED]", sanitized, flags=re.IGNORECASE
+            )
 
             return sanitized
 
@@ -1075,10 +1082,11 @@ class TestREQ_LLM_012_NoPromptExposure:
 # Integration Tests
 # ============================================================================
 
+
 class TestLLMIntegration:
     """Integration tests for LLM requirements."""
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_full_llm_workflow_with_security(self, mock_anthropic):
         """Test complete LLM workflow with security measures."""
         from kosmos.core.llm import ClaudeClient
@@ -1092,7 +1100,7 @@ class TestLLMIntegration:
         mock_client.messages.create.return_value = mock_response
         mock_anthropic.return_value = mock_client
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-secure-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-secure-test"}):
             # Initialize with caching
             client = ClaudeClient(enable_cache=True)
 
@@ -1108,7 +1116,7 @@ class TestLLMIntegration:
             stats = client.get_usage_stats()
             assert stats["total_requests"] > 0
 
-    @patch('kosmos.core.llm.Anthropic')
+    @patch("kosmos.core.llm.Anthropic")
     def test_multi_provider_support(self, mock_anthropic):
         """Test that system supports multiple LLM providers."""
         from kosmos.config import get_config, reset_config
@@ -1116,22 +1124,18 @@ class TestLLMIntegration:
         reset_config()
 
         # Test Anthropic provider
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test',
-            'LLM_PROVIDER': 'anthropic'
-        }):
+        with patch.dict(
+            os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test", "LLM_PROVIDER": "anthropic"}
+        ):
             config = get_config(reload=True)
-            assert config.llm_provider == 'anthropic'
+            assert config.llm_provider == "anthropic"
 
         reset_config()
 
         # Test OpenAI provider config
-        with patch.dict(os.environ, {
-            'OPENAI_API_KEY': 'sk-openai-test',
-            'LLM_PROVIDER': 'openai'
-        }):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-openai-test", "LLM_PROVIDER": "openai"}):
             config = get_config(reload=True)
-            assert config.llm_provider == 'openai'
+            assert config.llm_provider == "openai"
 
         reset_config()
 

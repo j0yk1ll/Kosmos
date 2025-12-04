@@ -6,28 +6,31 @@ memory profiling, and bottleneck detection for experiments and workflows.
 """
 
 import cProfile
-import pstats
-import tracemalloc
-import time
 import io
 import logging
+import pstats
+import time
+import tracemalloc
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Dict, Any, List, Optional, Callable, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict, field_serializer
+from pydantic import BaseModel, Field, field_serializer
+
 
 logger = logging.getLogger(__name__)
 
 
 class ProfilingMode(str, Enum):
     """Profiling mode enumeration."""
-    LIGHT = "light"          # Basic timing + memory (~1% overhead)
-    STANDARD = "standard"    # + cProfile (~5% overhead)
-    FULL = "full"            # + line profiling (~10-15% overhead)
+
+    LIGHT = "light"  # Basic timing + memory (~1% overhead)
+    STANDARD = "standard"  # + cProfile (~5% overhead)
+    FULL = "full"  # + line profiling (~10-15% overhead)
 
 
 class Bottleneck(BaseModel):
@@ -48,7 +51,7 @@ class Bottleneck(BaseModel):
         module_name: str,
         cumulative_time: float,
         total_time: float,
-        call_count: int
+        call_count: int,
     ) -> "Bottleneck":
         """Create bottleneck from profiling stats."""
         time_percent = (cumulative_time / total_time * 100) if total_time > 0 else 0
@@ -71,7 +74,7 @@ class Bottleneck(BaseModel):
             time_percent=time_percent,
             call_count=call_count,
             per_call_time=per_call_ms,
-            severity=severity
+            severity=severity,
         )
 
 
@@ -97,45 +100,37 @@ class ProfileResult(BaseModel):
     memory_start_mb: float = Field(description="Starting memory usage (MB)")
     memory_end_mb: float = Field(description="Ending memory usage (MB)")
     memory_allocated_mb: float = Field(description="Total memory allocated (MB)")
-    memory_snapshots: List[MemorySnapshot] = Field(
-        default_factory=list,
-        description="Memory usage over time"
+    memory_snapshots: list[MemorySnapshot] = Field(
+        default_factory=list, description="Memory usage over time"
     )
 
     # Function call statistics
-    function_calls: Dict[str, int] = Field(
-        default_factory=dict,
-        description="Function call counts"
-    )
-    function_times: Dict[str, float] = Field(
-        default_factory=dict,
-        description="Function cumulative times"
+    function_calls: dict[str, int] = Field(default_factory=dict, description="Function call counts")
+    function_times: dict[str, float] = Field(
+        default_factory=dict, description="Function cumulative times"
     )
 
     # Bottlenecks
-    bottlenecks: List[Bottleneck] = Field(
-        default_factory=list,
-        description="Detected performance bottlenecks"
+    bottlenecks: list[Bottleneck] = Field(
+        default_factory=list, description="Detected performance bottlenecks"
     )
 
     # Metadata
     profiling_mode: ProfilingMode = Field(description="Profiling mode used")
     profiler_overhead_ms: float = Field(
-        default=0.0,
-        description="Estimated profiler overhead (milliseconds)"
+        default=0.0, description="Estimated profiler overhead (milliseconds)"
     )
-    started_at: Optional[datetime] = Field(default=None, description="Start time")
-    completed_at: Optional[datetime] = Field(default=None, description="Completion time")
+    started_at: datetime | None = Field(default=None, description="Start time")
+    completed_at: datetime | None = Field(default=None, description="Completion time")
 
     # Additional data
-    profile_data: Optional[str] = Field(
-        default=None,
-        description="Raw profiling data (cProfile stats)"
+    profile_data: str | None = Field(
+        default=None, description="Raw profiling data (cProfile stats)"
     )
 
-    @field_serializer('started_at', 'completed_at')
+    @field_serializer("started_at", "completed_at")
     @classmethod
-    def serialize_datetime(cls, v: Optional[datetime]) -> Optional[str]:
+    def serialize_datetime(cls, v: datetime | None) -> str | None:
         """Serialize datetime fields to ISO format."""
         return v.isoformat() if v else None
 
@@ -144,11 +139,11 @@ class ProfileResult(BaseModel):
 class ProfilingContext:
     """Context for active profiling session."""
 
-    profiler: Optional[cProfile.Profile] = None
+    profiler: cProfile.Profile | None = None
     start_time: float = 0.0
     start_cpu_time: float = 0.0
     memory_tracking: bool = False
-    snapshots: List[MemorySnapshot] = field(default_factory=list)
+    snapshots: list[MemorySnapshot] = field(default_factory=list)
     mode: ProfilingMode = ProfilingMode.LIGHT
 
 
@@ -182,7 +177,7 @@ class ExecutionProfiler:
         self,
         mode: ProfilingMode = ProfilingMode.LIGHT,
         bottleneck_threshold_percent: float = 10.0,
-        enable_memory_tracking: bool = True
+        enable_memory_tracking: bool = True,
     ):
         """
         Initialize profiler.
@@ -195,8 +190,8 @@ class ExecutionProfiler:
         self.mode = mode
         self.bottleneck_threshold = bottleneck_threshold_percent
         self.enable_memory_tracking = enable_memory_tracking
-        self._context: Optional[ProfilingContext] = None
-        self._result: Optional[ProfileResult] = None
+        self._context: ProfilingContext | None = None
+        self._result: ProfileResult | None = None
 
     @contextmanager
     def profile_context(self):
@@ -219,12 +214,7 @@ class ExecutionProfiler:
         finally:
             self._stop_profiling()
 
-    def profile_function(
-        self,
-        func: Callable,
-        *args,
-        **kwargs
-    ) -> Tuple[Any, ProfileResult]:
+    def profile_function(self, func: Callable, *args, **kwargs) -> tuple[Any, ProfileResult]:
         """
         Profile a single function call.
 
@@ -249,10 +239,7 @@ class ExecutionProfiler:
         return result, self.get_result()
 
     def profile_experiment(
-        self,
-        experiment_id: str,
-        code: str,
-        local_vars: Optional[Dict[str, Any]] = None
+        self, experiment_id: str, code: str, local_vars: dict[str, Any] | None = None
     ) -> ProfileResult:
         """
         Profile experiment code execution.
@@ -342,7 +329,7 @@ class ExecutionProfiler:
             memory_allocated_mb=memory_allocated_mb,
             profiling_mode=self.mode,
             started_at=datetime.fromtimestamp(self._context.start_time),
-            completed_at=datetime.fromtimestamp(end_time)
+            completed_at=datetime.fromtimestamp(end_time),
         )
 
         # Process detailed stats for standard and full modes
@@ -358,7 +345,7 @@ class ExecutionProfiler:
         function_calls = {}
         function_times = {}
 
-        for func, (cc, nc, tt, ct, callers) in stats.stats.items():
+        for func, (_cc, nc, _tt, ct, _callers) in stats.stats.items():
             func_name = self._format_func_name(func)
             function_calls[func_name] = nc
             function_times[func_name] = ct
@@ -373,15 +360,11 @@ class ExecutionProfiler:
         if self.mode == ProfilingMode.FULL:
             stream = io.StringIO()
             ps = pstats.Stats(stats.stream, stream=stream)
-            ps.sort_stats('cumulative')
+            ps.sort_stats("cumulative")
             ps.print_stats(50)  # Top 50 functions
             self._result.profile_data = stream.getvalue()
 
-    def _detect_bottlenecks(
-        self,
-        stats: pstats.Stats,
-        top_n: int = 20
-    ) -> List[Bottleneck]:
+    def _detect_bottlenecks(self, stats: pstats.Stats, top_n: int = 20) -> list[Bottleneck]:
         """
         Detect performance bottlenecks.
 
@@ -402,13 +385,11 @@ class ExecutionProfiler:
 
         # Sort by cumulative time
         sorted_stats = sorted(
-            stats.stats.items(),
-            key=lambda x: x[1][3],  # cumulative time
-            reverse=True
+            stats.stats.items(), key=lambda x: x[1][3], reverse=True  # cumulative time
         )
 
         # Analyze top functions
-        for func, (cc, nc, tt, ct, callers) in sorted_stats[:top_n]:
+        for func, (_cc, nc, _tt, ct, _callers) in sorted_stats[:top_n]:
             time_percent = (ct / total_time * 100) if total_time > 0 else 0
 
             # Only flag as bottleneck if above threshold
@@ -423,7 +404,7 @@ class ExecutionProfiler:
                 module_name=module_name,
                 cumulative_time=ct,
                 total_time=total_time,
-                call_count=nc
+                call_count=nc,
             )
 
             bottlenecks.append(bottleneck)
@@ -441,7 +422,7 @@ class ExecutionProfiler:
             return f"{filename}:{line}:{name}"
         return str(func)
 
-    def get_result(self) -> Optional[ProfileResult]:
+    def get_result(self) -> ProfileResult | None:
         """
         Get profiling result.
 
@@ -459,8 +440,8 @@ class ExecutionProfiler:
 def profile_experiment_execution(
     experiment_id: str,
     code: str,
-    data_path: Optional[str] = None,
-    mode: ProfilingMode = ProfilingMode.STANDARD
+    data_path: str | None = None,
+    mode: ProfilingMode = ProfilingMode.STANDARD,
 ) -> ProfileResult:
     """
     Convenience function to profile an experiment execution.
@@ -489,9 +470,7 @@ def profile_experiment_execution(
     local_vars = {"data_path": data_path} if data_path else {}
 
     return profiler.profile_experiment(
-        experiment_id=experiment_id,
-        code=code,
-        local_vars=local_vars
+        experiment_id=experiment_id, code=code, local_vars=local_vars
     )
 
 

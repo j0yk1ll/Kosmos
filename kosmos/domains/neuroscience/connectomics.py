@@ -25,19 +25,21 @@ Example usage:
     comparison = analyzer.cross_species_comparison(datasets)
 """
 
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
-import pandas as pd
+from typing import Any
+
 import numpy as np
-from scipy.stats import spearmanr, linregress
-from pydantic import BaseModel, Field
+import pandas as pd
+from scipy.stats import linregress, spearmanr
 
 
 # Data models for analysis results
 
+
 @dataclass
 class PowerLawFit:
     """Power law relationship: y = coefficient * x^exponent"""
+
     exponent: float  # b in y = a * x^b
     coefficient: float  # a in y = a * x^b
     r_squared: float  # Goodness of fit
@@ -47,6 +49,7 @@ class PowerLawFit:
 @dataclass
 class ScalingRelationship:
     """Scaling relationship between two connectome properties"""
+
     x_variable: str  # e.g., "Length"
     y_variable: str  # e.g., "Synapses"
     spearman_rho: float  # Spearman correlation coefficient
@@ -78,42 +81,43 @@ class ScalingRelationship:
 @dataclass
 class ConnectomicsResult:
     """Complete connectomics analysis results for a single species"""
+
     species_name: str
     n_neurons: int
-    n_synapses: Optional[int] = None
+    n_synapses: int | None = None
 
     # Scaling relationships
-    length_synapses: Optional[ScalingRelationship] = None
-    synapses_degree: Optional[ScalingRelationship] = None
-    length_degree: Optional[ScalingRelationship] = None
+    length_synapses: ScalingRelationship | None = None
+    synapses_degree: ScalingRelationship | None = None
+    length_degree: ScalingRelationship | None = None
 
     # Raw data statistics
-    mean_length: Optional[float] = None
-    mean_synapses: Optional[float] = None
-    mean_degree: Optional[float] = None
+    mean_length: float | None = None
+    mean_synapses: float | None = None
+    mean_degree: float | None = None
 
     # Metadata
-    dataset_source: Optional[str] = None
-    analysis_notes: List[str] = field(default_factory=list)
+    dataset_source: str | None = None
+    analysis_notes: list[str] = field(default_factory=list)
 
-    def get_scaling_summary(self) -> Dict[str, Any]:
+    def get_scaling_summary(self) -> dict[str, Any]:
         """Get summary of all scaling relationships"""
         summary = {
-            'species': self.species_name,
-            'n_neurons': self.n_neurons,
-            'scaling_relationships': {}
+            "species": self.species_name,
+            "n_neurons": self.n_neurons,
+            "scaling_relationships": {},
         }
 
         for relationship in [self.length_synapses, self.synapses_degree, self.length_degree]:
             if relationship:
                 key = f"{relationship.x_variable}_vs_{relationship.y_variable}"
-                summary['scaling_relationships'][key] = {
-                    'exponent': relationship.power_law.exponent,
-                    'r_squared': relationship.power_law.r_squared,
-                    'spearman_rho': relationship.spearman_rho,
-                    'p_value': relationship.p_value,
-                    'significant': relationship.is_significant,
-                    'strength': relationship.correlation_strength
+                summary["scaling_relationships"][key] = {
+                    "exponent": relationship.power_law.exponent,
+                    "r_squared": relationship.power_law.r_squared,
+                    "spearman_rho": relationship.spearman_rho,
+                    "p_value": relationship.p_value,
+                    "significant": relationship.is_significant,
+                    "strength": relationship.correlation_strength,
                 }
 
         return summary
@@ -122,40 +126,38 @@ class ConnectomicsResult:
 @dataclass
 class CrossSpeciesComparison:
     """Comparison of scaling relationships across multiple species"""
-    species_results: Dict[str, ConnectomicsResult]
+
+    species_results: dict[str, ConnectomicsResult]
 
     # Cross-species statistics
-    mean_length_synapses_exponent: Optional[float] = None
-    std_length_synapses_exponent: Optional[float] = None
-    mean_synapses_degree_exponent: Optional[float] = None
-    std_synapses_degree_exponent: Optional[float] = None
+    mean_length_synapses_exponent: float | None = None
+    std_length_synapses_exponent: float | None = None
+    mean_synapses_degree_exponent: float | None = None
+    std_synapses_degree_exponent: float | None = None
 
     # Universality assessment
     is_universal_scaling: bool = False
-    universality_notes: List[str] = field(default_factory=list)
+    universality_notes: list[str] = field(default_factory=list)
 
     def to_dataframe(self) -> pd.DataFrame:
         """Convert to DataFrame for easy viewing"""
         rows = []
 
         for species_name, result in self.species_results.items():
-            row = {
-                'species': species_name,
-                'n_neurons': result.n_neurons
-            }
+            row = {"species": species_name, "n_neurons": result.n_neurons}
 
             # Add scaling relationships
             if result.length_synapses:
-                row['length_synapses_exponent'] = result.length_synapses.power_law.exponent
-                row['length_synapses_rho'] = result.length_synapses.spearman_rho
-                row['length_synapses_p'] = result.length_synapses.p_value
-                row['length_synapses_r2'] = result.length_synapses.power_law.r_squared
+                row["length_synapses_exponent"] = result.length_synapses.power_law.exponent
+                row["length_synapses_rho"] = result.length_synapses.spearman_rho
+                row["length_synapses_p"] = result.length_synapses.p_value
+                row["length_synapses_r2"] = result.length_synapses.power_law.r_squared
 
             if result.synapses_degree:
-                row['synapses_degree_exponent'] = result.synapses_degree.power_law.exponent
-                row['synapses_degree_rho'] = result.synapses_degree.spearman_rho
-                row['synapses_degree_p'] = result.synapses_degree.p_value
-                row['synapses_degree_r2'] = result.synapses_degree.power_law.r_squared
+                row["synapses_degree_exponent"] = result.synapses_degree.power_law.exponent
+                row["synapses_degree_rho"] = result.synapses_degree.spearman_rho
+                row["synapses_degree_p"] = result.synapses_degree.p_value
+                row["synapses_degree_r2"] = result.synapses_degree.power_law.r_squared
 
             rows.append(row)
 
@@ -163,6 +165,7 @@ class CrossSpeciesComparison:
 
 
 # Analyzer class
+
 
 class ConnectomicsAnalyzer:
     """
@@ -200,8 +203,8 @@ class ConnectomicsAnalyzer:
         self,
         connectome_data: pd.DataFrame,
         species_name: str = "Unknown",
-        dataset_source: Optional[str] = None,
-        properties: Optional[List[str]] = None
+        dataset_source: str | None = None,
+        properties: list[str] | None = None,
     ) -> ConnectomicsResult:
         """
         Analyze power law scaling relationships in a connectome dataset.
@@ -226,7 +229,7 @@ class ConnectomicsAnalyzer:
         """
         # Default properties
         if properties is None:
-            properties = ['Length', 'Synapses', 'Degree']
+            properties = ["Length", "Synapses", "Degree"]
 
         # Validate data
         missing_cols = [col for col in properties if col not in connectome_data.columns]
@@ -247,28 +250,22 @@ class ConnectomicsAnalyzer:
 
         # Calculate basic statistics
         mean_stats = {
-            'mean_length': df_clean['Length'].mean() if 'Length' in properties else None,
-            'mean_synapses': df_clean['Synapses'].mean() if 'Synapses' in properties else None,
-            'mean_degree': df_clean['Degree'].mean() if 'Degree' in properties else None,
+            "mean_length": df_clean["Length"].mean() if "Length" in properties else None,
+            "mean_synapses": df_clean["Synapses"].mean() if "Synapses" in properties else None,
+            "mean_degree": df_clean["Degree"].mean() if "Degree" in properties else None,
         }
 
         # Total synapses
-        n_synapses = int(df_clean['Synapses'].sum()) if 'Synapses' in properties else None
+        n_synapses = int(df_clean["Synapses"].sum()) if "Synapses" in properties else None
 
         # Step 2-3: Analyze property pairs
-        property_pairs = [
-            ('Length', 'Synapses'),
-            ('Synapses', 'Degree'),
-            ('Length', 'Degree')
-        ]
+        property_pairs = [("Length", "Synapses"), ("Synapses", "Degree"), ("Length", "Degree")]
 
         scaling_relationships = {}
 
         for x_var, y_var in property_pairs:
             if x_var in properties and y_var in properties:
-                relationship = self._analyze_property_pair(
-                    df_clean, x_var, y_var
-                )
+                relationship = self._analyze_property_pair(df_clean, x_var, y_var)
                 scaling_relationships[f"{x_var}_{y_var}"] = relationship
 
         # Create result
@@ -276,11 +273,11 @@ class ConnectomicsAnalyzer:
             species_name=species_name,
             n_neurons=len(df_clean),
             n_synapses=n_synapses,
-            length_synapses=scaling_relationships.get('Length_Synapses'),
-            synapses_degree=scaling_relationships.get('Synapses_Degree'),
-            length_degree=scaling_relationships.get('Length_Degree'),
+            length_synapses=scaling_relationships.get("Length_Synapses"),
+            synapses_degree=scaling_relationships.get("Synapses_Degree"),
+            length_degree=scaling_relationships.get("Length_Degree"),
             dataset_source=dataset_source,
-            **mean_stats
+            **mean_stats,
         )
 
         # Add analysis notes
@@ -291,11 +288,7 @@ class ConnectomicsAnalyzer:
 
         return result
 
-    def _clean_connectome_data(
-        self,
-        data: pd.DataFrame,
-        properties: List[str]
-    ) -> pd.DataFrame:
+    def _clean_connectome_data(self, data: pd.DataFrame, properties: list[str]) -> pd.DataFrame:
         """
         Clean connectome data for scaling analysis.
 
@@ -323,10 +316,7 @@ class ConnectomicsAnalyzer:
         return df
 
     def _analyze_property_pair(
-        self,
-        data: pd.DataFrame,
-        x_variable: str,
-        y_variable: str
+        self, data: pd.DataFrame, x_variable: str, y_variable: str
     ) -> ScalingRelationship:
         """
         Analyze scaling relationship between two properties.
@@ -371,7 +361,7 @@ class ConnectomicsAnalyzer:
             exponent=exponent,
             coefficient=coefficient,
             r_squared=r_squared,
-            equation=f"{y_variable} = {coefficient:.3f} * {x_variable}^{exponent:.3f}"
+            equation=f"{y_variable} = {coefficient:.3f} * {x_variable}^{exponent:.3f}",
         )
 
         # Create scaling relationship
@@ -381,15 +371,13 @@ class ConnectomicsAnalyzer:
             spearman_rho=rho,
             p_value=p_value,
             power_law=power_law,
-            n_neurons=len(data)
+            n_neurons=len(data),
         )
 
         return relationship
 
     def cross_species_comparison(
-        self,
-        datasets: Dict[str, pd.DataFrame],
-        properties: Optional[List[str]] = None
+        self, datasets: dict[str, pd.DataFrame], properties: list[str] | None = None
     ) -> CrossSpeciesComparison:
         """
         Compare scaling relationships across multiple species.
@@ -422,9 +410,7 @@ class ConnectomicsAnalyzer:
         for species_name, connectome_df in datasets.items():
             try:
                 result = self.analyze_scaling_laws(
-                    connectome_data=connectome_df,
-                    species_name=species_name,
-                    properties=properties
+                    connectome_data=connectome_df, species_name=species_name, properties=properties
                 )
                 species_results[species_name] = result
             except Exception as e:
@@ -479,7 +465,7 @@ class ConnectomicsAnalyzer:
             mean_synapses_degree_exponent=mean_sd_exp,
             std_synapses_degree_exponent=std_sd_exp,
             is_universal_scaling=is_universal,
-            universality_notes=universality_notes
+            universality_notes=universality_notes,
         )
 
         return comparison

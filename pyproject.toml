@@ -8,10 +8,8 @@ version = "0.2.0"
 description = "Fully autonomous AI scientist powered by Claude for hypothesis generation, experimental design, and iterative discovery"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
-authors = [
-    {name = "Kosmos Contributors"}
-]
+license = { text = "MIT" }
+authors = [{ name = "Kosmos Contributors" }]
 keywords = ["ai", "science", "research", "autonomous", "claude", "discovery"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -25,8 +23,8 @@ classifiers = [
 
 dependencies = [
     # LLM Providers
-    "anthropic>=0.40.0",  # Claude/Anthropic provider
-    "openai>=1.0.0",      # OpenAI provider and OpenAI-compatible APIs
+    "anthropic>=0.40.0", # Claude/Anthropic provider
+    "openai>=1.0.0",     # OpenAI provider and OpenAI-compatible APIs
 
     # Configuration and validation
     "pydantic>=2.0.0",
@@ -36,21 +34,21 @@ dependencies = [
     # Database
     "sqlalchemy>=2.0.0",
     "alembic>=1.13.0",
-    "redis>=5.0.0",        # Redis client for caching
+    "redis>=5.0.0",      # Redis client for caching
 
     # System monitoring
-    "psutil>=5.9.0",       # System and process utilities
+    "psutil>=5.9.0", # System and process utilities
 
     # HTTP client and retry logic
     "httpx>=0.27.0",
     "tenacity>=8.2.0",
 
     # Scientific computing
-    "numpy>=1.24.0,<2.0.0",     # Pin to 1.x for compatibility
+    "numpy>=1.24.0,<2.0.0",  # Pin to 1.x for compatibility
     "pandas>=2.0.0",
-    "scipy>=1.10.0,<1.14.0",    # Pin to <1.14.0 for NumPy 1.x compatibility
+    "scipy>=1.10.0,<1.14.0", # Pin to <1.14.0 for NumPy 1.x compatibility
     "scikit-learn>=1.3.0",
-    "statsmodels>=0.14.0",      # Statistical power analysis (Phase 4)
+    "statsmodels>=0.14.0",   # Statistical power analysis (Phase 4)
 
     # Visualization
     "matplotlib>=3.7.0",
@@ -63,35 +61,35 @@ dependencies = [
     "networkx>=3.1",
 
     # Phase 2: Literature APIs & Processing
-    "semanticscholar>=0.8.0",     # Semantic Scholar API
-    "biopython>=1.81",            # PubMed E-utilities
-    "pymupdf>=1.23.0",            # PDF text extraction
+    "semanticscholar>=0.8.0",       # Semantic Scholar API
+    "biopython>=1.81",              # PubMed E-utilities
+    "pymupdf>=1.23.0",              # PDF text extraction
     "sentence-transformers>=2.2.0", # SPECTER embeddings
-    "bibtexparser>=1.4.0",        # BibTeX parsing
-    "pybtex>=0.24.0",             # Bibliography generation
-    "pikepdf>=8.10.0",            # PDF metadata
-    "py2neo>=2021.2.3",           # Neo4j Python driver
+    "bibtexparser>=1.4.0",          # BibTeX parsing
+    "pybtex>=0.24.0",               # Bibliography generation
+    "pikepdf>=8.10.0",              # PDF metadata
+    "py2neo>=2021.2.3",             # Neo4j Python driver
 
     # Phase 9: Multi-Domain Support - Biology
-    "pykegg>=0.1.0",              # KEGG pathway database API
-    "mygene>=3.2.0",              # Gene annotation queries
-    "pyensembl>=2.3.0",           # Ensembl genome database API
-    "gseapy>=1.0.0",              # Gene Set Enrichment Analysis (pathway enrichment - REQ-DAA-CAP-008)
+    "pykegg>=0.1.0",    # KEGG pathway database API
+    "mygene>=3.2.0",    # Gene annotation queries
+    "pyensembl>=2.3.0", # Ensembl genome database API
+    "gseapy>=1.0.0",    # Gene Set Enrichment Analysis (pathway enrichment - REQ-DAA-CAP-008)
 
     # Phase 9: Multi-Domain Support - Neuroscience
-    "pydeseq2>=0.4.0",            # Differential expression analysis
+    "pydeseq2>=0.4.0", # Differential expression analysis
 
     # Advanced Analytics (REQ-DAA-CAP-005)
-    "shap>=0.44.0",               # SHAP values for feature importance
-    "pwlf>=2.2.0",                # Piecewise Linear Fit (segmented regression)
-    "nbformat>=5.9.0",            # Jupyter notebook format support (REQ-DAA-SUM-004)
-    "nbconvert>=7.11.0",          # Jupyter notebook conversion
+    "shap>=0.44.0",      # SHAP values for feature importance
+    "pwlf>=2.2.0",       # Piecewise Linear Fit (segmented regression)
+    "nbformat>=5.9.0",   # Jupyter notebook format support (REQ-DAA-SUM-004)
+    "nbconvert>=7.11.0", # Jupyter notebook conversion
 
     # Phase 9: Multi-Domain Support - Materials/Physics
-    "pymatgen>=2024.1.0",         # Materials analysis and property prediction
-    "ase>=3.22.0",                # Atomic Simulation Environment
-    "mp-api>=0.41.0",             # Materials Project API client
-    "xgboost>=2.0.0",             # Gradient boosting models
+    "pymatgen>=2024.1.0", # Materials analysis and property prediction
+    "ase>=3.22.0",        # Atomic Simulation Environment
+    "mp-api>=0.41.0",     # Materials Project API client
+    "xgboost>=2.0.0",     # Gradient boosting models
 
     # CLI and UI
     "rich>=13.0.0",
@@ -107,10 +105,10 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.12.0",
     "pytest-timeout>=2.2.0",
-    "pytest-xdist>=3.5.0",  # Parallel test execution
-    "responses>=0.24.0",     # Mock HTTP responses
-    "freezegun>=1.4.0",      # Mock datetime
-    "faker>=22.0.0",         # Generate fake data for tests
+    "pytest-xdist>=3.5.0",    # Parallel test execution
+    "responses>=0.24.0",      # Mock HTTP responses
+    "freezegun>=1.4.0",       # Mock datetime
+    "faker>=22.0.0",          # Generate fake data for tests
 
     # Code quality
     "black>=23.0.0",
@@ -156,9 +154,7 @@ monitoring = [
     "prometheus-client>=0.19.0",
 ]
 
-all = [
-    "kosmos-ai-scientist[dev,test,docs,science,execution,monitoring]",
-]
+all = ["kosmos-ai-scientist[dev,test,docs,science,execution,monitoring]"]
 
 router = [
     # Optional: Use anthropic_router for CLI routing
@@ -168,14 +164,14 @@ router = [
 
 domain-extended = [
     # Extended neuroscience capabilities
-    "nilearn>=0.10.0",       # Neuroimaging analysis and visualization
+    "nilearn>=0.10.0", # Neuroimaging analysis and visualization
 
     # Physics simulation engines
-    "pybullet>=3.2.0",       # Physics engine for simulations
-    "simpy>=4.1.0",          # Discrete event simulation
+    "pybullet>=3.2.0", # Physics engine for simulations
+    "simpy>=4.1.0",    # Discrete event simulation
 
     # ML interpretability (optional due to NumPy 1.x dependency)
-    "shap>=0.44.0",          # SHAP analysis (install separately if needed)
+    "shap>=0.44.0", # SHAP analysis (install separately if needed)
 
     # Chemistry tools (future expansion)
     # "rdkit>=2023.9.0",     # Cheminformatics (requires conda)
@@ -248,34 +244,21 @@ target-version = ["py311", "py312"]
 include = '\.pyi?$'
 extend-exclude = '''
 /(
-  # Directories
-  \.git
-  | \.mypy_cache
-  | \.pytest_cache
-  | \.venv
-  | venv
-  | build
-  | dist
-  
+    # Directories
+    \.git
+    | \.mypy_cache
+    | \.pytest_cache
+    | \.venv
+    | venv
+    | build
+    | dist
+    | kosmos-claude-scientific-skills
+)/
 '''
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-]
-ignore = [
-    "E501",  # line too long (handled by black)
-    "B008",  # do not perform function calls in argument defaults
-    "C901",  # too complex (we'll handle this case-by-case)
-]
 exclude = [
     ".git",
     "__pycache__",
@@ -283,18 +266,40 @@ exclude = [
     "venv",
     "build",
     "dist",
+    "kosmos-claude-scientific-skills",
 ]
 
-[tool.ruff.per-file-ignores]
-"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501", # line too long (handled by black)
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex (we'll handle this case-by-case)
+]
+
+[tool.ruff.lint.isort]
+# Configure isort to be compatible with black
+combine-as-imports = true
+lines-after-imports = 2
+force-wrap-aliases = true
+split-on-trailing-comma = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"] # Allow unused imports in __init__.py
+"tests/unit/core/test_litellm_provider.py" = ["E402"] # pytest.importorskip must come before imports
 
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false  # Start permissive, can tighten later
+disallow_untyped_defs = false # Start permissive, can tighten later
 ignore_missing_imports = true
-exclude = [
-    'tests',
-    'docs',
-]
+exclude = ['tests', 'docs']

@@ -1,75 +1,70 @@
 """Biology domain module - metabolomics, genomics, and multi-modal integration"""
 
 from kosmos.domains.biology.apis import (
-    KEGGClient,
-    GWASCatalogClient,
-    GTExClient,
     ENCODEClient,
-    dbSNPClient,
     EnsemblClient,
+    GTExClient,
+    GWASCatalogClient,
     HMDBClient,
+    KEGGClient,
     MetaboLightsClient,
-    UniProtClient,
     PDBClient,
+    UniProtClient,
+    dbSNPClient,
 )
-
-from kosmos.domains.biology.metabolomics import (
-    MetabolomicsAnalyzer,
-    MetabolomicsResult,
-    PathwayPattern,
-    PathwayComparison,
-    MetaboliteCategory,
-    MetaboliteType,
-)
-
 from kosmos.domains.biology.genomics import (
+    CompositeScore,
+    EffectDirection,
+    EvidenceLevel,
     GenomicsAnalyzer,
     GenomicsResult,
-    CompositeScore,
     MechanismRanking,
-    EvidenceLevel,
-    EffectDirection,
 )
-
+from kosmos.domains.biology.metabolomics import (
+    MetaboliteCategory,
+    MetaboliteType,
+    MetabolomicsAnalyzer,
+    MetabolomicsResult,
+    PathwayComparison,
+    PathwayPattern,
+)
 from kosmos.domains.biology.ontology import (
-    BiologyOntology,
     BiologicalConcept,
     BiologicalRelation,
     BiologicalRelationType,
+    BiologyOntology,
 )
+
 
 __all__ = [
     # API Clients
-    'KEGGClient',
-    'GWASCatalogClient',
-    'GTExClient',
-    'ENCODEClient',
-    'dbSNPClient',
-    'EnsemblClient',
-    'HMDBClient',
-    'MetaboLightsClient',
-    'UniProtClient',
-    'PDBClient',
-
+    "KEGGClient",
+    "GWASCatalogClient",
+    "GTExClient",
+    "ENCODEClient",
+    "dbSNPClient",
+    "EnsemblClient",
+    "HMDBClient",
+    "MetaboLightsClient",
+    "UniProtClient",
+    "PDBClient",
     # Metabolomics
-    'MetabolomicsAnalyzer',
-    'MetabolomicsResult',
-    'PathwayPattern',
-    'PathwayComparison',
-    'MetaboliteCategory',
-    'MetaboliteType',
-
+    "MetabolomicsAnalyzer",
+    "MetabolomicsResult",
+    "PathwayPattern",
+    "PathwayComparison",
+    "MetaboliteCategory",
+    "MetaboliteType",
     # Genomics
-    'GenomicsAnalyzer',
-    'GenomicsResult',
-    'CompositeScore',
-    'MechanismRanking',
-    'EvidenceLevel',
-    'EffectDirection',
-
+    "GenomicsAnalyzer",
+    "GenomicsResult",
+    "CompositeScore",
+    "MechanismRanking",
+    "EvidenceLevel",
+    "EffectDirection",
     # Ontology
-    'BiologyOntology',
-    'BiologicalConcept',
-    'BiologicalRelation',
-    'BiologicalRelationType',
+    "BiologyOntology",
+    "BiologicalConcept",
+    "BiologicalRelation",
+    "BiologicalRelationType",
 ]

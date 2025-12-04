@@ -3,10 +3,9 @@ Tests for kosmos.literature.citations module.
 """
 
 import pytest
-from pathlib import Path
 
-from kosmos.literature.citations import CitationParser, CitationFormatter, CitationNetwork
 from kosmos.literature.base_client import PaperMetadata
+from kosmos.literature.citations import CitationFormatter, CitationNetwork, CitationParser
 
 
 @pytest.fixture
@@ -103,9 +102,7 @@ class TestCitationFormatter:
 
     def test_format_invalid_style(self, citation_formatter, sample_paper_metadata):
         """Test formatting with invalid style defaults to APA."""
-        citation = citation_formatter.format_citation(
-            sample_paper_metadata, style="invalid_style"
-        )
+        citation = citation_formatter.format_citation(sample_paper_metadata, style="invalid_style")
 
         # Should default to APA
         assert isinstance(citation, str)
@@ -182,9 +179,7 @@ class TestCitationNetwork:
 class TestCitationFormatConversion:
     """Test converting between citation formats."""
 
-    def test_bibtex_to_paper_to_ris(
-        self, citation_parser, citation_formatter, sample_bibtex
-    ):
+    def test_bibtex_to_paper_to_ris(self, citation_parser, citation_formatter, sample_bibtex):
         """Test round-trip conversion BibTeX -> Paper -> RIS."""
         # Parse BibTeX
         papers = citation_parser.parse_bibtex(str(sample_bibtex))
@@ -212,9 +207,7 @@ class TestCitationIntegration:
     def test_parse_and_format_bibtex(self, citation_parser, citation_formatter, sample_bibtex):
         """Test parsing BibTeX and formatting citations."""
         papers = citation_parser.parse_bibtex(str(sample_bibtex))
-        citations = [
-            citation_formatter.format_citation(p, style="apa") for p in papers[:3]
-        ]
+        citations = [citation_formatter.format_citation(p, style="apa") for p in papers[:3]]
 
         assert len(citations) > 0
         assert all(isinstance(c, str) for c in citations)

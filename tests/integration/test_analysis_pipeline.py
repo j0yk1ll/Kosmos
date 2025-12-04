@@ -4,32 +4,32 @@ Integration tests for complete analysis pipeline (Phase 6).
 Tests end-to-end flow: ExperimentResult → Analysis → Visualization → Summary.
 """
 
-import pytest
+import os
+import tempfile
+from datetime import datetime
+from unittest.mock import Mock, patch
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from unittest.mock import Mock, patch
-import tempfile
-import os
-from datetime import datetime
+import pytest
 
 from kosmos.agents.data_analyst import DataAnalystAgent, ResultInterpretation
-from kosmos.analysis.visualization import PublicationVisualizer
 from kosmos.analysis.plotly_viz import PlotlyVisualizer
+from kosmos.analysis.statistics import DescriptiveStats, StatisticalReporter
 from kosmos.analysis.summarizer import ResultSummarizer, ResultSummary
-from kosmos.analysis.statistics import StatisticalReporter, DescriptiveStats
-
+from kosmos.analysis.visualization import PublicationVisualizer
+from kosmos.models.hypothesis import Hypothesis
 from kosmos.models.result import (
+    ExecutionMetadata,
     ExperimentResult,
     ResultStatus,
     StatisticalTestResult,
     VariableResult,
-    ExecutionMetadata
 )
-from kosmos.models.hypothesis import Hypothesis
 
 
 # Fixtures
+
 
 @pytest.fixture
 def sample_experiment_result():
@@ -59,9 +59,9 @@ def sample_experiment_result():
                 degrees_of_freedom=98,
                 significance_label="*",
                 is_primary=True,
-                significant_0_05=True,   # p=0.012 < 0.05
+                significant_0_05=True,  # p=0.012 < 0.05
                 significant_0_01=False,  # p=0.012 > 0.01
-                significant_0_001=False  # p=0.012 > 0.001
+                significant_0_001=False,  # p=0.012 > 0.001
             )
         ],
         variable_results=[
@@ -76,7 +76,7 @@ def sample_experiment_result():
                 q1=9.1,
                 q3=11.9,
                 n_samples=50,
-                n_missing=0
+                n_missing=0,
             ),
             VariableResult(
                 variable_name="control",
@@ -89,8 +89,8 @@ def sample_experiment_result():
                 q1=7.2,
                 q3=10.1,
                 n_samples=50,
-                n_missing=0
-            )
+                n_missing=0,
+            ),
         ],
         metadata=ExecutionMetadata(
             experiment_id="exp-001",
@@ -100,12 +100,12 @@ def sample_experiment_result():
             duration_seconds=5.3,
             random_seed=42,
             python_version="3.11",
-            platform="linux"
+            platform="linux",
         ),
         raw_data={"mean_diff": 1.7},
         generated_files=[],
         version=1,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
 
@@ -121,7 +121,7 @@ def sample_hypothesis():
         testability_score=0.9,
         novelty_score=0.7,
         variables=["treatment", "control", "outcome_Y"],
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
 
@@ -134,15 +134,13 @@ def temp_output_dir():
 
 # End-to-End Pipeline Tests
 
+
 class TestCompleteAnalysisPipeline:
     """Tests for complete analysis pipeline."""
 
-    @patch('kosmos.agents.data_analyst.get_client')
+    @patch("kosmos.agents.data_analyst.get_client")
     def test_full_pipeline_result_to_interpretation(
-        self,
-        mock_get_client,
-        sample_experiment_result,
-        sample_hypothesis
+        self, mock_get_client, sample_experiment_result, sample_hypothesis
     ):
         """Test Result → DataAnalystAgent → Interpretation."""
         # Mock Claude client
@@ -156,8 +154,7 @@ class TestCompleteAnalysisPipeline:
 
         # Interpret results
         interpretation = agent.interpret_results(
-            result=sample_experiment_result,
-            hypothesis=sample_hypothesis
+            result=sample_experiment_result, hypothesis=sample_hypothesis
         )
 
         assert isinstance(interpretation, ResultInterpretation)
@@ -165,11 +162,7 @@ class TestCompleteAnalysisPipeline:
         assert interpretation.hypothesis_supported is True
         assert len(interpretation.key_findings) > 0
 
-    def test_full_pipeline_result_to_visualization(
-        self,
-        sample_experiment_result,
-        temp_output_dir
-    ):
+    def test_full_pipeline_result_to_visualization(self, sample_experiment_result, temp_output_dir):
         """Test Result → PublicationVisualizer → Plots."""
         viz = PublicationVisualizer()
 
@@ -177,31 +170,25 @@ class TestCompleteAnalysisPipeline:
         suggested_plots = viz.select_plot_types(sample_experiment_result)
 
         assert len(suggested_plots) > 0
-        assert any(p['type'] == 'box_plot_with_points' for p in suggested_plots)
+        assert any(p["type"] == "box_plot_with_points" for p in suggested_plots)
 
         # Generate a plot
         np.random.seed(42)
         data = {
-            'treatment': np.random.normal(10.5, 2.1, 50),
-            'control': np.random.normal(8.8, 2.3, 50)
+            "treatment": np.random.normal(10.5, 2.1, 50),
+            "control": np.random.normal(8.8, 2.3, 50),
         }
 
         output_path = os.path.join(temp_output_dir, "test_plot.png")
         viz.box_plot_with_points(
-            data=data,
-            title="Treatment vs Control",
-            y_label="Outcome",
-            output_path=output_path
+            data=data, title="Treatment vs Control", y_label="Outcome", output_path=output_path
         )
 
         assert os.path.exists(output_path)
 
-    @patch('kosmos.analysis.summarizer.get_client')
+    @patch("kosmos.analysis.summarizer.get_client")
     def test_full_pipeline_result_to_summary(
-        self,
-        mock_get_client,
-        sample_experiment_result,
-        sample_hypothesis
+        self, mock_get_client, sample_experiment_result, sample_hypothesis
     ):
         """Test Result → ResultSummarizer → Summary."""
         # Mock Claude client
@@ -233,8 +220,7 @@ FUTURE WORK:
 
         # Generate summary
         summary = summarizer.generate_summary(
-            result=sample_experiment_result,
-            hypothesis=sample_hypothesis
+            result=sample_experiment_result, hypothesis=sample_hypothesis
         )
 
         assert isinstance(summary, ResultSummary)
@@ -244,14 +230,11 @@ FUTURE WORK:
         assert len(summary.future_work) > 0
 
     def test_complete_pipeline_integration(
-        self,
-        sample_experiment_result,
-        sample_hypothesis,
-        temp_output_dir
+        self, sample_experiment_result, sample_hypothesis, temp_output_dir
     ):
         """Test complete pipeline: Result → All Analysis Components."""
         # 1. Interpret results
-        with patch('kosmos.agents.data_analyst.get_client') as mock_client:
+        with patch("kosmos.agents.data_analyst.get_client") as mock_client:
             mock_client.return_value = Mock()
             mock_client.return_value.generate.return_value = '{"hypothesis_supported": true, "confidence": 0.85, "summary": "Test", "key_findings": ["F1"], "significance_interpretation": "Sig", "biological_significance": "Bio", "comparison_to_prior_work": "Comp", "potential_confounds": ["C1"], "follow_up_experiments": ["E1"], "overall_assessment": "Good"}'
 
@@ -259,23 +242,22 @@ FUTURE WORK:
             agent.llm_client = mock_client.return_value
 
             interpretation = agent.interpret_results(
-                result=sample_experiment_result,
-                hypothesis=sample_hypothesis
+                result=sample_experiment_result, hypothesis=sample_hypothesis
             )
 
         # 2. Generate visualizations
         viz = PublicationVisualizer()
         np.random.seed(42)
         data = {
-            'treatment': np.random.normal(10.5, 2.1, 50),
-            'control': np.random.normal(8.8, 2.3, 50)
+            "treatment": np.random.normal(10.5, 2.1, 50),
+            "control": np.random.normal(8.8, 2.3, 50),
         }
 
         plot_path = os.path.join(temp_output_dir, "analysis_plot.png")
         viz.box_plot_with_points(data=data, output_path=plot_path)
 
         # 3. Generate summary
-        with patch('kosmos.analysis.summarizer.get_client') as mock_client2:
+        with patch("kosmos.analysis.summarizer.get_client") as mock_client2:
             mock_client2.return_value = Mock()
             mock_client2.return_value.generate.return_value = "SUMMARY: Test\nKEY FINDINGS:\n1. Finding 1\nHYPOTHESIS ASSESSMENT: Supported\nLIMITATIONS:\n- Limit 1\nFUTURE WORK:\n1. Work 1"
 
@@ -283,8 +265,7 @@ FUTURE WORK:
             summarizer.llm_client = mock_client2.return_value
 
             summary = summarizer.generate_summary(
-                result=sample_experiment_result,
-                hypothesis=sample_hypothesis
+                result=sample_experiment_result, hypothesis=sample_hypothesis
             )
 
         # Verify all components completed successfully
@@ -294,6 +275,7 @@ FUTURE WORK:
 
 
 # Statistical Analysis Tests
+
 
 class TestStatisticalAnalysis:
     """Tests for statistical analysis components."""
@@ -305,31 +287,36 @@ class TestStatisticalAnalysis:
 
         stats = DescriptiveStats.compute_full_descriptive(data)
 
-        assert 'mean' in stats
-        assert 'median' in stats
-        assert 'std' in stats
-        assert 'skewness' in stats
-        assert stats['n'] == 100
-        assert 9 < stats['mean'] < 11  # Should be close to 10
+        assert "mean" in stats
+        assert "median" in stats
+        assert "std" in stats
+        assert "skewness" in stats
+        assert stats["n"] == 100
+        assert 9 < stats["mean"] < 11  # Should be close to 10
 
     def test_statistical_reporter(self):
         """Test comprehensive statistical report generation."""
         np.random.seed(42)
-        df = pd.DataFrame({
-            'var1': np.random.normal(10, 2, 50),
-            'var2': np.random.normal(15, 3, 50),
-            'var3': np.random.normal(20, 4, 50)
-        })
+        df = pd.DataFrame(
+            {
+                "var1": np.random.normal(10, 2, 50),
+                "var2": np.random.normal(15, 3, 50),
+                "var3": np.random.normal(20, 4, 50),
+            }
+        )
 
         reporter = StatisticalReporter()
-        report = reporter.generate_full_report(df, include_correlations=True, include_distributions=True)
+        report = reporter.generate_full_report(
+            df, include_correlations=True, include_distributions=True
+        )
 
         assert len(report) > 0
-        assert 'Descriptive Statistics' in report
-        assert 'Distribution Analysis' in report or 'Correlation Analysis' in report
+        assert "Descriptive Statistics" in report
+        assert "Distribution Analysis" in report or "Correlation Analysis" in report
 
 
 # Visualization Format Tests
+
 
 class TestVisualizationFormats:
     """Tests for visualization output formats."""
@@ -362,10 +349,11 @@ class TestVisualizationFormats:
 
 # Anomaly and Pattern Detection Tests
 
+
 class TestDetectionPipeline:
     """Tests for anomaly and pattern detection."""
 
-    @patch('kosmos.agents.data_analyst.get_client')
+    @patch("kosmos.agents.data_analyst.get_client")
     def test_anomaly_detection_in_pipeline(self, mock_get_client):
         """Test anomaly detection on problematic results."""
         mock_client = Mock()
@@ -400,7 +388,7 @@ class TestDetectionPipeline:
                     is_primary=True,
                     significant_0_05=True,
                     significant_0_01=True,
-                    significant_0_001=True
+                    significant_0_001=True,
                 )
             ],
             variable_results=[],
@@ -412,9 +400,9 @@ class TestDetectionPipeline:
                 duration_seconds=1.0,
                 random_seed=42,
                 python_version="3.11",
-                platform="linux"
+                platform="linux",
             ),
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         anomalies = agent.detect_anomalies(anomalous_result)
@@ -422,7 +410,7 @@ class TestDetectionPipeline:
         assert len(anomalies) > 0
         assert any("tiny effect size" in a.lower() for a in anomalies)
 
-    @patch('kosmos.agents.data_analyst.get_client')
+    @patch("kosmos.agents.data_analyst.get_client")
     def test_pattern_detection_across_results(self, mock_get_client):
         """Test pattern detection across multiple results."""
         mock_client = Mock()
@@ -458,7 +446,7 @@ class TestDetectionPipeline:
                         is_primary=True,
                         significant_0_05=True,
                         significant_0_01=True,
-                        significant_0_001=False
+                        significant_0_001=False,
                     )
                 ],
                 variable_results=[],
@@ -470,9 +458,9 @@ class TestDetectionPipeline:
                     duration_seconds=1.0,
                     random_seed=42,
                     python_version="3.11",
-                    platform="linux"
+                    platform="linux",
                 ),
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             for i in range(5)
         ]

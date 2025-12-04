@@ -1,13 +1,12 @@
 """Biology domain experiment templates."""
 
+from kosmos.experiments.templates.biology.gwas_multimodal import GWASMultiModalTemplate
 from kosmos.experiments.templates.biology.metabolomics_comparison import (
-    MetabolomicsComparisonTemplate
-)
-from kosmos.experiments.templates.biology.gwas_multimodal import (
-    GWASMultiModalTemplate
+    MetabolomicsComparisonTemplate,
 )
 
+
 __all__ = [
-    'MetabolomicsComparisonTemplate',
-    'GWASMultiModalTemplate',
+    "MetabolomicsComparisonTemplate",
+    "GWASMultiModalTemplate",
 ]

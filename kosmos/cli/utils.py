@@ -5,24 +5,23 @@ Provides common formatting, database helpers, and utility functions
 used across all CLI commands.
 """
 
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Optional, Any, Dict, List
 from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich.markup import escape
 
 from kosmos.cli.themes import (
     KOSMOS_THEME,
-    get_domain_color,
-    get_state_color,
-    get_metric_color,
     get_box_style,
+    get_domain_color,
     get_icon,
+    get_metric_color,
+    get_state_color,
     get_status_icon,
 )
 
@@ -102,7 +101,7 @@ def truncate_text(text: str, max_length: int = 50, suffix: str = "...") -> str:
     """Truncate text to max length with suffix."""
     if len(text) <= max_length:
         return text
-    return text[:max_length - len(suffix)] + suffix
+    return text[: max_length - len(suffix)] + suffix
 
 
 def print_success(message: str, title: str = "Success"):
@@ -168,9 +167,7 @@ def create_domain_text(domain: str) -> Text:
 
 
 def create_metric_text(
-    value: float,
-    format_type: str = "percentage",
-    thresholds: Optional[Dict] = None
+    value: float, format_type: str = "percentage", thresholds: dict | None = None
 ) -> Text:
     """
     Create colored metric text based on value.
@@ -197,9 +194,9 @@ def create_metric_text(
 
 def create_table(
     title: str,
-    columns: List[str],
-    rows: List[List[Any]] = None,
-    caption: Optional[str] = None,
+    columns: list[str],
+    rows: list[list[Any]] = None,
+    caption: str | None = None,
     show_header: bool = True,
     show_lines: bool = False,
 ) -> Table:
@@ -301,28 +298,22 @@ def get_config_value(key: str, default: Any = None) -> Any:
     return value
 
 
-def format_hypothesis_summary(hypothesis: Dict) -> str:
+def format_hypothesis_summary(hypothesis: dict) -> str:
     """Format hypothesis for display."""
     claim = hypothesis.get("claim", "Unknown")
     novelty = hypothesis.get("novelty_score", 0.0)
     priority = hypothesis.get("priority_score", 0.0)
 
-    return (
-        f"{truncate_text(claim, 60)}\n"
-        f"  Novelty: {novelty:.2f} | Priority: {priority:.2f}"
-    )
+    return f"{truncate_text(claim, 60)}\n" f"  Novelty: {novelty:.2f} | Priority: {priority:.2f}"
 
 
-def format_experiment_summary(experiment: Dict) -> str:
+def format_experiment_summary(experiment: dict) -> str:
     """Format experiment for display."""
     exp_type = experiment.get("type", "Unknown")
     status = experiment.get("status", "Unknown")
     duration = experiment.get("duration_seconds", 0)
 
-    return (
-        f"{exp_type} [{status}]\n"
-        f"  Duration: {format_duration(duration)}"
-    )
+    return f"{exp_type} [{status}]\n" f"  Duration: {format_duration(duration)}"
 
 
 def confirm_action(message: str, default: bool = False) -> bool:
@@ -337,6 +328,7 @@ def confirm_action(message: str, default: bool = False) -> bool:
         True if user confirms
     """
     from rich.prompt import Confirm
+
     return Confirm.ask(message, default=default, console=console)
 
 

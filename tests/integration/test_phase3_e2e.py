@@ -4,13 +4,16 @@ Phase 3 end-to-end integration tests.
 Tests complete workflow: Generation → Novelty → Testability → Prioritization
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from kosmos.agents.hypothesis_generator import HypothesisGeneratorAgent
 from kosmos.hypothesis.novelty_checker import NoveltyChecker
-from kosmos.hypothesis.testability import TestabilityAnalyzer
 from kosmos.hypothesis.prioritizer import HypothesisPrioritizer
+from kosmos.hypothesis.testability import TestabilityAnalyzer
 from kosmos.models.hypothesis import Hypothesis
+
 
 @pytest.fixture
 def mock_llm_hypotheses():
@@ -21,26 +24,29 @@ def mock_llm_hypotheses():
                 "rationale": "Evidence shows X affects Y through mechanism Z",
                 "confidence_score": 0.8,
                 "testability_score": 0.85,
-                "suggested_experiment_types": ["computational"]
+                "suggested_experiment_types": ["computational"],
             },
             {
                 "statement": "Hypothesis 2: A correlates with B",
                 "rationale": "Data suggests strong correlation between A and B",
                 "confidence_score": 0.7,
                 "testability_score": 0.75,
-                "suggested_experiment_types": ["data_analysis"]
-            }
+                "suggested_experiment_types": ["data_analysis"],
+            },
         ]
     }
+
 
 @pytest.mark.integration
 class TestPhase3EndToEnd:
     """Test complete Phase 3 workflow."""
 
-    @patch('kosmos.agents.hypothesis_generator.get_client')
-    @patch('kosmos.hypothesis.novelty_checker.UnifiedLiteratureSearch')
-    @patch('kosmos.hypothesis.novelty_checker.get_session')
-    def test_full_hypothesis_pipeline(self, mock_session, mock_search, mock_get_client, mock_llm_hypotheses):
+    @patch("kosmos.agents.hypothesis_generator.get_client")
+    @patch("kosmos.hypothesis.novelty_checker.UnifiedLiteratureSearch")
+    @patch("kosmos.hypothesis.novelty_checker.get_session")
+    def test_full_hypothesis_pipeline(
+        self, mock_session, mock_search, mock_get_client, mock_llm_hypotheses
+    ):
         """Test: Generate → Check Novelty → Analyze Testability → Prioritize."""
 
         # Setup mocks
@@ -61,8 +67,7 @@ class TestPhase3EndToEnd:
         agent = HypothesisGeneratorAgent(config={"use_literature_context": False})
         agent.llm_client = mock_client
         response = agent.generate_hypotheses(
-            research_question="How does X affect Y?",
-            store_in_db=False
+            research_question="How does X affect Y?", store_in_db=False
         )
 
         assert len(response.hypotheses) == 2
@@ -91,7 +96,7 @@ class TestPhase3EndToEnd:
         prioritizer = HypothesisPrioritizer(
             use_novelty_checker=False,  # Already done
             use_testability_analyzer=False,  # Already done
-            use_impact_prediction=False
+            use_impact_prediction=False,
         )
 
         ranked = prioritizer.prioritize(hypotheses, run_analysis=False)
@@ -108,7 +113,7 @@ class TestPhase3EndToEnd:
             assert p.feasibility_score is not None
             assert p.impact_score is not None
 
-    @patch('kosmos.agents.hypothesis_generator.get_client')
+    @patch("kosmos.agents.hypothesis_generator.get_client")
     def test_hypothesis_filtering(self, mock_get_client):
         """Test filtering untestable or non-novel hypotheses."""
         mock_client = Mock()
@@ -119,15 +124,15 @@ class TestPhase3EndToEnd:
                     "rationale": "Well-supported by evidence and prior work",
                     "confidence_score": 0.8,
                     "testability_score": 0.9,
-                    "suggested_experiment_types": ["computational"]
+                    "suggested_experiment_types": ["computational"],
                 },
                 {
                     "statement": "Vague hypothesis maybe possibly",
                     "rationale": "Not much support",
                     "confidence_score": 0.3,
                     "testability_score": 0.2,
-                    "suggested_experiment_types": []
-                }
+                    "suggested_experiment_types": [],
+                },
             ]
         }
         mock_client.generate.return_value = "test"
@@ -151,7 +156,7 @@ class TestPhase3EndToEnd:
             research_question="Valid question?",
             statement="This is a clear testable statement",
             rationale="This is a sufficient rationale that explains the hypothesis",
-            domain="test"
+            domain="test",
         )
         assert hyp.statement == "This is a clear testable statement"
 
@@ -161,8 +166,9 @@ class TestPhase3EndToEnd:
                 research_question="Test",
                 statement="Too short",
                 rationale="Valid rationale here",
-                domain="test"
+                domain="test",
             )
+
 
 @pytest.mark.integration
 @pytest.mark.slow
@@ -172,15 +178,14 @@ class TestPhase3RealIntegration:
 
     def test_real_hypothesis_workflow(self):
         """Test with real Claude API (slow, requires API key)."""
-        agent = HypothesisGeneratorAgent(config={
-            "num_hypotheses": 2,
-            "use_literature_context": False
-        })
+        agent = HypothesisGeneratorAgent(
+            config={"num_hypotheses": 2, "use_literature_context": False}
+        )
 
         response = agent.generate_hypotheses(
             research_question="How does batch size affect neural network training?",
             domain="machine_learning",
-            store_in_db=False
+            store_in_db=False,
         )
 
         assert len(response.hypotheses) > 0

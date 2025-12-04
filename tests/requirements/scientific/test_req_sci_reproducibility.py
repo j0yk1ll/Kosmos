@@ -5,22 +5,22 @@ These tests validate reproducibility, seed management, version locking,
 and stochasticity documentation as specified in REQUIREMENTS.md Section 10.3.
 """
 
-import pytest
-import os
-import sys
-import random
-import tempfile
 import json
-from pathlib import Path
-from typing import Dict, Any, List
-from unittest.mock import Mock, patch, MagicMock
+import os
+import random
+import sys
+import tempfile
 from datetime import datetime
+from typing import Any
+
+import pytest
 
 from kosmos.safety.reproducibility import (
-    ReproducibilityManager,
     EnvironmentSnapshot,
-    ReproducibilityReport
+    ReproducibilityManager,
+    ReproducibilityReport,
 )
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -46,10 +46,11 @@ def test_req_sci_repro_001_same_code_same_data_same_results():
     repro_mgr = ReproducibilityManager(default_seed=42)
 
     # Test Case 1: Deterministic computation with seed
-    def deterministic_analysis(data: List[float], seed: int) -> Dict[str, float]:
+    def deterministic_analysis(data: list[float], seed: int) -> dict[str, float]:
         """Perform deterministic analysis."""
         random.seed(seed)
         import numpy as np
+
         np.random.seed(seed)
 
         # Compute statistics
@@ -59,12 +60,7 @@ def test_req_sci_repro_001_same_code_same_data_same_results():
         # Add some randomness (but deterministic with seed)
         noise = np.random.normal(0, 0.1, 1)[0]
 
-        return {
-            "mean": mean,
-            "std": std,
-            "noise": noise,
-            "random_sample": random.random()
-        }
+        return {"mean": mean, "std": std, "noise": noise, "random_sample": random.random()}
 
     # Create test data
     test_data = [1.0, 2.0, 3.0, 4.0, 5.0]
@@ -77,46 +73,37 @@ def test_req_sci_repro_001_same_code_same_data_same_results():
     result2 = deterministic_analysis(test_data, 42)
 
     # Assert: Results should be identical
-    assert result1["mean"] == result2["mean"], \
-        "Mean should be identical across runs"
-    assert result1["std"] == result2["std"], \
-        "Std should be identical across runs"
-    assert result1["noise"] == result2["noise"], \
-        "Random noise should be identical with same seed"
-    assert result1["random_sample"] == result2["random_sample"], \
-        "Random samples should be identical with same seed"
+    assert result1["mean"] == result2["mean"], "Mean should be identical across runs"
+    assert result1["std"] == result2["std"], "Std should be identical across runs"
+    assert result1["noise"] == result2["noise"], "Random noise should be identical with same seed"
+    assert (
+        result1["random_sample"] == result2["random_sample"]
+    ), "Random samples should be identical with same seed"
 
     # Test Case 2: Validate consistency using reproducibility manager
     report = repro_mgr.validate_consistency(
         experiment_id="test_exp_001",
         original_result=result1,
         replication_result=result2,
-        tolerance=1e-10
+        tolerance=1e-10,
     )
 
     # Assert: Should validate as reproducible
-    assert isinstance(report, ReproducibilityReport), \
-        "Should return ReproducibilityReport"
-    assert report.is_reproducible, \
-        "Identical results should validate as reproducible"
-    assert len(report.issues) == 0, \
-        "Should have no issues for identical results"
+    assert isinstance(report, ReproducibilityReport), "Should return ReproducibilityReport"
+    assert report.is_reproducible, "Identical results should validate as reproducible"
+    assert len(report.issues) == 0, "Should have no issues for identical results"
 
     # Test Case 3: Non-reproducible results are detected
     repro_mgr.set_seed(99)  # Different seed
     result3 = deterministic_analysis(test_data, 99)
 
     report2 = repro_mgr.validate_consistency(
-        experiment_id="test_exp_002",
-        original_result=result1,
-        replication_result=result3
+        experiment_id="test_exp_002", original_result=result1, replication_result=result3
     )
 
     # Assert: Should detect differences
-    assert not report2.is_reproducible, \
-        "Different results should not validate as reproducible"
-    assert len(report2.issues) > 0, \
-        "Should identify specific issues"
+    assert not report2.is_reproducible, "Different results should not validate as reproducible"
+    assert len(report2.issues) > 0, "Should identify specific issues"
 
 
 @pytest.mark.requirement("REQ-SCI-REPRO-002")
@@ -138,8 +125,7 @@ def test_req_sci_repro_002_record_random_seeds():
 
     # Assert: Seed is recorded
     assert seed_used == 42, "Should return the seed that was set"
-    assert repro_mgr.get_current_seed() == 42, \
-        "Should record and retrieve current seed"
+    assert repro_mgr.get_current_seed() == 42, "Should record and retrieve current seed"
 
     # Test Case 2: Seed is included in reproducibility report
     import numpy as np
@@ -150,16 +136,12 @@ def test_req_sci_repro_002_record_random_seeds():
     result2 = np.random.rand(10)
 
     report = repro_mgr.validate_consistency(
-        experiment_id="seed_test",
-        original_result=result1,
-        replication_result=result2
+        experiment_id="seed_test", original_result=result1, replication_result=result2
     )
 
     # Assert: Seed is in report
-    assert report.seed_used is not None, \
-        "Reproducibility report should include seed"
-    assert report.seed_used == 42, \
-        "Should record the correct seed value"
+    assert report.seed_used is not None, "Reproducibility report should include seed"
+    assert report.seed_used == 42, "Should record the correct seed value"
 
     # Test Case 3: Artifact storage includes seed
     class AnalysisArtifact:
@@ -170,11 +152,7 @@ def test_req_sci_repro_002_record_random_seeds():
             self.data = {}
 
         def save_analysis(
-            self,
-            analysis_id: str,
-            result: Any,
-            seed: int,
-            parameters: Dict[str, Any]
+            self, analysis_id: str, result: Any, seed: int, parameters: dict[str, Any]
         ):
             """Save analysis with all reproducibility information."""
             self.data[analysis_id] = {
@@ -183,11 +161,11 @@ def test_req_sci_repro_002_record_random_seeds():
                     "seed": seed,
                     "parameters": parameters,
                     "timestamp": datetime.now().isoformat(),
-                    "python_version": sys.version
-                }
+                    "python_version": sys.version,
+                },
             }
 
-        def load_analysis(self, analysis_id: str) -> Dict[str, Any]:
+        def load_analysis(self, analysis_id: str) -> dict[str, Any]:
             """Load analysis with metadata."""
             return self.data.get(analysis_id)
 
@@ -202,7 +180,7 @@ def test_req_sci_repro_002_record_random_seeds():
         analysis_id="exp_001",
         result=analysis_result,
         seed=analysis_seed,
-        parameters=analysis_params
+        parameters=analysis_params,
     )
 
     # Load and verify
@@ -211,10 +189,10 @@ def test_req_sci_repro_002_record_random_seeds():
     # Assert: Seed is stored and retrievable
     assert loaded is not None, "Should retrieve saved analysis"
     assert "metadata" in loaded, "Should include metadata"
-    assert loaded["metadata"]["seed"] == 42, \
-        "Should store random seed in metadata"
-    assert loaded["metadata"]["parameters"]["method"] == "monte_carlo", \
-        "Should store analysis parameters"
+    assert loaded["metadata"]["seed"] == 42, "Should store random seed in metadata"
+    assert (
+        loaded["metadata"]["parameters"]["method"] == "monte_carlo"
+    ), "Should store analysis parameters"
 
 
 @pytest.mark.requirement("REQ-SCI-REPRO-003")
@@ -233,47 +211,39 @@ def test_req_sci_repro_003_version_lock_dependencies():
     repro_mgr = ReproducibilityManager(capture_packages=True)
 
     snapshot = repro_mgr.capture_environment_snapshot(
-        experiment_id="env_test_001",
-        include_env_vars=False
+        experiment_id="env_test_001", include_env_vars=False
     )
 
     # Assert: Environment snapshot includes version info
-    assert isinstance(snapshot, EnvironmentSnapshot), \
-        "Should return EnvironmentSnapshot"
-    assert snapshot.python_version is not None, \
-        "Should capture Python version"
-    assert snapshot.platform is not None, \
-        "Should capture platform information"
-    assert isinstance(snapshot.installed_packages, dict), \
-        "Should capture installed packages"
+    assert isinstance(snapshot, EnvironmentSnapshot), "Should return EnvironmentSnapshot"
+    assert snapshot.python_version is not None, "Should capture Python version"
+    assert snapshot.platform is not None, "Should capture platform information"
+    assert isinstance(snapshot.installed_packages, dict), "Should capture installed packages"
 
     # Test Case 2: Export to requirements.txt format
     with tempfile.TemporaryDirectory() as tmpdir:
         output_path = os.path.join(tmpdir, "requirements.txt")
 
         exported_path = repro_mgr.export_environment(
-            experiment_id="env_test_001",
-            output_path=output_path
+            experiment_id="env_test_001", output_path=output_path
         )
 
         # Assert: Requirements file is created
-        assert os.path.exists(exported_path), \
-            "Should create requirements.txt file"
+        assert os.path.exists(exported_path), "Should create requirements.txt file"
 
         # Read and verify contents
-        with open(exported_path, 'r') as f:
+        with open(exported_path) as f:
             content = f.read()
 
         # Assert: File contains version information
-        assert "# Python:" in content, \
-            "Should include Python version in comments"
-        assert "# Platform:" in content, \
-            "Should include platform information"
-        assert "==" in content or len(snapshot.installed_packages) == 0, \
-            "Should specify exact package versions (pkg==version)"
+        assert "# Python:" in content, "Should include Python version in comments"
+        assert "# Platform:" in content, "Should include platform information"
+        assert (
+            "==" in content or len(snapshot.installed_packages) == 0
+        ), "Should specify exact package versions (pkg==version)"
 
     # Test Case 3: Dependency locking validation
-    def validate_dependency_lock(requirements_file: str) -> Dict[str, Any]:
+    def validate_dependency_lock(requirements_file: str) -> dict[str, Any]:
         """
         Validate that dependencies are properly locked.
 
@@ -285,17 +255,14 @@ def test_req_sci_repro_003_version_lock_dependencies():
         unlocked_packages = []
 
         if not os.path.exists(requirements_file):
-            return {
-                "valid": False,
-                "issues": ["Requirements file not found"]
-            }
+            return {"valid": False, "issues": ["Requirements file not found"]}
 
-        with open(requirements_file, 'r') as f:
+        with open(requirements_file) as f:
             lines = f.readlines()
 
         for line in lines:
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
             # Check if version is pinned (==)
@@ -312,13 +279,12 @@ def test_req_sci_repro_003_version_lock_dependencies():
             "unlocked_packages": unlocked_packages,
             "issues": issues,
             "recommendation": (
-                "Pin all package versions using == operator"
-                if unlocked_packages else None
-            )
+                "Pin all package versions using == operator" if unlocked_packages else None
+            ),
         }
 
     # Create test requirements file
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
         f.write("numpy==1.24.0\n")
         f.write("pandas==2.0.0\n")
         f.write("scipy==1.10.0\n")
@@ -328,12 +294,9 @@ def test_req_sci_repro_003_version_lock_dependencies():
         validation = validate_dependency_lock(test_req_file)
 
         # Assert: Properly locked dependencies pass validation
-        assert validation["valid"], \
-            "Properly locked dependencies should pass validation"
-        assert validation["locked_count"] == 3, \
-            "Should identify all locked packages"
-        assert validation["unlocked_count"] == 0, \
-            "Should have no unlocked packages"
+        assert validation["valid"], "Properly locked dependencies should pass validation"
+        assert validation["locked_count"] == 3, "Should identify all locked packages"
+        assert validation["unlocked_count"] == 0, "Should have no unlocked packages"
     finally:
         os.unlink(test_req_file)
 
@@ -350,6 +313,7 @@ def test_req_sci_repro_004_include_environment_specs():
     - Containerization information is included
     - Complete environment can be reconstructed
     """
+
     # Test Case 1: Complete environment artifact
     class EnvironmentArtifact:
         """Complete environment specification for reproduction."""
@@ -358,17 +322,15 @@ def test_req_sci_repro_004_include_environment_specs():
             self.specifications = {}
 
         def capture_complete_environment(
-            self,
-            experiment_id: str,
-            include_system_info: bool = True
-        ) -> Dict[str, Any]:
+            self, experiment_id: str, include_system_info: bool = True
+        ) -> dict[str, Any]:
             """Capture complete environment specifications."""
             import platform
 
             env_spec = {
                 "experiment_id": experiment_id,
                 "timestamp": datetime.now().isoformat(),
-                "environment": {}
+                "environment": {},
             }
 
             if include_system_info:
@@ -379,20 +341,20 @@ def test_req_sci_repro_004_include_environment_specs():
                     "architecture": platform.machine(),
                     "processor": platform.processor(),
                     "python_version": sys.version,
-                    "python_implementation": platform.python_implementation()
+                    "python_implementation": platform.python_implementation(),
                 }
 
             # Package information
             env_spec["environment"]["packages"] = {
                 "format": "requirements.txt",
-                "location": f"artifacts/{experiment_id}/requirements.txt"
+                "location": f"artifacts/{experiment_id}/requirements.txt",
             }
 
             # Container specification (if available)
             env_spec["environment"]["container"] = {
                 "type": "docker",  # Could be docker, singularity, etc.
                 "image": None,  # Would be populated in production
-                "dockerfile_location": f"artifacts/{experiment_id}/Dockerfile"
+                "dockerfile_location": f"artifacts/{experiment_id}/Dockerfile",
             }
 
             # Git information (for code version)
@@ -400,34 +362,23 @@ def test_req_sci_repro_004_include_environment_specs():
                 "repository": "unknown",
                 "commit_hash": None,
                 "branch": None,
-                "is_dirty": None
+                "is_dirty": None,
             }
 
             self.specifications[experiment_id] = env_spec
             return env_spec
 
-        def export_to_file(
-            self,
-            experiment_id: str,
-            output_dir: str
-        ) -> str:
+        def export_to_file(self, experiment_id: str, output_dir: str) -> str:
             """Export environment specification to JSON file."""
             if experiment_id not in self.specifications:
                 raise ValueError(f"No specification for {experiment_id}")
 
-            output_path = os.path.join(
-                output_dir,
-                f"environment_{experiment_id}.json"
-            )
+            output_path = os.path.join(output_dir, f"environment_{experiment_id}.json")
 
             os.makedirs(output_dir, exist_ok=True)
 
-            with open(output_path, 'w') as f:
-                json.dump(
-                    self.specifications[experiment_id],
-                    f,
-                    indent=2
-                )
+            with open(output_path, "w") as f:
+                json.dump(self.specifications[experiment_id], f, indent=2)
 
             return output_path
 
@@ -435,44 +386,33 @@ def test_req_sci_repro_004_include_environment_specs():
 
     # Capture environment
     env_spec = artifact.capture_complete_environment(
-        experiment_id="exp_with_env",
-        include_system_info=True
+        experiment_id="exp_with_env", include_system_info=True
     )
 
     # Assert: Complete environment is captured
-    assert "environment" in env_spec, \
-        "Should include environment specifications"
-    assert "system" in env_spec["environment"], \
-        "Should include system information"
-    assert "packages" in env_spec["environment"], \
-        "Should include package information"
-    assert "container" in env_spec["environment"], \
-        "Should include container specifications"
-    assert "code_version" in env_spec, \
-        "Should include code version information"
+    assert "environment" in env_spec, "Should include environment specifications"
+    assert "system" in env_spec["environment"], "Should include system information"
+    assert "packages" in env_spec["environment"], "Should include package information"
+    assert "container" in env_spec["environment"], "Should include container specifications"
+    assert "code_version" in env_spec, "Should include code version information"
 
     # Test Case 2: Export and reload environment spec
     with tempfile.TemporaryDirectory() as tmpdir:
-        exported_path = artifact.export_to_file(
-            experiment_id="exp_with_env",
-            output_dir=tmpdir
-        )
+        exported_path = artifact.export_to_file(experiment_id="exp_with_env", output_dir=tmpdir)
 
         # Assert: File is created
-        assert os.path.exists(exported_path), \
-            "Should create environment specification file"
+        assert os.path.exists(exported_path), "Should create environment specification file"
 
         # Load and verify
-        with open(exported_path, 'r') as f:
+        with open(exported_path) as f:
             loaded_spec = json.load(f)
 
         # Assert: Loaded spec is complete
-        assert loaded_spec["experiment_id"] == "exp_with_env", \
-            "Should preserve experiment ID"
-        assert "environment" in loaded_spec, \
-            "Should preserve environment specifications"
-        assert loaded_spec["environment"]["system"]["platform"] is not None, \
-            "Should preserve system information"
+        assert loaded_spec["experiment_id"] == "exp_with_env", "Should preserve experiment ID"
+        assert "environment" in loaded_spec, "Should preserve environment specifications"
+        assert (
+            loaded_spec["environment"]["system"]["platform"] is not None
+        ), "Should preserve system information"
 
 
 @pytest.mark.requirement("REQ-SCI-REPRO-005")
@@ -488,6 +428,7 @@ def test_req_sci_repro_005_not_deterministic_across_runs():
     - Non-determinism is expected in some components
     - Differences across runs are acceptable
     """
+
     # Test Case 1: LLM responses are inherently stochastic
     class StochasticComponent:
         """Component with inherent stochasticity (e.g., LLM)."""
@@ -495,11 +436,7 @@ def test_req_sci_repro_005_not_deterministic_across_runs():
         def __init__(self, temperature: float = 0.7):
             self.temperature = temperature
 
-        def generate_response(
-            self,
-            prompt: str,
-            seed: int = None
-        ) -> str:
+        def generate_response(self, prompt: str, seed: int = None) -> str:
             """
             Generate response (simulated stochastic behavior).
 
@@ -539,93 +476,86 @@ def test_req_sci_repro_005_not_deterministic_across_runs():
     # Assert: Responses may differ (stochasticity is inherent)
     # Note: In this simulation they'll be the same due to fixed random seed,
     # but the component declares itself non-deterministic
-    assert not component.is_deterministic(), \
-        "LLM component should declare itself as non-deterministic"
+    assert (
+        not component.is_deterministic()
+    ), "LLM component should declare itself as non-deterministic"
 
     # Test Case 2: Document non-determinism
     class NonDeterminismDocumentation:
         """Document sources of non-determinism."""
 
         @staticmethod
-        def get_stochastic_components() -> List[Dict[str, str]]:
+        def get_stochastic_components() -> list[dict[str, str]]:
             """List components with inherent stochasticity."""
             return [
                 {
                     "component": "LLM API",
                     "reason": "Temperature-based sampling, model updates",
                     "impact": "Generated text may vary across runs",
-                    "mitigation": "Use low temperature, record all prompts and responses"
+                    "mitigation": "Use low temperature, record all prompts and responses",
                 },
                 {
                     "component": "Literature Search",
                     "reason": "Database updates, ranking algorithms",
                     "impact": "Retrieved papers may differ",
-                    "mitigation": "Cache search results, version-lock databases"
+                    "mitigation": "Cache search results, version-lock databases",
                 },
                 {
                     "component": "Hypothesis Generation",
                     "reason": "Stochastic sampling, LLM variability",
                     "impact": "Different hypotheses across runs",
-                    "mitigation": "Generate multiple candidates, track all attempts"
-                }
+                    "mitigation": "Generate multiple candidates, track all attempts",
+                },
             ]
 
         @staticmethod
-        def document_run_variance(
-            run_results: List[Dict[str, Any]]
-        ) -> Dict[str, Any]:
+        def document_run_variance(run_results: list[dict[str, Any]]) -> dict[str, Any]:
             """Document variance across multiple runs."""
             if len(run_results) < 2:
                 return {
                     "variance_documented": False,
-                    "reason": "Insufficient runs for variance analysis"
+                    "reason": "Insufficient runs for variance analysis",
                 }
 
             # Simple variance analysis
             results_match = all(
-                r.get("key_outcome") == run_results[0].get("key_outcome")
-                for r in run_results
+                r.get("key_outcome") == run_results[0].get("key_outcome") for r in run_results
             )
 
             return {
                 "variance_documented": True,
                 "total_runs": len(run_results),
                 "identical_results": results_match,
-                "stochastic_components": (
-                    NonDeterminismDocumentation.get_stochastic_components()
-                ),
+                "stochastic_components": (NonDeterminismDocumentation.get_stochastic_components()),
                 "interpretation": (
                     "Results are identical across runs"
-                    if results_match else
-                    "Results vary across runs due to inherent stochasticity"
-                )
+                    if results_match
+                    else "Results vary across runs due to inherent stochasticity"
+                ),
             }
 
     # Get stochastic components
     stochastic_list = NonDeterminismDocumentation.get_stochastic_components()
 
     # Assert: Stochastic components are documented
-    assert len(stochastic_list) > 0, \
-        "Should document stochastic components"
-    assert all("component" in c and "reason" in c for c in stochastic_list), \
-        "Each component should have explanation"
+    assert len(stochastic_list) > 0, "Should document stochastic components"
+    assert all(
+        "component" in c and "reason" in c for c in stochastic_list
+    ), "Each component should have explanation"
 
     # Test Case 3: Variance documentation
     mock_runs = [
         {"run_id": 1, "key_outcome": "hypothesis_A"},
         {"run_id": 2, "key_outcome": "hypothesis_B"},
-        {"run_id": 3, "key_outcome": "hypothesis_A"}
+        {"run_id": 3, "key_outcome": "hypothesis_A"},
     ]
 
     variance_doc = NonDeterminismDocumentation.document_run_variance(mock_runs)
 
     # Assert: Variance is properly documented
-    assert variance_doc["variance_documented"], \
-        "Should document variance across runs"
-    assert variance_doc["total_runs"] == 3, \
-        "Should count all runs"
-    assert not variance_doc["identical_results"], \
-        "Should detect non-identical results"
+    assert variance_doc["variance_documented"], "Should document variance across runs"
+    assert variance_doc["total_runs"] == 3, "Should count all runs"
+    assert not variance_doc["identical_results"], "Should detect non-identical results"
 
 
 @pytest.mark.requirement("REQ-SCI-REPRO-006")
@@ -641,6 +571,7 @@ def test_req_sci_repro_006_document_stochasticity():
     - Users are warned about non-determinism
     - Documentation is clear and accessible
     """
+
     # Test Case 1: Stochasticity warning in documentation
     class StochasticityDocumentation:
         """Documentation of stochasticity in the system."""
@@ -679,7 +610,7 @@ def test_req_sci_repro_006_document_stochasticity():
             return True  # Always warn about non-determinism
 
         @staticmethod
-        def get_reproducibility_best_practices() -> List[str]:
+        def get_reproducibility_best_practices() -> list[str]:
             """Get best practices for reproducibility."""
             return [
                 "Use consistent random seeds for controlled randomness",
@@ -689,39 +620,40 @@ def test_req_sci_repro_006_document_stochasticity():
                 "Document all configuration parameters",
                 "Run multiple iterations for variance estimation",
                 "Store complete environment specifications",
-                "Archive all intermediate results"
+                "Archive all intermediate results",
             ]
 
     # Get and verify warning
     warning = StochasticityDocumentation.get_stochasticity_warning()
 
     # Assert: Warning is comprehensive
-    assert "non-deterministic" in warning.lower() or "stochastic" in warning.lower(), \
-        "Should explicitly mention non-determinism/stochasticity"
-    assert "llm" in warning.lower(), \
-        "Should mention LLM as source of stochasticity"
-    assert "multiple runs" in warning.lower(), \
-        "Should mention that multiple runs may differ"
-    assert "seed" in warning.lower(), \
-        "Should mention random seeds"
+    assert (
+        "non-deterministic" in warning.lower() or "stochastic" in warning.lower()
+    ), "Should explicitly mention non-determinism/stochasticity"
+    assert "llm" in warning.lower(), "Should mention LLM as source of stochasticity"
+    assert "multiple runs" in warning.lower(), "Should mention that multiple runs may differ"
+    assert "seed" in warning.lower(), "Should mention random seeds"
 
     # Assert: Warning should always be shown
-    assert StochasticityDocumentation.should_warn_user(), \
-        "Users should always be warned about non-determinism"
+    assert (
+        StochasticityDocumentation.should_warn_user()
+    ), "Users should always be warned about non-determinism"
 
     # Test Case 2: Best practices documentation
     best_practices = StochasticityDocumentation.get_reproducibility_best_practices()
 
     # Assert: Comprehensive best practices
-    assert len(best_practices) >= 5, \
-        "Should provide multiple best practices"
-    assert any("seed" in practice.lower() for practice in best_practices), \
-        "Should include seed management"
-    assert any("log" in practice.lower() for practice in best_practices), \
-        "Should include logging practices"
-    assert any("multiple" in practice.lower() or "variance" in practice.lower()
-               for practice in best_practices), \
-        "Should mention running multiple iterations"
+    assert len(best_practices) >= 5, "Should provide multiple best practices"
+    assert any(
+        "seed" in practice.lower() for practice in best_practices
+    ), "Should include seed management"
+    assert any(
+        "log" in practice.lower() for practice in best_practices
+    ), "Should include logging practices"
+    assert any(
+        "multiple" in practice.lower() or "variance" in practice.lower()
+        for practice in best_practices
+    ), "Should mention running multiple iterations"
 
 
 @pytest.mark.requirement("REQ-SCI-REPRO-007")
@@ -737,15 +669,15 @@ def test_req_sci_repro_007_provide_variance_metrics():
     - Confidence metrics are provided
     - Statistical significance is assessed
     """
+
     # Test Case 1: Multi-run variance analysis
     class MultiRunAnalyzer:
         """Analyze variance across multiple runs."""
 
         @staticmethod
         def analyze_multiple_runs(
-            run_results: List[Dict[str, Any]],
-            key_metrics: List[str]
-        ) -> Dict[str, Any]:
+            run_results: list[dict[str, Any]], key_metrics: list[str]
+        ) -> dict[str, Any]:
             """
             Analyze variance across multiple runs.
 
@@ -759,15 +691,9 @@ def test_req_sci_repro_007_provide_variance_metrics():
             import numpy as np
 
             if len(run_results) < 2:
-                return {
-                    "error": "At least 2 runs required for variance analysis"
-                }
+                return {"error": "At least 2 runs required for variance analysis"}
 
-            analysis = {
-                "n_runs": len(run_results),
-                "metrics": {},
-                "overall_consistency": None
-            }
+            analysis = {"n_runs": len(run_results), "metrics": {}, "overall_consistency": None}
 
             for metric in key_metrics:
                 # Extract metric values from all runs
@@ -778,13 +704,11 @@ def test_req_sci_repro_007_provide_variance_metrics():
                 ]
 
                 if not values:
-                    analysis["metrics"][metric] = {
-                        "error": "Metric not found in runs"
-                    }
+                    analysis["metrics"][metric] = {"error": "Metric not found in runs"}
                     continue
 
                 # Compute statistics
-                if all(isinstance(v, (int, float)) for v in values):
+                if all(isinstance(v, int | float) for v in values):
                     # Numeric metric
                     values_array = np.array(values)
                     analysis["metrics"][metric] = {
@@ -794,17 +718,25 @@ def test_req_sci_repro_007_provide_variance_metrics():
                         "max": float(np.max(values_array)),
                         "coefficient_of_variation": (
                             float(np.std(values_array) / np.mean(values_array))
-                            if np.mean(values_array) != 0 else None
+                            if np.mean(values_array) != 0
+                            else None
                         ),
                         "confidence_interval_95": (
-                            float(np.mean(values_array) - 1.96 * np.std(values_array) / np.sqrt(len(values))),
-                            float(np.mean(values_array) + 1.96 * np.std(values_array) / np.sqrt(len(values)))
-                        )
+                            float(
+                                np.mean(values_array)
+                                - 1.96 * np.std(values_array) / np.sqrt(len(values))
+                            ),
+                            float(
+                                np.mean(values_array)
+                                + 1.96 * np.std(values_array) / np.sqrt(len(values))
+                            ),
+                        ),
                     }
 
                 else:
                     # Categorical metric
                     from collections import Counter
+
                     counts = Counter(values)
                     most_common = counts.most_common(1)[0]
 
@@ -812,7 +744,7 @@ def test_req_sci_repro_007_provide_variance_metrics():
                         "mode": most_common[0],
                         "mode_frequency": most_common[1],
                         "unique_values": len(counts),
-                        "consistency": most_common[1] / len(values)
+                        "consistency": most_common[1] / len(values),
                     }
 
             # Overall consistency score
@@ -837,13 +769,12 @@ def test_req_sci_repro_007_provide_variance_metrics():
         {"accuracy": 0.85, "f1_score": 0.82, "runtime": 120},
         {"accuracy": 0.87, "f1_score": 0.84, "runtime": 118},
         {"accuracy": 0.86, "f1_score": 0.83, "runtime": 122},
-        {"accuracy": 0.84, "f1_score": 0.81, "runtime": 125}
+        {"accuracy": 0.84, "f1_score": 0.81, "runtime": 125},
     ]
 
     analyzer = MultiRunAnalyzer()
     analysis = analyzer.analyze_multiple_runs(
-        mock_runs_numeric,
-        key_metrics=["accuracy", "f1_score", "runtime"]
+        mock_runs_numeric, key_metrics=["accuracy", "f1_score", "runtime"]
     )
 
     # Assert: Variance metrics are computed
@@ -854,30 +785,24 @@ def test_req_sci_repro_007_provide_variance_metrics():
     accuracy_stats = analysis["metrics"]["accuracy"]
     assert "mean" in accuracy_stats, "Should compute mean"
     assert "std" in accuracy_stats, "Should compute standard deviation"
-    assert "confidence_interval_95" in accuracy_stats, \
-        "Should compute confidence interval"
-    assert "coefficient_of_variation" in accuracy_stats, \
-        "Should compute coefficient of variation"
+    assert "confidence_interval_95" in accuracy_stats, "Should compute confidence interval"
+    assert "coefficient_of_variation" in accuracy_stats, "Should compute coefficient of variation"
 
     # Test Case 3: Consistency assessment
-    assert "overall_consistency" in analysis, \
-        "Should provide overall consistency score"
-    assert analysis["overall_consistency"] is not None, \
-        "Should compute consistency score"
-    assert 0 <= analysis["overall_consistency"] <= 1, \
-        "Consistency score should be between 0 and 1"
+    assert "overall_consistency" in analysis, "Should provide overall consistency score"
+    assert analysis["overall_consistency"] is not None, "Should compute consistency score"
+    assert 0 <= analysis["overall_consistency"] <= 1, "Consistency score should be between 0 and 1"
 
     # Test Case 4: Categorical metrics
     mock_runs_categorical = [
         {"best_hypothesis": "hyp_A", "discovery_type": "novel"},
         {"best_hypothesis": "hyp_B", "discovery_type": "novel"},
         {"best_hypothesis": "hyp_A", "discovery_type": "novel"},
-        {"best_hypothesis": "hyp_A", "discovery_type": "incremental"}
+        {"best_hypothesis": "hyp_A", "discovery_type": "incremental"},
     ]
 
     analysis2 = analyzer.analyze_multiple_runs(
-        mock_runs_categorical,
-        key_metrics=["best_hypothesis", "discovery_type"]
+        mock_runs_categorical, key_metrics=["best_hypothesis", "discovery_type"]
     )
 
     # Assert: Categorical metrics are analyzed
@@ -885,5 +810,4 @@ def test_req_sci_repro_007_provide_variance_metrics():
     assert "mode" in hyp_stats, "Should identify most common value"
     assert hyp_stats["mode"] == "hyp_A", "Should correctly identify mode"
     assert "consistency" in hyp_stats, "Should compute consistency"
-    assert hyp_stats["consistency"] == 0.75, \
-        "Should correctly compute consistency (3/4 = 0.75)"
+    assert hyp_stats["consistency"] == 0.75, "Should correctly compute consistency (3/4 = 0.75)"

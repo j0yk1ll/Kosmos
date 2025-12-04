@@ -5,13 +5,13 @@ These tests validate iteration tracking, convergence detection, hypothesis manag
 and cycle completion tracking for autonomous research.
 """
 
-import pytest
-from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any
+from unittest.mock import Mock, patch
 
-from kosmos.core.workflow import ResearchPlan, WorkflowState, ResearchWorkflow
+import pytest
+
 from kosmos.agents.research_director import ResearchDirectorAgent
+from kosmos.core.workflow import ResearchPlan, ResearchWorkflow, WorkflowState
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -60,8 +60,8 @@ class TestREQ_ORCH_ITER_001_IterationCounting:
 
         assert plan.updated_at > initial_timestamp
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_increments_iteration_after_refinement(self, mock_wm, mock_llm):
         """Verify director increments iteration after completing refinement phase."""
         mock_llm.return_value = Mock()
@@ -77,14 +77,15 @@ class TestREQ_ORCH_ITER_001_IterationCounting:
 
         # Trigger refinement which should increment iteration
         from kosmos.core.workflow import NextAction
-        with patch.object(director, '_send_to_hypothesis_refiner'):
+
+        with patch.object(director, "_send_to_hypothesis_refiner"):
             director._execute_next_action(NextAction.REFINE_HYPOTHESIS)
 
         # Iteration should be incremented
         assert director.research_plan.iteration_count == initial_iteration + 1
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_iteration_visible_in_research_status(self, mock_wm, mock_llm):
         """Verify iteration count is visible in research status."""
         mock_llm.return_value = Mock()
@@ -116,32 +117,26 @@ class TestREQ_ORCH_ITER_002_MaxIterationLimit:
         assert plan1.max_iterations == 5
         assert plan2.max_iterations == 20
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_respects_max_iterations(self, mock_wm, mock_llm):
         """Verify director respects max_iterations configuration."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
-        director = ResearchDirectorAgent(
-            research_question="Test",
-            config={"max_iterations": 15}
-        )
+        director = ResearchDirectorAgent(research_question="Test", config={"max_iterations": 15})
 
         assert director.max_iterations == 15
         assert director.research_plan.max_iterations == 15
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_convergence_triggered_at_iteration_limit(self, mock_wm, mock_llm):
         """Verify convergence check triggered when iteration limit reached."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
-        director = ResearchDirectorAgent(
-            research_question="Test",
-            config={"max_iterations": 3}
-        )
+        director = ResearchDirectorAgent(research_question="Test", config={"max_iterations": 3})
 
         # Set iteration at limit
         director.research_plan.iteration_count = 3
@@ -151,17 +146,14 @@ class TestREQ_ORCH_ITER_002_MaxIterationLimit:
 
         assert should_converge is True
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_iteration_limit_in_research_status(self, mock_wm, mock_llm):
         """Verify max_iterations visible in research status."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
-        director = ResearchDirectorAgent(
-            research_question="Test",
-            config={"max_iterations": 10}
-        )
+        director = ResearchDirectorAgent(research_question="Test", config={"max_iterations": 10})
 
         status = director.get_research_status()
 
@@ -253,8 +245,8 @@ class TestREQ_ORCH_ITER_003_HypothesisPoolTracking:
         assert "hyp3" in untested
         assert "hyp1" not in untested
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_hypothesis_counts_in_research_status(self, mock_wm, mock_llm):
         """Verify hypothesis counts visible in research status."""
         mock_llm.return_value = Mock()
@@ -332,8 +324,8 @@ class TestREQ_ORCH_ITER_004_ExperimentQueueTracking:
         assert "exp1" in plan.completed_experiments
         assert "exp1" not in plan.experiment_queue
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_experiment_counts_in_research_status(self, mock_wm, mock_llm):
         """Verify experiment counts visible in research status."""
         mock_llm.return_value = Mock()
@@ -386,8 +378,8 @@ class TestREQ_ORCH_ITER_005_ResultTracking:
 
         assert len(plan.results) == 1
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_result_count_in_research_status(self, mock_wm, mock_llm):
         """Verify result count visible in research status."""
         mock_llm.return_value = Mock()
@@ -573,8 +565,8 @@ class TestREQ_ORCH_ITER_008_ConvergenceState:
         assert plan.has_converged is True
         assert plan.convergence_reason == "Iteration limit reached"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_convergence_visible_in_research_status(self, mock_wm, mock_llm):
         """Verify convergence state visible in research status."""
         mock_llm.return_value = Mock()
@@ -608,8 +600,8 @@ class TestREQ_ORCH_ITER_008_ConvergenceState:
         assert workflow.current_state == WorkflowState.CONVERGED
         assert plan.current_state == WorkflowState.CONVERGED
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_convergence_stops_director(self, mock_wm, mock_llm):
         """Verify convergence detection stops the director."""
         mock_llm.return_value = Mock()
@@ -625,14 +617,11 @@ class TestREQ_ORCH_ITER_008_ConvergenceState:
             from_agent="convergence_detector",
             to_agent=director.agent_id,
             type=MessageType.RESPONSE,
-            content={
-                "should_converge": True,
-                "reason": "Iteration limit reached"
-            },
-            metadata={"agent_type": "ConvergenceDetector"}
+            content={"should_converge": True, "reason": "Iteration limit reached"},
+            metadata={"agent_type": "ConvergenceDetector"},
         )
 
-        with patch.object(director, 'stop') as mock_stop:
+        with patch.object(director, "stop") as mock_stop:
             director._handle_convergence_detector_response(convergence_message)
 
             # Verify director is stopped
@@ -642,17 +631,14 @@ class TestREQ_ORCH_ITER_008_ConvergenceState:
         assert director.research_plan.has_converged is True
         assert director.research_plan.convergence_reason == "Iteration limit reached"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_should_check_convergence_conditions(self, mock_wm, mock_llm):
         """Verify convergence check is triggered under correct conditions."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
-        director = ResearchDirectorAgent(
-            research_question="Test",
-            config={"max_iterations": 5}
-        )
+        director = ResearchDirectorAgent(research_question="Test", config={"max_iterations": 5})
 
         # Should not check convergence initially
         assert director._should_check_convergence() is False

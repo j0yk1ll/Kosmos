@@ -5,18 +5,17 @@ These tests verify that all Phase 2 components work together correctly
 in realistic workflows.
 """
 
-import pytest
 from unittest.mock import patch
 
-from kosmos.literature.unified_search import UnifiedLiteratureSearch
-from kosmos.knowledge.embeddings import PaperEmbedder
-from kosmos.knowledge.vector_db import PaperVectorDB as VectorDatabase
-from kosmos.knowledge.graph import KnowledgeGraph
-from kosmos.knowledge.concept_extractor import ConceptExtractor
-from kosmos.knowledge.graph_builder import GraphBuilder
+import pytest
+
 from kosmos.agents.literature_analyzer import LiteratureAnalyzerAgent
-from kosmos.literature.citations import CitationParser, CitationFormatter
+from kosmos.knowledge.graph import KnowledgeGraph
+from kosmos.knowledge.graph_builder import GraphBuilder
+from kosmos.knowledge.vector_db import PaperVectorDB as VectorDatabase
+from kosmos.literature.citations import CitationFormatter, CitationParser
 from kosmos.literature.reference_manager import ReferenceManager
+from kosmos.literature.unified_search import UnifiedLiteratureSearch
 
 
 @pytest.mark.integration
@@ -28,13 +27,13 @@ class TestSearchAndAnalyzeWorkflow:
         """Test: Search → Analyze → Store results."""
         # 1. Search for papers
         search = UnifiedLiteratureSearch()
-        with patch.object(search.arxiv_client, 'search') as mock_search:
+        with patch.object(search.arxiv_client, "search") as mock_search:
             mock_search.return_value = []  # Mock to avoid real API calls
 
             papers = search.search("machine learning", max_results=2, sources=["arxiv"])
 
         # 2. Analyze with agent (mocked)
-        with patch('kosmos.agents.literature_analyzer.get_client') as mock_client:
+        with patch("kosmos.agents.literature_analyzer.get_client") as mock_client:
             mock_client.return_value.generate_structured.return_value = {
                 "executive_summary": "Test summary",
                 "key_findings": ["Finding 1"],
@@ -56,18 +55,16 @@ class TestKnowledgeGraphWorkflow:
 
     def test_build_knowledge_graph_workflow(self, sample_papers_list):
         """Test: Papers → Extract Concepts → Build Graph."""
-        with patch('py2neo.Graph'):
-            with patch('kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running'):
-                with patch('sentence_transformers.SentenceTransformer'):
+        with patch("py2neo.Graph"):
+            with patch("kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running"):
+                with patch("sentence_transformers.SentenceTransformer"):
                     # Create mocked components
                     kg = KnowledgeGraph(auto_start_container=False, create_indexes=False)
-                    kg.graph = patch('py2neo.Graph').start()
+                    kg.graph = patch("py2neo.Graph").start()
 
-                    with patch('kosmos.knowledge.concept_extractor.get_client') as mock_client:
+                    with patch("kosmos.knowledge.concept_extractor.get_client") as mock_client:
                         mock_client.return_value.generate_structured.return_value = {
-                            "concepts": [
-                                {"name": "ML", "category": "Field", "relevance": 0.9}
-                            ],
+                            "concepts": [{"name": "ML", "category": "Field", "relevance": 0.9}],
                             "methods": [],
                             "relationships": [],
                         }
@@ -75,7 +72,7 @@ class TestKnowledgeGraphWorkflow:
                         builder = GraphBuilder(knowledge_graph=kg)
 
                         # Build graph (will be mocked)
-                        with patch.object(builder, 'add_paper'):
+                        with patch.object(builder, "add_paper"):
                             for paper in sample_papers_list[:2]:
                                 builder.add_paper(paper, extract_concepts=False)
 
@@ -87,15 +84,15 @@ class TestVectorSearchWorkflow:
     @pytest.mark.slow
     def test_embed_and_search_workflow(self, sample_papers_list):
         """Test: Embed Papers → Store → Search."""
-        with patch('chromadb.Client'):
-            with patch('sentence_transformers.SentenceTransformer'):
+        with patch("chromadb.Client"):
+            with patch("sentence_transformers.SentenceTransformer"):
                 # Create vector DB (mocked)
                 db = VectorDatabase(persist_directory=":memory:")
-                db.collection = patch('chromadb.Collection').start()
+                db.collection = patch("chromadb.Collection").start()
 
                 # Mock embedding and add
-                with patch.object(db, 'embedding_generator'):
-                    with patch.object(db.collection, 'add'):
+                with patch.object(db, "embedding_generator"):
+                    with patch.object(db.collection, "add"):
                         db.add_papers(sample_papers_list[:3])
 
 
@@ -143,26 +140,26 @@ class TestFullPipeline:
     def test_complete_literature_pipeline(self, sample_papers_list, tmp_path):
         """Test: Search → Store → Analyze → Extract → Visualize."""
         # Mock all external services
-        with patch('chromadb.Client'):
-            with patch('py2neo.Graph'):
-                with patch('sentence_transformers.SentenceTransformer'):
-                    with patch('kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running'):
+        with patch("chromadb.Client"):
+            with patch("py2neo.Graph"):
+                with patch("sentence_transformers.SentenceTransformer"):
+                    with patch("kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running"):
                         # 1. Create mock papers (using fixtures)
                         papers = sample_papers_list[:3]
 
                         # 2. Store in vector DB (mocked)
                         db = VectorDatabase(persist_directory=":memory:")
-                        db.collection = patch('chromadb.Collection').start()
+                        db.collection = patch("chromadb.Collection").start()
 
-                        with patch.object(db, 'embedding_generator'):
-                            with patch.object(db.collection, 'add'):
+                        with patch.object(db, "embedding_generator"):
+                            with patch.object(db.collection, "add"):
                                 db.add_papers(papers)
 
                         # 3. Build knowledge graph (mocked)
                         kg = KnowledgeGraph(auto_start_container=False, create_indexes=False)
-                        kg.graph = patch('py2neo.Graph').start()
+                        kg.graph = patch("py2neo.Graph").start()
 
-                        with patch('kosmos.knowledge.concept_extractor.get_client') as mock_client:
+                        with patch("kosmos.knowledge.concept_extractor.get_client") as mock_client:
                             mock_client.return_value.generate_structured.return_value = {
                                 "concepts": [],
                                 "methods": [],
@@ -171,12 +168,14 @@ class TestFullPipeline:
 
                             builder = GraphBuilder(knowledge_graph=kg)
 
-                            with patch.object(builder, 'add_paper'):
+                            with patch.object(builder, "add_paper"):
                                 for paper in papers:
                                     builder.add_paper(paper, extract_concepts=False)
 
                         # 4. Analyze with agent (mocked)
-                        with patch('kosmos.agents.literature_analyzer.get_client') as mock_agent_client:
+                        with patch(
+                            "kosmos.agents.literature_analyzer.get_client"
+                        ) as mock_agent_client:
                             mock_agent_client.return_value.generate_structured.return_value = {
                                 "executive_summary": "Test summary",
                                 "key_findings": ["Finding 1"],
@@ -209,14 +208,14 @@ class TestErrorHandling:
         """Test that components handle API failures gracefully."""
         search = UnifiedLiteratureSearch()
 
-        with patch.object(search.arxiv_client, 'search', side_effect=Exception("API Error")):
+        with patch.object(search.arxiv_client, "search", side_effect=Exception("API Error")):
             # Should return empty list instead of raising
             papers = search.search("test query", sources=["arxiv"])
             assert papers == []
 
     def test_missing_services_degradation(self, sample_paper_metadata):
         """Test degraded functionality when services unavailable."""
-        with patch('kosmos.agents.literature_analyzer.get_client') as mock_client:
+        with patch("kosmos.agents.literature_analyzer.get_client") as mock_client:
             mock_client.return_value.generate_structured.return_value = {
                 "executive_summary": "Summary",
                 "key_findings": [],

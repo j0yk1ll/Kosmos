@@ -26,18 +26,14 @@ Example usage:
         )
 """
 
-from typing import List, Dict, Any, Optional
-from kosmos.experiments.templates.base import (
-    TemplateBase,
-    TemplateCustomizationParams
-)
+from kosmos.experiments.templates.base import TemplateBase, TemplateCustomizationParams
 from kosmos.models.experiment import (
     ExperimentProtocol,
     ExperimentType,
     ProtocolStep,
-    Variable,
     ResourceRequirements,
     ValidationCheck,
+    Variable,
 )
 from kosmos.models.hypothesis import Hypothesis
 
@@ -68,15 +64,15 @@ class MultiParameterOptimizationTemplate(TemplateBase):
                 "Materials process optimization",
                 "Multi-parameter tuning",
                 "Efficiency maximization",
-                "Cost/waste minimization"
+                "Cost/waste minimization",
             ],
             requirements=[
                 "Experimental data with multiple parameters",
                 "At least 50 experiments for reliable model",
-                "Numerical parameters and objective"
+                "Numerical parameters and objective",
             ],
             complexity_score=0.7,
-            rigor_score=0.8
+            rigor_score=0.8,
         )
 
     def is_applicable(self, hypothesis: Hypothesis) -> bool:
@@ -93,15 +89,28 @@ class MultiParameterOptimizationTemplate(TemplateBase):
 
         # Check for materials/optimization keywords
         materials_keywords = [
-            'material', 'process', 'fabrication', 'synthesis',
-            'parameter', 'condition', 'experimental'
+            "material",
+            "process",
+            "fabrication",
+            "synthesis",
+            "parameter",
+            "condition",
+            "experimental",
         ]
 
         # Check for optimization keywords
         optimization_keywords = [
-            'optimize', 'optimization', 'maximize', 'minimize',
-            'best', 'optimal', 'improve', 'enhance', 'reduce',
-            'increase efficiency', 'reduce cost'
+            "optimize",
+            "optimization",
+            "maximize",
+            "minimize",
+            "best",
+            "optimal",
+            "improve",
+            "enhance",
+            "reduce",
+            "increase efficiency",
+            "reduce cost",
         ]
 
         has_materials = any(kw in statement_lower for kw in materials_keywords)
@@ -109,10 +118,7 @@ class MultiParameterOptimizationTemplate(TemplateBase):
 
         return has_materials and has_optimization
 
-    def generate_protocol(
-        self,
-        params: TemplateCustomizationParams
-    ) -> ExperimentProtocol:
+    def generate_protocol(self, params: TemplateCustomizationParams) -> ExperimentProtocol:
         """
         Generate experiment protocol for multi-parameter optimization.
 
@@ -123,12 +129,12 @@ class MultiParameterOptimizationTemplate(TemplateBase):
             ExperimentProtocol with optimization steps
         """
         # Extract custom variables
-        data_path = params.custom_variables.get('data_path', 'data.xlsx')
-        parameters = params.custom_variables.get('parameters', ['Parameter1', 'Parameter2'])
-        objective = params.custom_variables.get('objective', 'Performance')
-        maximize = params.custom_variables.get('maximize', True)
-        model_type = params.custom_variables.get('model_type', 'RandomForest')
-        sheet_name = params.custom_variables.get('sheet_name', None)
+        data_path = params.custom_variables.get("data_path", "data.xlsx")
+        parameters = params.custom_variables.get("parameters", ["Parameter1", "Parameter2"])
+        objective = params.custom_variables.get("objective", "Performance")
+        maximize = params.custom_variables.get("maximize", True)
+        model_type = params.custom_variables.get("model_type", "RandomForest")
+        sheet_name = params.custom_variables.get("sheet_name", None)
 
         # Define protocol steps
         steps = [
@@ -137,14 +143,14 @@ class MultiParameterOptimizationTemplate(TemplateBase):
                 description="Load experimental data",
                 code_template=self._generate_load_data_code(data_path, sheet_name),
                 expected_output="DataFrame with experimental data",
-                validation=["Check parameter columns exist", "Verify data types"]
+                validation=["Check parameter columns exist", "Verify data types"],
             ),
             ProtocolStep(
                 name="exploratory_analysis",
                 description="Explore parameter space and correlations",
                 code_template=self._generate_exploratory_code(parameters, objective),
                 expected_output="Summary statistics and correlation matrix",
-                validation=["Check for missing values", "Identify outliers"]
+                validation=["Check for missing values", "Identify outliers"],
             ),
             ProtocolStep(
                 name="optimize_parameters",
@@ -153,22 +159,22 @@ class MultiParameterOptimizationTemplate(TemplateBase):
                     parameters, objective, maximize, model_type
                 ),
                 expected_output="OptimizationResult with optimal parameters",
-                validation=["Optimization converged", "Model R² > 0.5"]
+                validation=["Optimization converged", "Model R² > 0.5"],
             ),
             ProtocolStep(
                 name="validate_recommendations",
                 description="Cross-validate optimal parameters",
                 code_template=self._generate_validation_code(),
                 expected_output="Validation metrics and confidence intervals",
-                validation=["Predictions within reasonable range"]
+                validation=["Predictions within reasonable range"],
             ),
             ProtocolStep(
                 name="generate_recommendations",
                 description="Generate experimental recommendations",
                 code_template=self._generate_recommendations_code(maximize),
                 expected_output="Recommended experimental conditions",
-                validation=["Parameters within feasible ranges"]
-            )
+                validation=["Parameters within feasible ranges"],
+            ),
         ]
 
         # Define variables
@@ -177,23 +183,23 @@ class MultiParameterOptimizationTemplate(TemplateBase):
                 name=param,
                 description=f"Optimization parameter: {param}",
                 type="numerical",
-                values=None
-            ) for param in parameters
+                values=None,
+            )
+            for param in parameters
         ]
 
-        variables.append(Variable(
-            name=objective,
-            description=f"Objective to {'maximize' if maximize else 'minimize'}: {objective}",
-            type="numerical",
-            values=None
-        ))
+        variables.append(
+            Variable(
+                name=objective,
+                description=f"Objective to {'maximize' if maximize else 'minimize'}: {objective}",
+                type="numerical",
+                values=None,
+            )
+        )
 
         # Resource requirements
         resources = ResourceRequirements(
-            compute_hours=0.5,
-            memory_gb=4.0,
-            storage_gb=0.5,
-            special_equipment=[]
+            compute_hours=0.5, memory_gb=4.0, storage_gb=0.5, special_equipment=[]
         )
 
         # Validation checks
@@ -201,13 +207,11 @@ class MultiParameterOptimizationTemplate(TemplateBase):
             ValidationCheck(
                 check_type="sample_size",
                 threshold=50,
-                description="At least 50 experiments for reliable optimization"
+                description="At least 50 experiments for reliable optimization",
             ),
             ValidationCheck(
-                check_type="model_quality",
-                threshold=0.5,
-                description="Surrogate model R² >= 0.5"
-            )
+                check_type="model_quality", threshold=0.5, description="Surrogate model R² >= 0.5"
+            ),
         ]
 
         # Create protocol
@@ -226,21 +230,17 @@ class MultiParameterOptimizationTemplate(TemplateBase):
             ethical_considerations=["Ensure data provenance documented"],
             reproducibility_notes=[
                 "Set random seed for reproducibility",
-                "Document model hyperparameters"
-            ]
+                "Document model hyperparameters",
+            ],
         )
 
         return protocol
 
-    def _generate_load_data_code(
-        self,
-        data_path: str,
-        sheet_name: Optional[str] = None
-    ) -> str:
+    def _generate_load_data_code(self, data_path: str, sheet_name: str | None = None) -> str:
         """Generate code for loading data."""
         sheet_param = f", sheet_name='{sheet_name}'" if sheet_name else ""
 
-        return f'''
+        return f"""
 import pandas as pd
 import numpy as np
 
@@ -258,17 +258,13 @@ print(f"Loaded {{len(df)}} experiments")
 print(f"Columns: {{df.columns.tolist()}}")
 print(f"\\nData preview:")
 print(df.head())
-'''
+"""
 
-    def _generate_exploratory_code(
-        self,
-        parameters: List[str],
-        objective: str
-    ) -> str:
+    def _generate_exploratory_code(self, parameters: list[str], objective: str) -> str:
         """Generate code for exploratory analysis."""
         params_str = str(parameters)
 
-        return f'''
+        return f"""
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -296,19 +292,15 @@ plt.tight_layout()
 plt.savefig('correlation_heatmap.png', dpi=300)
 print("\\nCorrelation heatmap saved: correlation_heatmap.png")
 plt.show()
-'''
+"""
 
     def _generate_optimization_code(
-        self,
-        parameters: List[str],
-        objective: str,
-        maximize: bool,
-        model_type: str
+        self, parameters: list[str], objective: str, maximize: bool, model_type: str
     ) -> str:
         """Generate code for optimization."""
         params_str = str(parameters)
 
-        return f'''
+        return f"""
 from kosmos.domains.materials.optimization import MaterialsOptimizer
 
 # Initialize optimizer
@@ -348,11 +340,11 @@ for param, value in result.optimal_parameters.items():
 print(f"\\nPredicted {objective}: {{result.predicted_value:.4f}}")
 print(f"Convergence: {{result.convergence_message}}")
 print("="*60)
-'''
+"""
 
     def _generate_validation_code(self) -> str:
         """Generate code for validation."""
-        return '''
+        return """
 from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import RandomForestRegressor
 import numpy as np
@@ -379,7 +371,7 @@ if cv_scores.mean() >= 0.5:
 else:
     print("✗ WARNING: Model may be unreliable (R² < 0.5)")
     print("  Consider collecting more data or feature engineering")
-'''
+"""
 
     def _generate_recommendations_code(self, maximize: bool) -> str:
         """Generate code for recommendations."""

@@ -4,16 +4,17 @@ Tests for result verifier.
 Tests sanity checks, outlier detection, statistical validation, and cross-validation.
 """
 
-import pytest
-import numpy as np
 from datetime import datetime
-from unittest.mock import Mock
 
-from kosmos.safety.verifier import ResultVerifier, VerificationReport, VerificationIssue
+import pytest
+
 from kosmos.models.result import (
-    ExperimentResult, ResultStatus, StatisticalTestResult,
-    VariableResult, ExecutionMetadata
+    ExecutionMetadata,
+    ExperimentResult,
+    ResultStatus,
+    StatisticalTestResult,
 )
+from kosmos.safety.verifier import ResultVerifier, VerificationIssue, VerificationReport
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def basic_metadata():
         start_time=datetime.now(),
         end_time=datetime.now(),
         execution_time_seconds=10.0,
-        library_versions={}
+        library_versions={},
     )
 
 
@@ -39,7 +40,7 @@ def valid_result(basic_metadata):
         supports_hypothesis=True,
         metadata=basic_metadata,
         raw_data={"values": [1, 2, 3, 4, 5]},
-        processed_data={"mean": 3.0, "std": 1.41}
+        processed_data={"mean": 3.0, "std": 1.41},
     )
 
 
@@ -62,7 +63,7 @@ class TestResultVerifierInitialization:
             enable_sanity_checks=False,
             enable_outlier_detection=False,
             outlier_threshold=2.5,
-            min_sample_size=20
+            min_sample_size=20,
         )
 
         assert verifier.enable_sanity_checks is False
@@ -89,7 +90,7 @@ class TestSanityChecks:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             primary_p_value=1.5,  # Invalid!
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -106,8 +107,8 @@ class TestSanityChecks:
             experiment_id="exp_123",
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
-            primary_effect_size=float('nan'),
-            metadata=basic_metadata
+            primary_effect_size=float("nan"),
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -123,8 +124,8 @@ class TestSanityChecks:
             experiment_id="exp_123",
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
-            primary_effect_size=float('inf'),
-            metadata=basic_metadata
+            primary_effect_size=float("inf"),
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -142,7 +143,7 @@ class TestSanityChecks:
             status=ResultStatus.SUCCESS,
             raw_data={},
             processed_data={},
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -159,14 +160,17 @@ class TestSanityChecks:
             status=ResultStatus.SUCCESS,
             primary_p_value=0.01,  # Significant
             supports_hypothesis=False,  # But not supported?
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
         report = verifier.verify(result)
 
         warnings = report.get_issues_by_severity("warning")
-        assert any("significant" in w.message.lower() and "not supported" in w.message.lower() for w in warnings)
+        assert any(
+            "significant" in w.message.lower() and "not supported" in w.message.lower()
+            for w in warnings
+        )
 
 
 class TestOutlierDetection:
@@ -179,7 +183,7 @@ class TestOutlierDetection:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             processed_data={"values": [1.0, 1.1, 0.9, 1.2, 0.8]},  # No outliers
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -198,7 +202,7 @@ class TestOutlierDetection:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             processed_data={"values": data},
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -218,7 +222,7 @@ class TestOutlierDetection:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             processed_data={"values": data},
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -234,7 +238,7 @@ class TestOutlierDetection:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             processed_data={"labels": ["a", "b", "c"]},  # Non-numeric
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -251,7 +255,7 @@ class TestOutlierDetection:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             processed_data={"values": []},
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -275,10 +279,10 @@ class TestStatisticalValidation:
                     test_name="t-test",
                     statistic=2.5,
                     p_value=0.03,
-                    details={"sample_size": 5}  # Too small
+                    details={"sample_size": 5},  # Too small
                 )
             ],
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier(min_sample_size=10)
@@ -295,7 +299,7 @@ class TestStatisticalValidation:
             status=ResultStatus.SUCCESS,
             primary_p_value=0.10,  # Not significant
             primary_effect_size=0.8,  # Large effect
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -312,7 +316,7 @@ class TestStatisticalValidation:
             status=ResultStatus.SUCCESS,
             primary_p_value=0.01,  # Significant
             primary_effect_size=0.05,  # Small effect
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -330,16 +334,20 @@ class TestStatisticalValidation:
             statistical_tests=[
                 StatisticalTestResult(test_name="t-test-1", statistic=2.0, p_value=0.04),
                 StatisticalTestResult(test_name="t-test-2", statistic=2.5, p_value=0.03),
-                StatisticalTestResult(test_name="t-test-3", statistic=1.8, p_value=0.07)
+                StatisticalTestResult(test_name="t-test-3", statistic=1.8, p_value=0.07),
             ],
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
         report = verifier.verify(result)
 
         warnings = report.get_issues_by_severity("warning")
-        assert any("multiple testing correction" in w.message.lower() or "multiple tests" in w.message.lower() for w in warnings)
+        assert any(
+            "multiple testing correction" in w.message.lower()
+            or "multiple tests" in w.message.lower()
+            for w in warnings
+        )
 
     def test_no_warning_with_correction_method(self, basic_metadata):
         """Test no warning when correction method is used."""
@@ -349,9 +357,9 @@ class TestStatisticalValidation:
             status=ResultStatus.SUCCESS,
             statistical_tests=[
                 StatisticalTestResult(test_name="t-test-bonferroni", statistic=2.0, p_value=0.01),
-                StatisticalTestResult(test_name="t-test-bonferroni-2", statistic=2.5, p_value=0.02)
+                StatisticalTestResult(test_name="t-test-bonferroni-2", statistic=2.5, p_value=0.02),
             ],
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -372,14 +380,16 @@ class TestConsistencyChecks:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             stderr="ValueError: Something went wrong",
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
         report = verifier.verify(result)
 
         warnings = report.get_issues_by_severity("warning")
-        assert any("success" in w.message.lower() and "error" in w.message.lower() for w in warnings)
+        assert any(
+            "success" in w.message.lower() and "error" in w.message.lower() for w in warnings
+        )
 
     def test_failed_with_statistical_results_warning(self, basic_metadata):
         """Test warning when FAILED status but has statistical results."""
@@ -388,14 +398,16 @@ class TestConsistencyChecks:
             protocol_id="proto_456",
             status=ResultStatus.FAILED,
             primary_p_value=0.05,  # Shouldn't have this if failed
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
         report = verifier.verify(result)
 
         warnings = report.get_issues_by_severity("warning")
-        assert any("failed" in w.message.lower() and "statistical" in w.message.lower() for w in warnings)
+        assert any(
+            "failed" in w.message.lower() and "statistical" in w.message.lower() for w in warnings
+        )
 
     def test_hypothesis_supported_but_not_significant_warning(self, basic_metadata):
         """Test warning when hypothesis supported but p-value not significant."""
@@ -405,14 +417,17 @@ class TestConsistencyChecks:
             status=ResultStatus.SUCCESS,
             supports_hypothesis=True,
             primary_p_value=0.20,  # Not significant
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
         report = verifier.verify(result)
 
         warnings = report.get_issues_by_severity("warning")
-        assert any("supported" in w.message.lower() and "not significant" in w.message.lower() for w in warnings)
+        assert any(
+            "supported" in w.message.lower() and "not significant" in w.message.lower()
+            for w in warnings
+        )
 
 
 class TestCrossValidation:
@@ -427,7 +442,7 @@ class TestCrossValidation:
             primary_p_value=0.03,
             primary_effect_size=0.5,
             supports_hypothesis=True,
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         replication = ExperimentResult(
@@ -437,7 +452,7 @@ class TestCrossValidation:
             primary_p_value=0.04,  # Similar
             primary_effect_size=0.48,  # Similar
             supports_hypothesis=True,
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -454,7 +469,7 @@ class TestCrossValidation:
             status=ResultStatus.SUCCESS,
             primary_p_value=0.03,  # Significant
             supports_hypothesis=True,
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         replication = ExperimentResult(
@@ -463,7 +478,7 @@ class TestCrossValidation:
             status=ResultStatus.SUCCESS,
             primary_p_value=0.10,  # Not significant
             supports_hypothesis=False,
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -480,7 +495,7 @@ class TestCrossValidation:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             primary_effect_size=0.8,  # Large
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         replication = ExperimentResult(
@@ -488,7 +503,7 @@ class TestCrossValidation:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             primary_effect_size=0.2,  # Much smaller
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -504,7 +519,7 @@ class TestCrossValidation:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             supports_hypothesis=True,
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         replication = ExperimentResult(
@@ -512,7 +527,7 @@ class TestCrossValidation:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             supports_hypothesis=False,
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -533,7 +548,7 @@ class TestErrorDetection:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             stderr="RuntimeError: Division by zero\nTraceback...",
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -549,7 +564,7 @@ class TestErrorDetection:
             protocol_id="proto_456",
             status=ResultStatus.SUCCESS,
             stdout="Result: nan",
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -563,7 +578,7 @@ class TestErrorDetection:
             experiment_id="exp_123",
             protocol_id="proto_456",
             status=ResultStatus.FAILED,
-            metadata=basic_metadata
+            metadata=basic_metadata,
         )
 
         verifier = ResultVerifier()
@@ -580,19 +595,9 @@ class TestVerificationReportMethods:
         report_with = VerificationReport(
             result_id="test",
             passed=False,
-            issues=[
-                VerificationIssue(
-                    severity="error",
-                    category="sanity",
-                    message="Test error"
-                )
-            ]
+            issues=[VerificationIssue(severity="error", category="sanity", message="Test error")],
         )
-        report_without = VerificationReport(
-            result_id="test",
-            passed=True,
-            issues=[]
-        )
+        report_without = VerificationReport(result_id="test", passed=True, issues=[])
 
         assert report_with.has_errors() is True
         assert report_without.has_errors() is False
@@ -603,18 +608,10 @@ class TestVerificationReportMethods:
             result_id="test",
             passed=True,
             issues=[
-                VerificationIssue(
-                    severity="warning",
-                    category="sanity",
-                    message="Test warning"
-                )
-            ]
+                VerificationIssue(severity="warning", category="sanity", message="Test warning")
+            ],
         )
-        report_without = VerificationReport(
-            result_id="test",
-            passed=True,
-            issues=[]
-        )
+        report_without = VerificationReport(result_id="test", passed=True, issues=[])
 
         assert report_with.has_warnings() is True
         assert report_without.has_warnings() is False
@@ -627,8 +624,8 @@ class TestVerificationReportMethods:
             issues=[
                 VerificationIssue(severity="error", category="sanity", message="Error 1"),
                 VerificationIssue(severity="warning", category="sanity", message="Warning 1"),
-                VerificationIssue(severity="error", category="outlier", message="Error 2")
-            ]
+                VerificationIssue(severity="error", category="outlier", message="Error 2"),
+            ],
         )
 
         errors = report.get_issues_by_severity("error")
@@ -645,8 +642,8 @@ class TestVerificationReportMethods:
             issues=[
                 VerificationIssue(severity="error", category="sanity", message="Error 1"),
                 VerificationIssue(severity="warning", category="outlier", message="Warning 1"),
-                VerificationIssue(severity="error", category="sanity", message="Error 2")
-            ]
+                VerificationIssue(severity="error", category="sanity", message="Error 2"),
+            ],
         )
 
         sanity = report.get_issues_by_category("sanity")
@@ -657,11 +654,7 @@ class TestVerificationReportMethods:
 
     def test_summary_no_issues(self):
         """Test summary for report with no issues."""
-        report = VerificationReport(
-            result_id="test",
-            passed=True,
-            issues=[]
-        )
+        report = VerificationReport(result_id="test", passed=True, issues=[])
 
         summary = report.summary()
 
@@ -673,9 +666,7 @@ class TestVerificationReportMethods:
         report = VerificationReport(
             result_id="test",
             passed=True,
-            issues=[
-                VerificationIssue(severity="warning", category="sanity", message="Warning")
-            ]
+            issues=[VerificationIssue(severity="warning", category="sanity", message="Warning")],
         )
 
         summary = report.summary()
@@ -689,8 +680,8 @@ class TestVerificationReportMethods:
             passed=False,
             issues=[
                 VerificationIssue(severity="error", category="sanity", message="Error"),
-                VerificationIssue(severity="warning", category="sanity", message="Warning")
-            ]
+                VerificationIssue(severity="warning", category="sanity", message="Warning"),
+            ],
         )
 
         summary = report.summary()

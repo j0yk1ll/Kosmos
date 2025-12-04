@@ -5,15 +5,13 @@ Tests the main executor interface combining container management,
 Jupyter execution, and package resolution.
 """
 
-import pytest
 import asyncio
-from unittest.mock import Mock, MagicMock, patch, AsyncMock
-from kosmos.execution.production_executor import (
-    ProductionExecutor,
-    ProductionConfig,
-    execute_code_safely,
-)
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+
 from kosmos.execution.jupyter_client import ExecutionResult, ExecutionStatus
+from kosmos.execution.production_executor import ProductionConfig, ProductionExecutor
 
 
 class TestProductionConfig:
@@ -38,7 +36,7 @@ class TestProductionConfig:
             cpu_limit=4.0,
             timeout_seconds=1200,
             pool_size=5,
-            network_enabled=True
+            network_enabled=True,
         )
 
         assert config.memory_limit == "8g"
@@ -83,7 +81,7 @@ class TestProductionExecutorHealthCheck:
         assert health["status"] == "not_initialized"
         assert health["pool"] is None
 
-    @patch('kosmos.execution.production_executor.DockerManager')
+    @patch("kosmos.execution.production_executor.DockerManager")
     def test_health_check_initialized(self, mock_manager_class):
         """Test health check when initialized."""
         mock_manager = Mock()
@@ -93,7 +91,7 @@ class TestProductionExecutorHealthCheck:
             "ready": 2,
             "in_use": 1,
             "unhealthy": 0,
-            "target_size": 3
+            "target_size": 3,
         }
         mock_manager_class.return_value = mock_manager
 
@@ -121,7 +119,7 @@ class TestExecutionResult:
             stdout="Hello, World!",
             stderr="",
             execution_time=0.5,
-            return_value={"answer": 42}
+            return_value={"answer": 42},
         )
 
         assert result.success is True
@@ -135,7 +133,7 @@ class TestExecutionResult:
             status=ExecutionStatus.FAILED,
             error_message="NameError: name 'x' is not defined",
             error_traceback="Traceback...",
-            execution_time=0.1
+            execution_time=0.1,
         )
 
         assert result.success is False
@@ -144,8 +142,7 @@ class TestExecutionResult:
     def test_timeout_result(self):
         """Test timeout execution result."""
         result = ExecutionResult(
-            status=ExecutionStatus.TIMEOUT,
-            error_message="Execution timed out after 300s"
+            status=ExecutionStatus.TIMEOUT, error_message="Execution timed out after 300s"
         )
 
         assert result.success is False
@@ -154,9 +151,7 @@ class TestExecutionResult:
     def test_result_to_dict(self):
         """Test conversion to dictionary."""
         result = ExecutionResult(
-            status=ExecutionStatus.COMPLETED,
-            stdout="test output",
-            execution_time=1.5
+            status=ExecutionStatus.COMPLETED, stdout="test output", execution_time=1.5
         )
 
         result_dict = result.to_dict()
@@ -170,11 +165,13 @@ class TestExecutionResult:
 class TestProductionExecutorMocked:
     """Tests for ProductionExecutor with mocked dependencies."""
 
-    @patch('kosmos.execution.production_executor.DockerManager')
-    @patch('kosmos.execution.production_executor.JupyterClient')
-    @patch('kosmos.execution.production_executor.PackageResolver')
+    @patch("kosmos.execution.production_executor.DockerManager")
+    @patch("kosmos.execution.production_executor.JupyterClient")
+    @patch("kosmos.execution.production_executor.PackageResolver")
     @pytest.mark.asyncio
-    async def test_execute_code_success(self, mock_resolver_class, mock_jupyter_class, mock_manager_class):
+    async def test_execute_code_success(
+        self, mock_resolver_class, mock_jupyter_class, mock_manager_class
+    ):
         """Test successful code execution."""
         # Setup mocks
         mock_manager = Mock()
@@ -185,11 +182,11 @@ class TestProductionExecutorMocked:
         mock_manager_class.return_value = mock_manager
 
         mock_jupyter = Mock()
-        mock_jupyter.execute_code = AsyncMock(return_value=ExecutionResult(
-            status=ExecutionStatus.COMPLETED,
-            stdout="2",
-            return_value={"result": 2}
-        ))
+        mock_jupyter.execute_code = AsyncMock(
+            return_value=ExecutionResult(
+                status=ExecutionStatus.COMPLETED, stdout="2", return_value={"result": 2}
+            )
+        )
         mock_jupyter_class.return_value = mock_jupyter
 
         mock_resolver = Mock()
@@ -208,8 +205,8 @@ class TestProductionExecutorMocked:
         # Verify container was released
         mock_manager.release_container.assert_called_once()
 
-    @patch('kosmos.execution.production_executor.DockerManager')
-    @patch('kosmos.execution.production_executor.JupyterClient')
+    @patch("kosmos.execution.production_executor.DockerManager")
+    @patch("kosmos.execution.production_executor.JupyterClient")
     @pytest.mark.asyncio
     async def test_execute_code_failure(self, mock_jupyter_class, mock_manager_class):
         """Test failed code execution."""
@@ -222,10 +219,11 @@ class TestProductionExecutorMocked:
         mock_manager_class.return_value = mock_manager
 
         mock_jupyter = Mock()
-        mock_jupyter.execute_code = AsyncMock(return_value=ExecutionResult(
-            status=ExecutionStatus.FAILED,
-            error_message="ZeroDivisionError: division by zero"
-        ))
+        mock_jupyter.execute_code = AsyncMock(
+            return_value=ExecutionResult(
+                status=ExecutionStatus.FAILED, error_message="ZeroDivisionError: division by zero"
+            )
+        )
         mock_jupyter_class.return_value = mock_jupyter
 
         # Execute
@@ -238,7 +236,7 @@ class TestProductionExecutorMocked:
         assert result.success is False
         assert "ZeroDivisionError" in result.error_message
 
-    @patch('kosmos.execution.production_executor.DockerManager')
+    @patch("kosmos.execution.production_executor.DockerManager")
     @pytest.mark.asyncio
     async def test_cleanup(self, mock_manager_class):
         """Test executor cleanup."""
@@ -257,7 +255,7 @@ class TestProductionExecutorMocked:
         assert executor._initialized is False
         mock_manager.cleanup.assert_called_once()
 
-    @patch('kosmos.execution.production_executor.DockerManager')
+    @patch("kosmos.execution.production_executor.DockerManager")
     @pytest.mark.asyncio
     async def test_context_manager(self, mock_manager_class):
         """Test async context manager."""
@@ -272,7 +270,7 @@ class TestProductionExecutorMocked:
         # Cleanup should be called after context exit
         mock_manager.cleanup.assert_called_once()
 
-    @patch('kosmos.execution.production_executor.DockerManager')
+    @patch("kosmos.execution.production_executor.DockerManager")
     @pytest.mark.asyncio
     async def test_execution_count_tracking(self, mock_manager_class):
         """Test execution count is tracked."""
@@ -287,11 +285,11 @@ class TestProductionExecutorMocked:
         executor = ProductionExecutor(config)
         await executor.initialize()
 
-        with patch('kosmos.execution.production_executor.JupyterClient') as mock_jupyter_class:
+        with patch("kosmos.execution.production_executor.JupyterClient") as mock_jupyter_class:
             mock_jupyter = Mock()
-            mock_jupyter.execute_code = AsyncMock(return_value=ExecutionResult(
-                status=ExecutionStatus.COMPLETED
-            ))
+            mock_jupyter.execute_code = AsyncMock(
+                return_value=ExecutionResult(status=ExecutionStatus.COMPLETED)
+            )
             mock_jupyter_class.return_value = mock_jupyter
 
             await executor.execute_code("x = 1")

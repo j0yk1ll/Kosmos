@@ -9,17 +9,17 @@ Tests core generation features across both Anthropic and OpenAI providers:
 Run this test manually to verify generation works with your configured provider.
 """
 
+import json
 import os
 import sys
-import json
 from pathlib import Path
+
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from kosmos.core.llm import get_provider
 from kosmos.core.providers import Message
-from kosmos.core.providers.base import ProviderAPIError
 
 
 def test_simple_generation(provider):
@@ -30,9 +30,7 @@ def test_simple_generation(provider):
 
     try:
         response = provider.generate(
-            prompt="What is 2+2? Answer with just the number.",
-            max_tokens=10,
-            temperature=0.0
+            prompt="What is 2+2? Answer with just the number.", max_tokens=10, temperature=0.0
         )
 
         print(f"✓ Generated response: {response.content}")
@@ -49,6 +47,7 @@ def test_simple_generation(provider):
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -64,7 +63,7 @@ def test_system_prompt(provider):
             prompt="What is your role?",
             system="You are a helpful physics professor.",
             max_tokens=50,
-            temperature=0.0
+            temperature=0.0,
         )
 
         print(f"✓ Generated response: {response.content[:200]}")
@@ -72,7 +71,9 @@ def test_system_prompt(provider):
 
         # Check response mentions physics or professor
         content_lower = response.content.lower()
-        is_relevant = "physics" in content_lower or "professor" in content_lower or "science" in content_lower
+        is_relevant = (
+            "physics" in content_lower or "professor" in content_lower or "science" in content_lower
+        )
 
         if is_relevant:
             print("✓ Response correctly reflects system prompt")
@@ -84,6 +85,7 @@ def test_system_prompt(provider):
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -94,18 +96,14 @@ def test_structured_output(provider):
     print("Test: Structured JSON Output")
     print("-" * 70)
 
-    schema = {
-        "number": "integer",
-        "is_even": "boolean",
-        "description": "string"
-    }
+    schema = {"number": "integer", "is_even": "boolean", "description": "string"}
 
     try:
         result = provider.generate_structured(
             prompt="Analyze the number 42. Return JSON with: number (int), is_even (bool), description (str).",
             schema=schema,
             max_tokens=200,
-            temperature=0.0
+            temperature=0.0,
         )
 
         print(f"✓ Parsed JSON: {json.dumps(result, indent=2)}")
@@ -117,7 +115,7 @@ def test_structured_output(provider):
 
         # Verify values make sense
         assert result["number"] == 42, f"Number should be 42, got {result['number']}"
-        assert result["is_even"] == True, "42 should be even"
+        assert result["is_even"], "42 should be even"
 
         print("✓ JSON structure and values are correct")
         return True
@@ -125,6 +123,7 @@ def test_structured_output(provider):
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -139,21 +138,19 @@ def test_multi_turn_conversation(provider):
         Message(role="system", content="You are a helpful math tutor."),
         Message(role="user", content="What is 5 + 3?"),
         Message(role="assistant", content="5 + 3 equals 8."),
-        Message(role="user", content="What is that number multiplied by 2?")
+        Message(role="user", content="What is that number multiplied by 2?"),
     ]
 
     try:
         response = provider.generate_with_messages(
-            messages=messages,
-            max_tokens=50,
-            temperature=0.0
+            messages=messages, max_tokens=50, temperature=0.0
         )
 
         print(f"✓ Response: {response.content}")
         print(f"✓ Total tokens: {response.usage.total_tokens}")
 
         # Check if response mentions 16
-        content_lower = response.content.lower()
+        response.content.lower()
         has_answer = "16" in response.content
 
         if has_answer:
@@ -166,6 +163,7 @@ def test_multi_turn_conversation(provider):
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -197,6 +195,7 @@ def test_temperature_variation(provider):
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -211,7 +210,7 @@ def test_max_tokens_limit(provider):
         response = provider.generate(
             prompt="Write a very long essay about quantum physics.",
             max_tokens=20,  # Very small limit
-            temperature=0.7
+            temperature=0.7,
         )
 
         print(f"✓ Response (truncated): {response.content[:100]}")
@@ -219,8 +218,9 @@ def test_max_tokens_limit(provider):
         print(f"✓ Finish reason: {response.finish_reason}")
 
         # Should be limited
-        assert response.usage.output_tokens <= 25, \
-            f"Output should be ~20 tokens, got {response.usage.output_tokens}"
+        assert (
+            response.usage.output_tokens <= 25
+        ), f"Output should be ~20 tokens, got {response.usage.output_tokens}"
 
         if response.finish_reason == "length":
             print("✓ Correctly stopped due to length limit")
@@ -232,6 +232,7 @@ def test_max_tokens_limit(provider):
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -254,7 +255,7 @@ def main():
         print(f"API key: {api_key[:10]}...")
 
         # Check if CLI mode
-        is_cli = api_key.replace('9', '') == ''
+        is_cli = api_key.replace("9", "") == ""
         if is_cli:
             print("⚠ CLI mode detected - some tests may not work")
             print("  Consider using API key for comprehensive testing")
@@ -287,12 +288,12 @@ def main():
     print("RUNNING TESTS")
     print("=" * 70)
 
-    results['simple_generation'] = test_simple_generation(provider)
-    results['system_prompt'] = test_system_prompt(provider)
-    results['structured_output'] = test_structured_output(provider)
-    results['multi_turn'] = test_multi_turn_conversation(provider)
-    results['temperature'] = test_temperature_variation(provider)
-    results['max_tokens'] = test_max_tokens_limit(provider)
+    results["simple_generation"] = test_simple_generation(provider)
+    results["system_prompt"] = test_system_prompt(provider)
+    results["structured_output"] = test_structured_output(provider)
+    results["multi_turn"] = test_multi_turn_conversation(provider)
+    results["temperature"] = test_temperature_variation(provider)
+    results["max_tokens"] = test_max_tokens_limit(provider)
 
     # Usage statistics
     print("\n" + "=" * 70)
@@ -304,7 +305,7 @@ def main():
     print(f"Total tokens: {stats['total_tokens']}")
     print(f"  - Input: {stats['total_input_tokens']}")
     print(f"  - Output: {stats['total_output_tokens']}")
-    if stats['total_cost_usd'] > 0:
+    if stats["total_cost_usd"] > 0:
         print(f"Total cost: ${stats['total_cost_usd']:.6f}")
     else:
         print("Total cost: Not tracked (CLI mode or local model)")

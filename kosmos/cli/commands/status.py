@@ -5,35 +5,26 @@ Shows current status of a research run with live updates.
 """
 
 import time
-from typing import Optional
-from datetime import datetime
 
 import typer
-from rich.live import Live
-from rich.table import Table
 from rich.panel import Panel
-from rich.progress import Progress, BarColumn
-from rich.layout import Layout
+from rich.progress import BarColumn, Progress
 
 from kosmos.cli.utils import (
     console,
-    print_error,
-    print_info,
-    get_icon,
-    create_table,
     create_status_text,
-    create_domain_text,
-    create_metric_text,
-    format_timestamp,
+    create_table,
     format_duration,
-    validate_run_id,
+    format_timestamp,
     get_db_session,
+    get_icon,
+    print_error,
 )
 from kosmos.cli.views.results_viewer import ResultsViewer
 
 
 def show_status(
-    run_id: Optional[str] = typer.Argument(None, help="Research run ID to check (omit for latest)"),
+    run_id: str | None = typer.Argument(None, help="Research run ID to check (omit for latest)"),
     watch: bool = typer.Option(False, "--watch", "-w", help="Watch mode - refresh every 5 seconds"),
     show_details: bool = typer.Option(False, "--details", "-d", help="Show detailed information"),
 ):
@@ -70,14 +61,14 @@ def show_status(
 
     except KeyboardInterrupt:
         console.print("\n[warning]Status display cancelled[/warning]")
-        raise typer.Exit(130)
+        raise typer.Exit(130) from None
 
     except Exception as e:
         print_error(f"Failed to get status: {str(e)}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
-def get_research_data(run_id: Optional[str] = None) -> Optional[dict]:
+def get_research_data(run_id: str | None = None) -> dict | None:
     """
     Get research data from database.
 
@@ -187,7 +178,7 @@ def display_progress_bar(research_data: dict):
 
     # Create progress bar
     progress = Progress(BarColumn(), console=console, expand=True)
-    task = progress.add_task("Research Progress", total=max_iterations, completed=iteration)
+    progress.add_task("Research Progress", total=max_iterations, completed=iteration)
 
     console.print(
         Panel(
@@ -219,8 +210,13 @@ def display_workflow_state(research_data: dict):
     )
 
     table.add_row("Current State", create_status_text(state))
-    table.add_row("Started", format_timestamp(created_at, relative=False) if created_at else "[muted]Unknown[/muted]")
-    table.add_row("Last Updated", format_timestamp(updated_at) if updated_at else "[muted]Unknown[/muted]")
+    table.add_row(
+        "Started",
+        format_timestamp(created_at, relative=False) if created_at else "[muted]Unknown[/muted]",
+    )
+    table.add_row(
+        "Last Updated", format_timestamp(updated_at) if updated_at else "[muted]Unknown[/muted]"
+    )
     table.add_row("Duration", format_duration(duration))
 
     console.print(table)

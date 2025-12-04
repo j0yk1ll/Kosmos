@@ -5,22 +5,24 @@ Downloads and extracts text from scientific PDFs with error handling
 and fallback to abstract when full text is unavailable.
 """
 
-import fitz  # PyMuPDF
-import httpx
-from pathlib import Path
-from typing import Optional, Dict, Any
 import logging
 import re
-from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-from kosmos.literature.base_client import PaperMetadata
+import fitz  # PyMuPDF
+import httpx
+
 from kosmos.config import get_config
+from kosmos.literature.base_client import PaperMetadata
+
 
 logger = logging.getLogger(__name__)
 
 
 class PDFExtractionError(Exception):
     """Exception raised for PDF extraction errors."""
+
     pass
 
 
@@ -51,7 +53,7 @@ class PDFExtractor:
 
         logger.info(f"Initialized PDF extractor (cache_dir={cache_dir})")
 
-    def extract_from_url(self, url: str, paper_id: Optional[str] = None) -> Optional[str]:
+    def extract_from_url(self, url: str, paper_id: str | None = None) -> str | None:
         """
         Download and extract text from a PDF URL.
 
@@ -86,7 +88,7 @@ class PDFExtractor:
             # Save to cache if paper_id provided
             if paper_id:
                 cached_pdf = self.cache_dir / f"{paper_id}.pdf"
-                with open(cached_pdf, 'wb') as f:
+                with open(cached_pdf, "wb") as f:
                     f.write(pdf_bytes)
 
             # Extract text
@@ -101,7 +103,7 @@ class PDFExtractor:
             logger.error(f"Error extracting from URL {url}: {e}")
             return None
 
-    def extract_from_file(self, file_path: str) -> Optional[str]:
+    def extract_from_file(self, file_path: str) -> str | None:
         """
         Extract text from a local PDF file.
 
@@ -123,7 +125,7 @@ class PDFExtractor:
                 logger.error(f"PDF file not found: {file_path}")
                 return None
 
-            with open(pdf_path, 'rb') as f:
+            with open(pdf_path, "rb") as f:
                 pdf_bytes = f.read()
 
             text = self._extract_text_from_bytes(pdf_bytes)
@@ -137,7 +139,7 @@ class PDFExtractor:
             logger.error(f"Error extracting from file {file_path}: {e}")
             return None
 
-    def extract_with_metadata(self, url_or_path: str) -> Dict[str, Any]:
+    def extract_with_metadata(self, url_or_path: str) -> dict[str, Any]:
         """
         Extract both text and metadata from PDF.
 
@@ -160,7 +162,7 @@ class PDFExtractor:
         if is_url:
             pdf_bytes = self._download_pdf(url_or_path)
         else:
-            with open(url_or_path, 'rb') as f:
+            with open(url_or_path, "rb") as f:
                 pdf_bytes = f.read()
 
         if not pdf_bytes:
@@ -203,8 +205,7 @@ class PDFExtractor:
         # Try PDF extraction if URL available
         if paper.pdf_url:
             full_text = self.extract_from_url(
-                paper.pdf_url,
-                paper_id=paper.primary_identifier.replace("/", "_").replace(":", "_")
+                paper.pdf_url, paper_id=paper.primary_identifier.replace("/", "_").replace(":", "_")
             )
 
             if full_text:
@@ -217,7 +218,7 @@ class PDFExtractor:
         paper.full_text = paper.abstract
         return paper.abstract
 
-    def _download_pdf(self, url: str) -> Optional[bytes]:
+    def _download_pdf(self, url: str) -> bytes | None:
         """
         Download PDF from URL.
 
@@ -249,7 +250,7 @@ class PDFExtractor:
             logger.error(f"Error downloading PDF from {url}: {e}")
             return None
 
-    def _extract_text_from_bytes(self, pdf_bytes: bytes) -> Optional[str]:
+    def _extract_text_from_bytes(self, pdf_bytes: bytes) -> str | None:
         """
         Extract text from PDF bytes.
 
@@ -269,7 +270,7 @@ class PDFExtractor:
             logger.error(f"Error extracting text from PDF bytes: {e}")
             return None
 
-    def _extract_text_from_doc(self, doc: fitz.Document) -> Optional[str]:
+    def _extract_text_from_doc(self, doc: fitz.Document) -> str | None:
         """
         Extract text from PyMuPDF document.
 
@@ -302,7 +303,7 @@ class PDFExtractor:
             logger.error(f"Error extracting text from document: {e}")
             return None
 
-    def _extract_metadata(self, doc: fitz.Document) -> Dict[str, Any]:
+    def _extract_metadata(self, doc: fitz.Document) -> dict[str, Any]:
         """
         Extract metadata from PDF.
 
@@ -324,7 +325,7 @@ class PDFExtractor:
                 "producer": metadata.get("producer", ""),
                 "creation_date": metadata.get("creationDate", ""),
                 "mod_date": metadata.get("modDate", ""),
-                "page_count": len(doc)
+                "page_count": len(doc),
             }
 
         except Exception as e:
@@ -342,20 +343,20 @@ class PDFExtractor:
             Cleaned text
         """
         # Remove excessive whitespace
-        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r"\s+", " ", text)
 
         # Remove page numbers (common patterns)
-        text = re.sub(r'\n\d+\n', '\n', text)
+        text = re.sub(r"\n\d+\n", "\n", text)
 
         # Remove common PDF artifacts
-        text = re.sub(r'[^\x00-\x7F]+', '', text)  # Remove non-ASCII
+        text = re.sub(r"[^\x00-\x7F]+", "", text)  # Remove non-ASCII
 
         # Normalize line breaks
-        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
 
         return text.strip()
 
-    def get_cache_size(self) -> Dict[str, Any]:
+    def get_cache_size(self) -> dict[str, Any]:
         """
         Get information about the PDF cache.
 
@@ -368,7 +369,7 @@ class PDFExtractor:
         return {
             "cache_dir": str(self.cache_dir),
             "file_count": len(pdf_files),
-            "size_mb": round(total_size_mb, 2)
+            "size_mb": round(total_size_mb, 2),
         }
 
     def clear_cache(self):
@@ -382,7 +383,7 @@ class PDFExtractor:
 
 
 # Singleton extractor instance
-_extractor: Optional[PDFExtractor] = None
+_extractor: PDFExtractor | None = None
 
 
 def get_pdf_extractor(cache_dir: str = ".pdf_cache") -> PDFExtractor:

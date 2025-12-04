@@ -12,17 +12,18 @@ Requirements tested:
 """
 
 import os
-import pytest
 import tempfile
 from pathlib import Path
-from typing import Dict, Any, Optional
-from unittest.mock import patch, MagicMock
-from pydantic import BaseModel, Field, ValidationError
+from unittest.mock import patch
+
+import pytest
+from pydantic import ValidationError
 
 
 # ============================================================================
 # REQ-CFG-001: Load Configuration (MUST)
 # ============================================================================
+
 
 class TestREQ_CFG_001_LoadConfiguration:
     """Test REQ-CFG-001: System loads configuration from multiple sources."""
@@ -33,36 +34,37 @@ class TestREQ_CFG_001_LoadConfiguration:
 
         reset_config()
 
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test-env',
-            'LOG_LEVEL': 'DEBUG',
-            'DATABASE_URL': 'sqlite:///test_env.db'
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-test-env",
+                "LOG_LEVEL": "DEBUG",
+                "DATABASE_URL": "sqlite:///test_env.db",
+            },
+        ):
             config = get_config(reload=True)
 
-            assert config.claude.api_key == 'sk-ant-test-env'
-            assert config.logging.level == 'DEBUG'
-            assert 'test_env.db' in config.database.url
+            assert config.claude.api_key == "sk-ant-test-env"
+            assert config.logging.level == "DEBUG"
+            assert "test_env.db" in config.database.url
 
         reset_config()
 
     def test_config_from_dotenv_file(self):
         """Verify configuration loads from .env file."""
-        from kosmos.config import KosmosConfig
         from pathlib import Path
+
+        from kosmos.config import KosmosConfig
 
         # Create temporary .env file
         with tempfile.TemporaryDirectory() as tmpdir:
             env_file = Path(tmpdir) / ".env"
-            env_file.write_text(
-                "ANTHROPIC_API_KEY=sk-ant-from-file\n"
-                "LOG_LEVEL=WARNING\n"
-            )
+            env_file.write_text("ANTHROPIC_API_KEY=sk-ant-from-file\n" "LOG_LEVEL=WARNING\n")
 
             # Load config with custom env file
-            with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-from-file'}):
+            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-from-file"}):
                 config = KosmosConfig()
-                assert config.claude.api_key == 'sk-ant-from-file'
+                assert config.claude.api_key == "sk-ant-from-file"
 
     def test_config_singleton_pattern(self):
         """Verify config uses singleton pattern."""
@@ -70,7 +72,7 @@ class TestREQ_CFG_001_LoadConfiguration:
 
         reset_config()
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-singleton'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-singleton"}):
             config1 = get_config()
             config2 = get_config()
 
@@ -86,17 +88,17 @@ class TestREQ_CFG_001_LoadConfiguration:
         reset_config()
 
         # Initial config
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-initial', 'LOG_LEVEL': 'INFO'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-initial", "LOG_LEVEL": "INFO"}):
             config1 = get_config()
             initial_level = config1.logging.level
 
         # Change environment and reload
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-updated', 'LOG_LEVEL': 'DEBUG'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-updated", "LOG_LEVEL": "DEBUG"}):
             config2 = get_config(reload=True)
             updated_level = config2.logging.level
 
             # Should reflect new value
-            assert updated_level == 'DEBUG'
+            assert updated_level == "DEBUG"
             assert updated_level != initial_level
 
         reset_config()
@@ -107,7 +109,7 @@ class TestREQ_CFG_001_LoadConfiguration:
 
         reset_config()
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-dict-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-dict-test"}):
             config = get_config()
             config_dict = config.to_dict()
 
@@ -115,13 +117,13 @@ class TestREQ_CFG_001_LoadConfiguration:
             assert isinstance(config_dict, dict)
 
             # Should contain major sections
-            assert 'claude' in config_dict
-            assert 'logging' in config_dict
-            assert 'database' in config_dict
+            assert "claude" in config_dict
+            assert "logging" in config_dict
+            assert "database" in config_dict
 
             # Should contain actual values
-            assert isinstance(config_dict['claude'], dict)
-            assert isinstance(config_dict['logging'], dict)
+            assert isinstance(config_dict["claude"], dict)
+            assert isinstance(config_dict["logging"], dict)
 
         reset_config()
 
@@ -132,23 +134,30 @@ class TestREQ_CFG_001_LoadConfiguration:
         reset_config()
 
         # Without env var, should use default
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test',
-            'LLM_PROVIDER': 'anthropic'  # Explicit to avoid .env file conflicts
-        }, clear=True):
-            config1 = get_config(reload=True)
-            default_level = config1.logging.level  # Default is INFO
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-test",
+                "LLM_PROVIDER": "anthropic",  # Explicit to avoid .env file conflicts
+            },
+            clear=True,
+        ):
+            get_config(reload=True)
 
         reset_config()
 
         # With env var, should override default
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test',
-            'LLM_PROVIDER': 'anthropic',  # Explicit to avoid .env file conflicts
-            'LOG_LEVEL': 'ERROR'
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-test",
+                "LLM_PROVIDER": "anthropic",  # Explicit to avoid .env file conflicts
+                "LOG_LEVEL": "ERROR",
+            },
+            clear=True,
+        ):
             config2 = get_config(reload=True)
-            assert config2.logging.level == 'ERROR'
+            assert config2.logging.level == "ERROR"
 
         reset_config()
 
@@ -156,6 +165,7 @@ class TestREQ_CFG_001_LoadConfiguration:
 # ============================================================================
 # REQ-CFG-002: Validate Required Parameters (MUST)
 # ============================================================================
+
 
 class TestREQ_CFG_002_ValidateRequiredParameters:
     """Test REQ-CFG-002: System validates required configuration parameters."""
@@ -166,7 +176,7 @@ class TestREQ_CFG_002_ValidateRequiredParameters:
 
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValidationError):
-                config = KosmosConfig()
+                KosmosConfig()
 
     def test_required_fields_documented(self):
         """Verify required fields are properly defined."""
@@ -176,7 +186,7 @@ class TestREQ_CFG_002_ValidateRequiredParameters:
         fields = ClaudeConfig.model_fields
 
         # api_key should be required (no default)
-        assert 'api_key' in fields
+        assert "api_key" in fields
         # Note: Field is required if no default is set
 
     def test_provider_specific_validation(self):
@@ -186,16 +196,16 @@ class TestREQ_CFG_002_ValidateRequiredParameters:
         reset_config()
 
         # Anthropic provider requires ANTHROPIC_API_KEY
-        with patch.dict(os.environ, {'LLM_PROVIDER': 'anthropic'}, clear=True):
+        with patch.dict(os.environ, {"LLM_PROVIDER": "anthropic"}, clear=True):
             with pytest.raises((ValidationError, ValueError)):
-                config = get_config(reload=True)
+                get_config(reload=True)
 
         reset_config()
 
         # OpenAI provider requires OPENAI_API_KEY
-        with patch.dict(os.environ, {'LLM_PROVIDER': 'openai'}, clear=True):
+        with patch.dict(os.environ, {"LLM_PROVIDER": "openai"}, clear=True):
             with pytest.raises((ValidationError, ValueError)):
-                config = get_config(reload=True)
+                get_config(reload=True)
 
         reset_config()
 
@@ -206,15 +216,15 @@ class TestREQ_CFG_002_ValidateRequiredParameters:
         reset_config()
 
         # OpenAI provider should work without ANTHROPIC_API_KEY
-        with patch.dict(os.environ, {
-            'LLM_PROVIDER': 'openai',
-            'OPENAI_API_KEY': 'sk-test-key',
-            'OPENAI_MODEL': 'gpt-4'
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "sk-test-key", "OPENAI_MODEL": "gpt-4"},
+            clear=True,
+        ):
             config = get_config(reload=True)
             assert config.llm_provider == "openai"
             assert config.openai is not None
-            assert config.openai.api_key == 'sk-test-key'
+            assert config.openai.api_key == "sk-test-key"
             assert config.claude is None  # Should be None without ANTHROPIC_API_KEY
 
         reset_config()
@@ -226,14 +236,15 @@ class TestREQ_CFG_002_ValidateRequiredParameters:
         reset_config()
 
         # Anthropic provider should work without OPENAI_API_KEY
-        with patch.dict(os.environ, {
-            'LLM_PROVIDER': 'anthropic',
-            'ANTHROPIC_API_KEY': 'sk-ant-test-key'
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {"LLM_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "sk-ant-test-key"},
+            clear=True,
+        ):
             config = get_config(reload=True)
             assert config.llm_provider == "anthropic"
             assert config.claude is not None
-            assert config.claude.api_key == 'sk-ant-test-key'
+            assert config.claude.api_key == "sk-ant-test-key"
             assert config.openai is None  # Should be None without OPENAI_API_KEY
 
         reset_config()
@@ -243,20 +254,22 @@ class TestREQ_CFG_002_ValidateRequiredParameters:
         from kosmos.config import ClaudeConfig
 
         # Valid types should work
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test',
-            'CLAUDE_MAX_TOKENS': '2048',
-            'CLAUDE_TEMPERATURE': '0.5'
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-test",
+                "CLAUDE_MAX_TOKENS": "2048",
+                "CLAUDE_TEMPERATURE": "0.5",
+            },
+        ):
             config = ClaudeConfig()
             assert isinstance(config.max_tokens, int)
             assert isinstance(config.temperature, float)
 
         # Invalid types should fail
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test',
-            'CLAUDE_MAX_TOKENS': 'not_a_number'
-        }):
+        with patch.dict(
+            os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test", "CLAUDE_MAX_TOKENS": "not_a_number"}
+        ):
             with pytest.raises(ValidationError):
                 config = ClaudeConfig()
 
@@ -265,32 +278,30 @@ class TestREQ_CFG_002_ValidateRequiredParameters:
         from kosmos.config import ClaudeConfig
 
         # Temperature out of range should fail
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test',
-            'CLAUDE_TEMPERATURE': '2.5'  # > 1.0
-        }):
+        with patch.dict(
+            os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test", "CLAUDE_TEMPERATURE": "2.5"}  # > 1.0
+        ):
             with pytest.raises(ValidationError):
-                config = ClaudeConfig()
+                ClaudeConfig()
 
         # Max tokens out of range should fail
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test',
-            'CLAUDE_MAX_TOKENS': '0'  # < 1
-        }):
+        with patch.dict(
+            os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test", "CLAUDE_MAX_TOKENS": "0"}  # < 1
+        ):
             with pytest.raises(ValidationError):
-                config = ClaudeConfig()
+                ClaudeConfig()
 
     def test_enum_validation(self):
         """Verify enum fields are validated."""
         from kosmos.config import LoggingConfig
 
         # Valid log level
-        with patch.dict(os.environ, {'LOG_LEVEL': 'INFO'}):
+        with patch.dict(os.environ, {"LOG_LEVEL": "INFO"}):
             config = LoggingConfig()
-            assert config.level == 'INFO'
+            assert config.level == "INFO"
 
         # Invalid log level should fail
-        with patch.dict(os.environ, {'LOG_LEVEL': 'INVALID_LEVEL'}):
+        with patch.dict(os.environ, {"LOG_LEVEL": "INVALID_LEVEL"}):
             with pytest.raises(ValidationError):
                 config = LoggingConfig()
 
@@ -299,17 +310,21 @@ class TestREQ_CFG_002_ValidateRequiredParameters:
         from kosmos.config import VectorDBConfig
 
         # Pinecone requires api_key and environment
-        with patch.dict(os.environ, {
-            'VECTOR_DB_TYPE': 'pinecone'
-            # Missing PINECONE_API_KEY and PINECONE_ENVIRONMENT
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "VECTOR_DB_TYPE": "pinecone"
+                # Missing PINECONE_API_KEY and PINECONE_ENVIRONMENT
+            },
+        ):
             with pytest.raises(ValidationError):
-                config = VectorDBConfig()
+                VectorDBConfig()
 
 
 # ============================================================================
 # REQ-CFG-003: Default Values (MUST)
 # ============================================================================
+
 
 class TestREQ_CFG_003_DefaultValues:
     """Test REQ-CFG-003: System provides sensible default values."""
@@ -318,7 +333,7 @@ class TestREQ_CFG_003_DefaultValues:
         """Verify Claude configuration has sensible defaults."""
         from kosmos.config import ClaudeConfig
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test"}):
             config = ClaudeConfig()
 
             # Check default values
@@ -333,9 +348,9 @@ class TestREQ_CFG_003_DefaultValues:
 
         config = LoggingConfig()
 
-        assert config.level == 'INFO'
-        assert config.format == 'json'
-        assert config.file == 'logs/kosmos.log'
+        assert config.level == "INFO"
+        assert config.format == "json"
+        assert config.file == "logs/kosmos.log"
         assert config.debug_mode is False
 
     def test_database_defaults(self):
@@ -344,7 +359,7 @@ class TestREQ_CFG_003_DefaultValues:
 
         config = DatabaseConfig()
 
-        assert config.url == 'sqlite:///kosmos.db'
+        assert config.url == "sqlite:///kosmos.db"
         assert config.echo is False
 
     def test_research_defaults(self):
@@ -400,7 +415,7 @@ class TestREQ_CFG_003_DefaultValues:
 
         reset_config()
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-prod-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-prod-test"}):
             config = get_config()
 
             # Safety should be enabled
@@ -408,7 +423,7 @@ class TestREQ_CFG_003_DefaultValues:
             assert config.safety.enable_sandboxing is True
 
             # Logging should be structured
-            assert config.logging.format == 'json'
+            assert config.logging.format == "json"
 
             # Caching should be enabled
             assert config.claude.enable_cache is True
@@ -419,6 +434,7 @@ class TestREQ_CFG_003_DefaultValues:
 # ============================================================================
 # REQ-CFG-004: Parameter Documentation (MUST)
 # ============================================================================
+
 
 class TestREQ_CFG_004_ParameterDocumentation:
     """Test REQ-CFG-004: All configuration parameters are documented."""
@@ -431,28 +447,34 @@ class TestREQ_CFG_004_ParameterDocumentation:
 
         for field_name, field_info in fields.items():
             # Each field should have a description
-            assert field_info.description is not None, \
-                f"Field '{field_name}' missing description"
-            assert len(field_info.description) > 0, \
-                f"Field '{field_name}' has empty description"
+            assert field_info.description is not None, f"Field '{field_name}' missing description"
+            assert len(field_info.description) > 0, f"Field '{field_name}' has empty description"
 
     def test_config_classes_have_docstrings(self):
         """Verify configuration classes have docstrings."""
         from kosmos.config import (
-            ClaudeConfig, LoggingConfig, DatabaseConfig,
-            ResearchConfig, SafetyConfig, KosmosConfig
+            ClaudeConfig,
+            DatabaseConfig,
+            KosmosConfig,
+            LoggingConfig,
+            ResearchConfig,
+            SafetyConfig,
         )
 
         config_classes = [
-            ClaudeConfig, LoggingConfig, DatabaseConfig,
-            ResearchConfig, SafetyConfig, KosmosConfig
+            ClaudeConfig,
+            LoggingConfig,
+            DatabaseConfig,
+            ResearchConfig,
+            SafetyConfig,
+            KosmosConfig,
         ]
 
         for config_class in config_classes:
-            assert config_class.__doc__ is not None, \
-                f"{config_class.__name__} missing docstring"
-            assert len(config_class.__doc__) > 10, \
-                f"{config_class.__name__} has insufficient docstring"
+            assert config_class.__doc__ is not None, f"{config_class.__name__} missing docstring"
+            assert (
+                len(config_class.__doc__) > 10
+            ), f"{config_class.__name__} has insufficient docstring"
 
     def test_field_examples_in_docstrings(self):
         """Verify main config class has usage examples."""
@@ -461,8 +483,8 @@ class TestREQ_CFG_004_ParameterDocumentation:
         docstring = KosmosConfig.__doc__
 
         # Should contain example usage
-        assert 'Example:' in docstring or 'example' in docstring.lower()
-        assert 'get_config' in docstring
+        assert "Example:" in docstring or "example" in docstring.lower()
+        assert "get_config" in docstring
 
     def test_field_constraints_documented(self):
         """Verify field constraints are documented or evident."""
@@ -471,7 +493,7 @@ class TestREQ_CFG_004_ParameterDocumentation:
         fields = ClaudeConfig.model_fields
 
         # Temperature field should have constraints
-        temp_field = fields['temperature']
+        temp_field = fields["temperature"]
         assert temp_field.description is not None
 
         # Check field has validation info (ge, le, etc.)
@@ -484,9 +506,9 @@ class TestREQ_CFG_004_ParameterDocumentation:
         fields = ClaudeConfig.model_fields
 
         # Fields should have clear aliases matching env vars
-        assert fields['api_key'].alias == 'ANTHROPIC_API_KEY'
-        assert fields['model'].alias == 'CLAUDE_MODEL'
-        assert fields['max_tokens'].alias == 'CLAUDE_MAX_TOKENS'
+        assert fields["api_key"].alias == "ANTHROPIC_API_KEY"
+        assert fields["model"].alias == "CLAUDE_MODEL"
+        assert fields["max_tokens"].alias == "CLAUDE_MAX_TOKENS"
 
     def test_config_documentation_accessible(self):
         """Verify configuration documentation is accessible."""
@@ -494,14 +516,14 @@ class TestREQ_CFG_004_ParameterDocumentation:
 
         reset_config()
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-doc-test'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-doc-test"}):
             config = get_config()
 
             # Should be able to introspect configuration
             config_dict = config.to_dict()
 
             # Should contain all major sections
-            major_sections = ['claude', 'logging', 'database', 'research', 'safety']
+            major_sections = ["claude", "logging", "database", "research", "safety"]
             for section in major_sections:
                 assert section in config_dict, f"Section '{section}' not in config dict"
 
@@ -512,22 +534,23 @@ class TestREQ_CFG_004_ParameterDocumentation:
         from kosmos.config import ClaudeConfig
 
         try:
-            with patch.dict(os.environ, {
-                'ANTHROPIC_API_KEY': 'sk-ant-test',
-                'CLAUDE_TEMPERATURE': '5.0'  # Invalid
-            }):
-                config = ClaudeConfig()
+            with patch.dict(
+                os.environ,
+                {"ANTHROPIC_API_KEY": "sk-ant-test", "CLAUDE_TEMPERATURE": "5.0"},  # Invalid
+            ):
+                ClaudeConfig()
             pytest.fail("Should have raised ValidationError")
 
         except ValidationError as e:
             error_msg = str(e)
             # Error should mention the field and constraint
-            assert 'temperature' in error_msg.lower()
+            assert "temperature" in error_msg.lower()
 
 
 # ============================================================================
 # REQ-CFG-005: No Execution with Invalid Config (MUST)
 # ============================================================================
+
 
 class TestREQ_CFG_005_NoExecutionWithInvalidConfig:
     """Test REQ-CFG-005: System prevents execution with invalid configuration."""
@@ -539,7 +562,7 @@ class TestREQ_CFG_005_NoExecutionWithInvalidConfig:
         # Missing required API key
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValidationError):
-                config = KosmosConfig()
+                KosmosConfig()
 
     def test_llm_client_requires_valid_config(self):
         """Verify LLM client requires valid configuration."""
@@ -548,7 +571,7 @@ class TestREQ_CFG_005_NoExecutionWithInvalidConfig:
         # Should fail without API key
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
-                client = ClaudeClient()
+                ClaudeClient()
 
     def test_validate_dependencies_method(self):
         """Verify config provides dependency validation."""
@@ -556,7 +579,7 @@ class TestREQ_CFG_005_NoExecutionWithInvalidConfig:
 
         reset_config()
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-validate'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-validate"}):
             config = get_config()
 
             # Should have validation method
@@ -572,23 +595,25 @@ class TestREQ_CFG_005_NoExecutionWithInvalidConfig:
         from kosmos.config import KosmosConfig
 
         # Invalid provider
-        with patch.dict(os.environ, {
-            'LLM_PROVIDER': 'invalid_provider',
-            'ANTHROPIC_API_KEY': 'sk-ant-test'
-        }):
+        with patch.dict(
+            os.environ, {"LLM_PROVIDER": "invalid_provider", "ANTHROPIC_API_KEY": "sk-ant-test"}
+        ):
             with pytest.raises(ValidationError):
-                config = KosmosConfig()
+                KosmosConfig()
 
     def test_pinecone_without_credentials_fails(self):
         """Verify Pinecone config fails without required credentials."""
         from kosmos.config import VectorDBConfig
 
-        with patch.dict(os.environ, {
-            'VECTOR_DB_TYPE': 'pinecone'
-            # Missing PINECONE_API_KEY and PINECONE_ENVIRONMENT
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "VECTOR_DB_TYPE": "pinecone"
+                # Missing PINECONE_API_KEY and PINECONE_ENVIRONMENT
+            },
+        ):
             with pytest.raises(ValidationError):
-                config = VectorDBConfig()
+                VectorDBConfig()
 
     def test_incompatible_config_combinations_fail(self):
         """Verify incompatible configuration combinations are rejected."""
@@ -597,12 +622,13 @@ class TestREQ_CFG_005_NoExecutionWithInvalidConfig:
         reset_config()
 
         # OpenAI provider without OpenAI API key should fail
-        with patch.dict(os.environ, {
-            'LLM_PROVIDER': 'openai',
-            'ANTHROPIC_API_KEY': 'sk-ant-test'  # Wrong provider key
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {"LLM_PROVIDER": "openai", "ANTHROPIC_API_KEY": "sk-ant-test"},  # Wrong provider key
+            clear=True,
+        ):
             with pytest.raises((ValidationError, ValueError)):
-                config = get_config(reload=True)
+                get_config(reload=True)
 
         reset_config()
 
@@ -613,12 +639,9 @@ class TestREQ_CFG_005_NoExecutionWithInvalidConfig:
         reset_config()
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            log_file = os.path.join(tmpdir, 'logs', 'test.log')
+            log_file = os.path.join(tmpdir, "logs", "test.log")
 
-            with patch.dict(os.environ, {
-                'ANTHROPIC_API_KEY': 'sk-ant-dirs',
-                'LOG_FILE': log_file
-            }):
+            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-dirs", "LOG_FILE": log_file}):
                 config = get_config(reload=True)
 
                 # Create directories
@@ -639,7 +662,7 @@ class TestREQ_CFG_005_NoExecutionWithInvalidConfig:
 
         try:
             with patch.dict(os.environ, {}, clear=True):
-                config = KosmosConfig()  # Should fail here
+                KosmosConfig()  # Should fail here
         except ValidationError:
             validation_happened = True
 
@@ -649,6 +672,7 @@ class TestREQ_CFG_005_NoExecutionWithInvalidConfig:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestConfigurationIntegration:
     """Integration tests for configuration system."""
@@ -661,16 +685,19 @@ class TestConfigurationIntegration:
         reset_config()
 
         # 2. Load configuration
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-lifecycle',
-            'LOG_LEVEL': 'DEBUG',
-            'DATABASE_URL': 'sqlite:///lifecycle.db'
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-lifecycle",
+                "LOG_LEVEL": "DEBUG",
+                "DATABASE_URL": "sqlite:///lifecycle.db",
+            },
+        ):
             config = get_config()
 
             # 3. Verify loaded correctly
-            assert config.claude.api_key == 'sk-ant-lifecycle'
-            assert config.logging.level == 'DEBUG'
+            assert config.claude.api_key == "sk-ant-lifecycle"
+            assert config.logging.level == "DEBUG"
 
             # 4. Convert to dict
             config_dict = config.to_dict()
@@ -692,19 +719,13 @@ class TestConfigurationIntegration:
 
         # Test 1
         reset_config()
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test1',
-            'LOG_LEVEL': 'INFO'
-        }):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test1", "LOG_LEVEL": "INFO"}):
             config1 = get_config()
             level1 = config1.logging.level
 
         # Test 2
         reset_config()
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-test2',
-            'LOG_LEVEL': 'ERROR'
-        }):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-test2", "LOG_LEVEL": "ERROR"}):
             config2 = get_config(reload=True)
             level2 = config2.logging.level
 
@@ -719,21 +740,19 @@ class TestConfigurationIntegration:
 
         # Anthropic
         reset_config()
-        with patch.dict(os.environ, {
-            'LLM_PROVIDER': 'anthropic',
-            'ANTHROPIC_API_KEY': 'sk-ant-provider-test'
-        }):
+        with patch.dict(
+            os.environ, {"LLM_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "sk-ant-provider-test"}
+        ):
             config = get_config()
-            assert config.llm_provider == 'anthropic'
+            assert config.llm_provider == "anthropic"
 
         # OpenAI
         reset_config()
-        with patch.dict(os.environ, {
-            'LLM_PROVIDER': 'openai',
-            'OPENAI_API_KEY': 'sk-openai-provider-test'
-        }):
+        with patch.dict(
+            os.environ, {"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "sk-openai-provider-test"}
+        ):
             config = get_config(reload=True)
-            assert config.llm_provider == 'openai'
+            assert config.llm_provider == "openai"
 
         reset_config()
 
@@ -744,15 +763,18 @@ class TestConfigurationIntegration:
         reset_config()
 
         # Valid configuration should pass all checks
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-comprehensive',
-            'LOG_LEVEL': 'INFO',
-            'CLAUDE_TEMPERATURE': '0.7',
-            'CLAUDE_MAX_TOKENS': '4096',
-            'DATABASE_URL': 'sqlite:///test.db',
-            'ENABLE_SAFETY_CHECKS': 'true',
-            'MAX_RESEARCH_ITERATIONS': '10'
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-comprehensive",
+                "LOG_LEVEL": "INFO",
+                "CLAUDE_TEMPERATURE": "0.7",
+                "CLAUDE_MAX_TOKENS": "4096",
+                "DATABASE_URL": "sqlite:///test.db",
+                "ENABLE_SAFETY_CHECKS": "true",
+                "MAX_RESEARCH_ITERATIONS": "10",
+            },
+        ):
             config = get_config()
 
             # All validations should pass
@@ -778,17 +800,18 @@ class TestConfigurationIntegration:
         docstring = KosmosConfig.__doc__
 
         # Should mention key concepts
-        assert 'configuration' in docstring.lower()
-        assert 'environment' in docstring.lower()
+        assert "configuration" in docstring.lower()
+        assert "environment" in docstring.lower()
 
         # Should have example
-        assert 'example' in docstring.lower()
-        assert 'get_config' in docstring.lower()
+        assert "example" in docstring.lower()
+        assert "get_config" in docstring.lower()
 
 
 # ============================================================================
 # Edge Cases and Error Handling
 # ============================================================================
+
 
 class TestConfigurationEdgeCases:
     """Test edge cases and error handling in configuration."""
@@ -797,20 +820,16 @@ class TestConfigurationEdgeCases:
         """Test handling of empty string values."""
         from kosmos.config import LoggingConfig
 
-        with patch.dict(os.environ, {
-            'LOG_FILE': ''  # Empty string
-        }):
-            config = LoggingConfig()
+        with patch.dict(os.environ, {"LOG_FILE": ""}):  # Empty string
+            LoggingConfig()
             # Empty string should be treated as None or use default
 
     def test_whitespace_values(self):
         """Test handling of whitespace values."""
         from kosmos.config import ClaudeConfig
 
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': '  sk-ant-whitespace  '
-        }):
-            config = ClaudeConfig()
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "  sk-ant-whitespace  "}):
+            ClaudeConfig()
             # Should handle whitespace appropriately
 
     def test_case_sensitivity(self):
@@ -818,12 +837,15 @@ class TestConfigurationEdgeCases:
         from kosmos.config import KosmosConfig
 
         # Config should be case-insensitive by default
-        with patch.dict(os.environ, {
-            'anthropic_api_key': 'sk-ant-lowercase',  # lowercase
-            'LOG_LEVEL': 'info'  # mixed case
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "anthropic_api_key": "sk-ant-lowercase",  # lowercase
+                "LOG_LEVEL": "info",  # mixed case
+            },
+        ):
             try:
-                config = KosmosConfig()
+                KosmosConfig()
                 # Should handle case variations
             except ValidationError:
                 # Some systems may be case-sensitive
@@ -833,11 +855,14 @@ class TestConfigurationEdgeCases:
         """Test automatic conversion of numeric strings."""
         from kosmos.config import ClaudeConfig
 
-        with patch.dict(os.environ, {
-            'ANTHROPIC_API_KEY': 'sk-ant-numeric',
-            'CLAUDE_MAX_TOKENS': '2048',  # String that should be converted to int
-            'CLAUDE_TEMPERATURE': '0.5'   # String that should be converted to float
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-numeric",
+                "CLAUDE_MAX_TOKENS": "2048",  # String that should be converted to int
+                "CLAUDE_TEMPERATURE": "0.5",  # String that should be converted to float
+            },
+        ):
             config = ClaudeConfig()
 
             assert isinstance(config.max_tokens, int)
@@ -851,8 +876,8 @@ class TestConfigurationEdgeCases:
         from kosmos.config import SafetyConfig
 
         # Test various boolean representations
-        for true_val in ['true', 'True', 'TRUE', '1', 'yes']:
-            with patch.dict(os.environ, {'ENABLE_SAFETY_CHECKS': true_val}):
+        for true_val in ["true", "True", "TRUE", "1", "yes"]:
+            with patch.dict(os.environ, {"ENABLE_SAFETY_CHECKS": true_val}):
                 config = SafetyConfig()
                 assert config.enable_safety_checks is True
 
@@ -860,15 +885,13 @@ class TestConfigurationEdgeCases:
         """Test list parsing from comma-separated strings."""
         from kosmos.config import ResearchConfig
 
-        with patch.dict(os.environ, {
-            'ENABLED_DOMAINS': 'biology,physics,chemistry'
-        }):
+        with patch.dict(os.environ, {"ENABLED_DOMAINS": "biology,physics,chemistry"}):
             config = ResearchConfig()
 
             assert isinstance(config.enabled_domains, list)
-            assert 'biology' in config.enabled_domains
-            assert 'physics' in config.enabled_domains
-            assert 'chemistry' in config.enabled_domains
+            assert "biology" in config.enabled_domains
+            assert "physics" in config.enabled_domains
+            assert "chemistry" in config.enabled_domains
 
 
 if __name__ == "__main__":

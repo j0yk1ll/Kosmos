@@ -4,17 +4,16 @@ Tests for FeedbackLoop (Phase 7).
 Tests success/failure pattern extraction, feedback signal generation, and learning.
 """
 
-from datetime import datetime
 import pytest
 
 from kosmos.core.feedback import (
-    FeedbackLoop,
-    FeedbackSignalType,
-    FeedbackSignal,
-    SuccessPattern,
     FailurePattern,
+    FeedbackLoop,
+    FeedbackSignal,
+    FeedbackSignalType,
+    SuccessPattern,
 )
-from kosmos.models.hypothesis import Hypothesis, HypothesisStatus
+from kosmos.models.hypothesis import Hypothesis
 from kosmos.models.result import ExperimentResult, ResultStatus
 
 
@@ -22,13 +21,16 @@ from kosmos.models.result import ExperimentResult, ResultStatus
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def feedback_loop():
     """Create a FeedbackLoop instance."""
-    return FeedbackLoop(config={
-        "success_learning_rate": 0.3,
-        "failure_learning_rate": 0.4,
-    })
+    return FeedbackLoop(
+        config={
+            "success_learning_rate": 0.3,
+            "failure_learning_rate": 0.4,
+        }
+    )
 
 
 @pytest.fixture
@@ -120,6 +122,7 @@ def statistical_failure_result():
 # Test Class 1: Initialization
 # ============================================================================
 
+
 class TestFeedbackLoopInitialization:
     """Test FeedbackLoop initialization."""
 
@@ -160,12 +163,11 @@ class TestFeedbackLoopInitialization:
 # Test Class 2: Success Pattern Extraction
 # ============================================================================
 
+
 class TestSuccessPatternExtraction:
     """Test success pattern extraction and storage."""
 
-    def test_extract_success_pattern(
-        self, feedback_loop, sample_hypothesis, successful_result
-    ):
+    def test_extract_success_pattern(self, feedback_loop, sample_hypothesis, successful_result):
         """Test extracting success pattern from result."""
         pattern = feedback_loop._extract_success_pattern(successful_result, sample_hypothesis)
 
@@ -250,6 +252,7 @@ class TestSuccessPatternExtraction:
 # Test Class 3: Failure Pattern Extraction
 # ============================================================================
 
+
 class TestFailurePatternExtraction:
     """Test failure pattern extraction and storage."""
 
@@ -280,7 +283,10 @@ class TestFailurePatternExtraction:
 
         assert pattern is not None
         assert pattern.failure_type == "statistical"
-        assert any("outliers" in fix.lower() or "assumptions" in fix.lower() for fix in pattern.recommended_fixes)
+        assert any(
+            "outliers" in fix.lower() or "assumptions" in fix.lower()
+            for fix in pattern.recommended_fixes
+        )
 
     def test_extract_failure_pattern_conceptual(
         self, feedback_loop, sample_hypothesis, failed_result
@@ -293,11 +299,12 @@ class TestFailurePatternExtraction:
 
         assert pattern is not None
         assert pattern.failure_type == "conceptual"
-        assert any("hypothesis" in fix.lower() or "refine" in fix.lower() for fix in pattern.recommended_fixes)
+        assert any(
+            "hypothesis" in fix.lower() or "refine" in fix.lower()
+            for fix in pattern.recommended_fixes
+        )
 
-    def test_analyze_failure_creates_pattern(
-        self, feedback_loop, sample_hypothesis, failed_result
-    ):
+    def test_analyze_failure_creates_pattern(self, feedback_loop, sample_hypothesis, failed_result):
         """Test _analyze_failure creates and stores pattern."""
         signals = feedback_loop._analyze_failure(failed_result, sample_hypothesis)
 
@@ -349,47 +356,38 @@ class TestFailurePatternExtraction:
 # Test Class 4: Failure Categorization
 # ============================================================================
 
+
 class TestFailureCategorization:
     """Test failure categorization logic."""
 
-    def test_categorize_execution_error(
-        self, feedback_loop, execution_error_result
-    ):
+    def test_categorize_execution_error(self, feedback_loop, execution_error_result):
         """Test categorizing execution errors."""
         category = feedback_loop._categorize_failure(execution_error_result)
 
         assert category == "execution_error"
 
-    def test_categorize_underpowered(
-        self, feedback_loop, underpowered_result
-    ):
+    def test_categorize_underpowered(self, feedback_loop, underpowered_result):
         """Test categorizing underpowered studies."""
         category = feedback_loop._categorize_failure(underpowered_result)
 
         # p > 0.05 and effect < 0.2 = underpowered
         assert category == "underpowered"
 
-    def test_categorize_statistical(
-        self, feedback_loop, statistical_failure_result
-    ):
+    def test_categorize_statistical(self, feedback_loop, statistical_failure_result):
         """Test categorizing statistical failures."""
         category = feedback_loop._categorize_failure(statistical_failure_result)
 
         # p > 0.05 and effect >= 0.2 = statistical issue
         assert category == "statistical"
 
-    def test_categorize_conceptual(
-        self, feedback_loop, failed_result
-    ):
+    def test_categorize_conceptual(self, feedback_loop, failed_result):
         """Test categorizing conceptual failures."""
         category = feedback_loop._categorize_failure(failed_result)
 
         # High p-value with small effect = conceptual issue
         assert category in ["conceptual", "underpowered"]
 
-    def test_categorize_with_none_values(
-        self, feedback_loop
-    ):
+    def test_categorize_with_none_values(self, feedback_loop):
         """Test categorization handles None p-value and effect size."""
         result_no_stats = ExperimentResult(
             id="result_no_stats",
@@ -410,6 +408,7 @@ class TestFailureCategorization:
 # ============================================================================
 # Test Class 5: Feedback Signal Generation
 # ============================================================================
+
 
 class TestFeedbackSignalGeneration:
     """Test feedback signal generation."""
@@ -433,17 +432,13 @@ class TestFeedbackSignalGeneration:
         self, feedback_loop, sample_hypothesis, failed_result
     ):
         """Test generating update signal for rejected hypothesis."""
-        signal = feedback_loop._generate_hypothesis_update_signal(
-            failed_result, sample_hypothesis
-        )
+        signal = feedback_loop._generate_hypothesis_update_signal(failed_result, sample_hypothesis)
 
         assert signal.signal_type == FeedbackSignalType.HYPOTHESIS_UPDATE
         assert signal.data["action"] == "decrease_confidence"
         assert signal.data["update_value"] == 0.4  # failure_learning_rate
 
-    def test_generate_hypothesis_update_signal_inconclusive(
-        self, feedback_loop, sample_hypothesis
-    ):
+    def test_generate_hypothesis_update_signal_inconclusive(self, feedback_loop, sample_hypothesis):
         """Test generating update signal for inconclusive result."""
         inconclusive_result = ExperimentResult(
             id="result_inconclusive",
@@ -466,9 +461,7 @@ class TestFeedbackSignalGeneration:
         self, feedback_loop, sample_hypothesis, successful_result
     ):
         """Test process_result_feedback generates all appropriate signals."""
-        signals = feedback_loop.process_result_feedback(
-            successful_result, sample_hypothesis
-        )
+        signals = feedback_loop.process_result_feedback(successful_result, sample_hypothesis)
 
         # Should generate at least:
         # 1. Success pattern signal
@@ -486,9 +479,7 @@ class TestFeedbackSignalGeneration:
         self, feedback_loop, sample_hypothesis, failed_result
     ):
         """Test process_result_feedback for failures."""
-        signals = feedback_loop.process_result_feedback(
-            failed_result, sample_hypothesis
-        )
+        signals = feedback_loop.process_result_feedback(failed_result, sample_hypothesis)
 
         signal_types = [s.signal_type for s in signals]
         assert FeedbackSignalType.FAILURE_PATTERN in signal_types
@@ -499,12 +490,11 @@ class TestFeedbackSignalGeneration:
 # Test Class 6: Feedback Application
 # ============================================================================
 
+
 class TestFeedbackApplication:
     """Test applying feedback signals to update system state."""
 
-    def test_apply_hypothesis_update_increase_confidence(
-        self, feedback_loop, sample_hypothesis
-    ):
+    def test_apply_hypothesis_update_increase_confidence(self, feedback_loop, sample_hypothesis):
         """Test applying hypothesis update signal (increase confidence)."""
         signal = FeedbackSignal(
             signal_type=FeedbackSignalType.HYPOTHESIS_UPDATE,
@@ -531,9 +521,7 @@ class TestFeedbackApplication:
         assert signal in feedback_loop.applied_signals
         assert signal not in feedback_loop.pending_signals
 
-    def test_apply_hypothesis_update_decrease_confidence(
-        self, feedback_loop, sample_hypothesis
-    ):
+    def test_apply_hypothesis_update_decrease_confidence(self, feedback_loop, sample_hypothesis):
         """Test applying hypothesis update signal (decrease confidence)."""
         signal = FeedbackSignal(
             signal_type=FeedbackSignalType.HYPOTHESIS_UPDATE,
@@ -555,9 +543,7 @@ class TestFeedbackApplication:
         assert sample_hypothesis.confidence_score < initial_confidence
         assert sample_hypothesis.confidence_score >= 0.0
 
-    def test_apply_success_pattern_signal(
-        self, feedback_loop, sample_hypothesis
-    ):
+    def test_apply_success_pattern_signal(self, feedback_loop, sample_hypothesis):
         """Test applying success pattern signal."""
         pattern = SuccessPattern(
             pattern_id="success_1",
@@ -583,9 +569,7 @@ class TestFeedbackApplication:
 
         assert "success_pattern_applied" in changes["strategies_adjusted"]
 
-    def test_apply_failure_pattern_signal(
-        self, feedback_loop, sample_hypothesis
-    ):
+    def test_apply_failure_pattern_signal(self, feedback_loop, sample_hypothesis):
         """Test applying failure pattern signal."""
         pattern = FailurePattern(
             pattern_id="failure_1",
@@ -610,9 +594,7 @@ class TestFeedbackApplication:
 
         assert "failure_pattern_avoided" in changes["strategies_adjusted"]
 
-    def test_apply_feedback_hypothesis_not_found(
-        self, feedback_loop, sample_hypothesis
-    ):
+    def test_apply_feedback_hypothesis_not_found(self, feedback_loop, sample_hypothesis):
         """Test applying feedback when hypothesis not found in list."""
         signal = FeedbackSignal(
             signal_type=FeedbackSignalType.HYPOTHESIS_UPDATE,
@@ -631,9 +613,7 @@ class TestFeedbackApplication:
         # Should not update any hypotheses
         assert len(changes["hypotheses_updated"]) == 0
 
-    def test_apply_feedback_confidence_bounds(
-        self, feedback_loop, sample_hypothesis
-    ):
+    def test_apply_feedback_confidence_bounds(self, feedback_loop, sample_hypothesis):
         """Test confidence updates respect [0, 1] bounds."""
         # Set to very high confidence
         sample_hypothesis.confidence_score = 0.95
@@ -680,12 +660,11 @@ class TestFeedbackApplication:
 # Test Class 7: Learning Summary
 # ============================================================================
 
+
 class TestLearningSummary:
     """Test learning summary and reporting."""
 
-    def test_get_success_patterns(
-        self, feedback_loop, sample_hypothesis, successful_result
-    ):
+    def test_get_success_patterns(self, feedback_loop, sample_hypothesis, successful_result):
         """Test retrieving success patterns."""
         feedback_loop.process_result_feedback(successful_result, sample_hypothesis)
 
@@ -694,9 +673,7 @@ class TestLearningSummary:
         assert len(patterns) > 0
         assert all(isinstance(p, SuccessPattern) for p in patterns)
 
-    def test_get_failure_patterns(
-        self, feedback_loop, sample_hypothesis, failed_result
-    ):
+    def test_get_failure_patterns(self, feedback_loop, sample_hypothesis, failed_result):
         """Test retrieving failure patterns."""
         feedback_loop.process_result_feedback(failed_result, sample_hypothesis)
 
@@ -705,9 +682,7 @@ class TestLearningSummary:
         assert len(patterns) > 0
         assert all(isinstance(p, FailurePattern) for p in patterns)
 
-    def test_get_pending_signals(
-        self, feedback_loop, sample_hypothesis, successful_result
-    ):
+    def test_get_pending_signals(self, feedback_loop, sample_hypothesis, successful_result):
         """Test retrieving pending signals."""
         feedback_loop.process_result_feedback(successful_result, sample_hypothesis)
 
@@ -734,9 +709,7 @@ class TestLearningSummary:
         assert summary["failure_patterns_learned"] > 0
         assert summary["pending_signals"] > 0
 
-    def test_most_common_success_pattern(
-        self, feedback_loop, sample_hypothesis, successful_result
-    ):
+    def test_most_common_success_pattern(self, feedback_loop, sample_hypothesis, successful_result):
         """Test identifying most common success pattern."""
         # Create pattern with multiple occurrences
         feedback_loop.process_result_feedback(successful_result, sample_hypothesis)
@@ -758,9 +731,7 @@ class TestLearningSummary:
         assert most_common is not None
         assert "t-test" in most_common
 
-    def test_most_common_failure_pattern(
-        self, feedback_loop, sample_hypothesis, failed_result
-    ):
+    def test_most_common_failure_pattern(self, feedback_loop, sample_hypothesis, failed_result):
         """Test identifying most common failure pattern."""
         feedback_loop.process_result_feedback(failed_result, sample_hypothesis)
 
@@ -768,9 +739,7 @@ class TestLearningSummary:
 
         assert most_common is not None
 
-    def test_learning_summary_empty_state(
-        self, feedback_loop
-    ):
+    def test_learning_summary_empty_state(self, feedback_loop):
         """Test learning summary with no patterns yet."""
         summary = feedback_loop.get_learning_summary()
 

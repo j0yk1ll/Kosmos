@@ -9,22 +9,25 @@ Implements:
 - Experiment approval gates
 """
 
-import signal
-import logging
 import json
+import logging
+import signal
 import uuid
-from pathlib import Path
-from typing import Dict, Any, Optional, List
-from datetime import datetime
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
 
-from kosmos.models.safety import (
-    SafetyReport, SafetyIncident, ViolationType, RiskLevel,
-    ResourceLimit, EmergencyStopStatus
-)
-from kosmos.utils.compat import model_to_dict
-from kosmos.safety.code_validator import CodeValidator
 from kosmos.config import get_config
+from kosmos.models.safety import (
+    EmergencyStopStatus,
+    ResourceLimit,
+    RiskLevel,
+    SafetyIncident,
+    SafetyReport,
+)
+from kosmos.safety.code_validator import CodeValidator
+from kosmos.utils.compat import model_to_dict
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +46,7 @@ class SafetyGuardrails:
     # Path to emergency stop flag file
     STOP_FLAG_FILE = Path(".kosmos_emergency_stop")
 
-    def __init__(
-        self,
-        incident_log_path: Optional[str] = None,
-        enable_signal_handlers: bool = True
-    ):
+    def __init__(self, incident_log_path: str | None = None, enable_signal_handlers: bool = True):
         """
         Initialize safety guardrails.
 
@@ -59,15 +58,15 @@ class SafetyGuardrails:
 
         # Initialize code validator
         self.code_validator = CodeValidator(
-            ethical_guidelines_path=getattr(config.safety, 'ethical_guidelines_path', None),
+            ethical_guidelines_path=getattr(config.safety, "ethical_guidelines_path", None),
             allow_file_read=True,
             allow_file_write=False,
-            allow_network=False
+            allow_network=False,
         )
 
         # Incident logging
         self.incident_log_path = incident_log_path or "safety_incidents.jsonl"
-        self.incidents: List[SafetyIncident] = []
+        self.incidents: list[SafetyIncident] = []
 
         # Emergency stop status
         self.emergency_stop = EmergencyStopStatus()
@@ -78,24 +77,22 @@ class SafetyGuardrails:
 
         # Resource limits (from config)
         self.default_resource_limits = ResourceLimit(
-            max_cpu_cores=getattr(config.safety, 'max_cpu_cores', None),
-            max_memory_mb=getattr(config.safety, 'max_memory_mb', 2048),
-            max_execution_time_seconds=getattr(config.safety, 'max_execution_time', 300),
+            max_cpu_cores=getattr(config.safety, "max_cpu_cores", None),
+            max_memory_mb=getattr(config.safety, "max_memory_mb", 2048),
+            max_execution_time_seconds=getattr(config.safety, "max_execution_time", 300),
             allow_network_access=False,
             allow_file_write=False,
-            allow_subprocess=False
+            allow_subprocess=False,
         )
 
         logger.info("SafetyGuardrails initialized")
 
     def _register_signal_handlers(self):
         """Register signal handlers for emergency stop."""
+
         def signal_handler(signum, frame):
             logger.warning(f"Emergency stop signal received: {signum}")
-            self.trigger_emergency_stop(
-                triggered_by="signal",
-                reason=f"Signal {signum} received"
-            )
+            self.trigger_emergency_stop(triggered_by="signal", reason=f"Signal {signum} received")
 
         # Register SIGTERM and SIGINT
         try:
@@ -105,11 +102,7 @@ class SafetyGuardrails:
         except Exception as e:
             logger.warning(f"Could not register signal handlers: {e}")
 
-    def validate_code(
-        self,
-        code: str,
-        context: Optional[Dict[str, Any]] = None
-    ) -> SafetyReport:
+    def validate_code(self, code: str, context: dict[str, Any] | None = None) -> SafetyReport:
         """
         Validate code for safety.
 
@@ -122,9 +115,7 @@ class SafetyGuardrails:
         """
         # Check for emergency stop
         if self.is_emergency_stop_active():
-            raise RuntimeError(
-                f"Emergency stop active: {self.emergency_stop.reason}"
-            )
+            raise RuntimeError(f"Emergency stop active: {self.emergency_stop.reason}")
 
         # Validate code
         report = self.code_validator.validate(code, context)
@@ -136,8 +127,7 @@ class SafetyGuardrails:
         return report
 
     def enforce_resource_limits(
-        self,
-        requested_limits: Optional[ResourceLimit] = None
+        self, requested_limits: ResourceLimit | None = None
     ) -> ResourceLimit:
         """
         Enforce resource limits, using defaults if not specified.
@@ -153,21 +143,60 @@ class SafetyGuardrails:
 
         # Cap requested limits to defaults (use 'is not None' to handle 0 values correctly)
         enforced = ResourceLimit(
-            max_cpu_cores=min(
-                requested_limits.max_cpu_cores if requested_limits.max_cpu_cores is not None else float('inf'),
-                self.default_resource_limits.max_cpu_cores if self.default_resource_limits.max_cpu_cores is not None else float('inf')
-            ) if self.default_resource_limits.max_cpu_cores is not None else requested_limits.max_cpu_cores,
-            max_memory_mb=min(
-                requested_limits.max_memory_mb if requested_limits.max_memory_mb is not None else float('inf'),
-                self.default_resource_limits.max_memory_mb if self.default_resource_limits.max_memory_mb is not None else float('inf')
-            ) if self.default_resource_limits.max_memory_mb is not None else requested_limits.max_memory_mb,
-            max_execution_time_seconds=min(
-                requested_limits.max_execution_time_seconds if requested_limits.max_execution_time_seconds is not None else float('inf'),
-                self.default_resource_limits.max_execution_time_seconds if self.default_resource_limits.max_execution_time_seconds is not None else float('inf')
-            ) if self.default_resource_limits.max_execution_time_seconds is not None else requested_limits.max_execution_time_seconds,
-            allow_network_access=requested_limits.allow_network_access and self.default_resource_limits.allow_network_access,
-            allow_file_write=requested_limits.allow_file_write and self.default_resource_limits.allow_file_write,
-            allow_subprocess=requested_limits.allow_subprocess and self.default_resource_limits.allow_subprocess
+            max_cpu_cores=(
+                min(
+                    (
+                        requested_limits.max_cpu_cores
+                        if requested_limits.max_cpu_cores is not None
+                        else float("inf")
+                    ),
+                    (
+                        self.default_resource_limits.max_cpu_cores
+                        if self.default_resource_limits.max_cpu_cores is not None
+                        else float("inf")
+                    ),
+                )
+                if self.default_resource_limits.max_cpu_cores is not None
+                else requested_limits.max_cpu_cores
+            ),
+            max_memory_mb=(
+                min(
+                    (
+                        requested_limits.max_memory_mb
+                        if requested_limits.max_memory_mb is not None
+                        else float("inf")
+                    ),
+                    (
+                        self.default_resource_limits.max_memory_mb
+                        if self.default_resource_limits.max_memory_mb is not None
+                        else float("inf")
+                    ),
+                )
+                if self.default_resource_limits.max_memory_mb is not None
+                else requested_limits.max_memory_mb
+            ),
+            max_execution_time_seconds=(
+                min(
+                    (
+                        requested_limits.max_execution_time_seconds
+                        if requested_limits.max_execution_time_seconds is not None
+                        else float("inf")
+                    ),
+                    (
+                        self.default_resource_limits.max_execution_time_seconds
+                        if self.default_resource_limits.max_execution_time_seconds is not None
+                        else float("inf")
+                    ),
+                )
+                if self.default_resource_limits.max_execution_time_seconds is not None
+                else requested_limits.max_execution_time_seconds
+            ),
+            allow_network_access=requested_limits.allow_network_access
+            and self.default_resource_limits.allow_network_access,
+            allow_file_write=requested_limits.allow_file_write
+            and self.default_resource_limits.allow_file_write,
+            allow_subprocess=requested_limits.allow_subprocess
+            and self.default_resource_limits.allow_subprocess,
         )
 
         logger.debug(f"Enforced resource limits: {model_to_dict(enforced)}")
@@ -187,8 +216,7 @@ class SafetyGuardrails:
             if not self.emergency_stop.is_active:
                 logger.warning("Emergency stop flag file detected")
                 self.trigger_emergency_stop(
-                    triggered_by="flag_file",
-                    reason="Emergency stop flag file created"
+                    triggered_by="flag_file", reason="Emergency stop flag file created"
                 )
 
         # Raise exception if stop is active
@@ -203,17 +231,13 @@ class SafetyGuardrails:
         # Update from flag file if exists
         if self.STOP_FLAG_FILE.exists() and not self.emergency_stop.is_active:
             self.trigger_emergency_stop(
-                triggered_by="flag_file",
-                reason="Emergency stop flag file detected"
+                triggered_by="flag_file", reason="Emergency stop flag file detected"
             )
 
         return self.emergency_stop.is_active
 
     def trigger_emergency_stop(
-        self,
-        triggered_by: str,
-        reason: str,
-        affected_experiments: Optional[List[str]] = None
+        self, triggered_by: str, reason: str, affected_experiments: list[str] | None = None
     ):
         """
         Trigger emergency stop.
@@ -226,22 +250,23 @@ class SafetyGuardrails:
         self.emergency_stop.trigger(
             triggered_by=triggered_by,
             reason=reason,
-            affected_experiments=affected_experiments or []
+            affected_experiments=affected_experiments or [],
         )
 
-        logger.critical(
-            f"EMERGENCY STOP TRIGGERED by {triggered_by}: {reason}"
-        )
+        logger.critical(f"EMERGENCY STOP TRIGGERED by {triggered_by}: {reason}")
 
         # Create flag file if not exists
         if not self.STOP_FLAG_FILE.exists():
             try:
                 self.STOP_FLAG_FILE.write_text(
-                    json.dumps({
-                        "triggered_at": self.emergency_stop.triggered_at.isoformat(),
-                        "triggered_by": triggered_by,
-                        "reason": reason
-                    }, indent=2)
+                    json.dumps(
+                        {
+                            "triggered_at": self.emergency_stop.triggered_at.isoformat(),
+                            "triggered_by": triggered_by,
+                            "reason": reason,
+                        },
+                        indent=2,
+                    )
                 )
             except Exception as e:
                 logger.error(f"Could not create stop flag file: {e}")
@@ -253,9 +278,9 @@ class SafetyGuardrails:
             context={
                 "triggered_by": triggered_by,
                 "reason": reason,
-                "affected_experiments": affected_experiments or []
+                "affected_experiments": affected_experiments or [],
             },
-            action_taken="Emergency stop triggered - all operations halted"
+            action_taken="Emergency stop triggered - all operations halted",
         )
         self._log_incident(incident)
 
@@ -274,7 +299,7 @@ class SafetyGuardrails:
         logger.info("Emergency stop reset")
 
     @contextmanager
-    def safety_context(self, experiment_id: Optional[str] = None):
+    def safety_context(self, experiment_id: str | None = None):
         """
         Context manager for safe code execution.
 
@@ -312,16 +337,10 @@ class SafetyGuardrails:
             # Check after execution
             if self.is_emergency_stop_active():
                 logger.warning(
-                    f"Emergency stop detected after execution "
-                    f"(experiment: {experiment_id})"
+                    f"Emergency stop detected after execution " f"(experiment: {experiment_id})"
                 )
 
-    def _log_violations(
-        self,
-        report: SafetyReport,
-        code: str,
-        context: Optional[Dict[str, Any]]
-    ):
+    def _log_violations(self, report: SafetyReport, code: str, context: dict[str, Any] | None):
         """Log safety violations as incidents."""
         for violation in report.violations:
             incident = SafetyIncident(
@@ -330,11 +349,11 @@ class SafetyGuardrails:
                 context={
                     "code_snippet": code[:200],  # First 200 chars
                     "context": context or {},
-                    "report_summary": report.summary()
+                    "report_summary": report.summary(),
                 },
                 action_taken="Code execution blocked",
-                experiment_id=context.get('experiment_id') if context else None,
-                hypothesis_id=context.get('hypothesis_id') if context else None
+                experiment_id=context.get("experiment_id") if context else None,
+                hypothesis_id=context.get("hypothesis_id") if context else None,
             )
             self._log_incident(incident)
 
@@ -345,17 +364,15 @@ class SafetyGuardrails:
 
         # Write to log file (JSONL format)
         try:
-            with open(self.incident_log_path, 'a') as f:
-                f.write(json.dumps(model_to_dict(incident), default=str) + '\n')
+            with open(self.incident_log_path, "a") as f:
+                f.write(json.dumps(model_to_dict(incident), default=str) + "\n")
             logger.info(f"Safety incident logged: {incident.incident_id}")
         except Exception as e:
             logger.error(f"Error logging incident: {e}")
 
     def get_recent_incidents(
-        self,
-        limit: int = 10,
-        severity: Optional[RiskLevel] = None
-    ) -> List[SafetyIncident]:
+        self, limit: int = 10, severity: RiskLevel | None = None
+    ) -> list[SafetyIncident]:
         """
         Get recent safety incidents.
 
@@ -370,15 +387,12 @@ class SafetyGuardrails:
 
         # Filter by severity if specified
         if severity:
-            incidents = [
-                i for i in incidents
-                if i.violation and i.violation.severity == severity
-            ]
+            incidents = [i for i in incidents if i.violation and i.violation.severity == severity]
 
         # Return most recent
         return incidents[-limit:]
 
-    def get_incident_summary(self) -> Dict[str, Any]:
+    def get_incident_summary(self) -> dict[str, Any]:
         """
         Get summary statistics of safety incidents.
 
@@ -386,12 +400,7 @@ class SafetyGuardrails:
             Dictionary with incident statistics
         """
         if not self.incidents:
-            return {
-                "total_incidents": 0,
-                "by_type": {},
-                "by_severity": {},
-                "unresolved": 0
-            }
+            return {"total_incidents": 0, "by_type": {}, "by_severity": {}, "unresolved": 0}
 
         # Count by type
         by_type = {}
@@ -417,8 +426,5 @@ class SafetyGuardrails:
             "by_type": by_type,
             "by_severity": by_severity,
             "unresolved": unresolved,
-            "emergency_stops": sum(
-                1 for i in self.incidents
-                if 'emergency_stop' in i.incident_id
-            )
+            "emergency_stops": sum(1 for i in self.incidents if "emergency_stop" in i.incident_id),
         }

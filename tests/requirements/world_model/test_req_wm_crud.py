@@ -5,17 +5,13 @@ These tests validate Create, Read, Update, and Delete operations for entities
 and relationships in the knowledge graph, including merge behavior and error handling.
 """
 
-import pytest
 import uuid
-import tempfile
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, Any, Optional
-from unittest.mock import Mock, patch, MagicMock
 
-from kosmos.world_model.models import Entity, Relationship, Annotation
-from kosmos.world_model.interface import WorldModelStorage
+import pytest
+
 from kosmos.world_model import get_world_model, reset_world_model
+from kosmos.world_model.models import Annotation, Entity, Relationship
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -27,6 +23,7 @@ pytestmark = [
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def world_model():
@@ -55,11 +52,11 @@ def sample_entity():
             "title": "Test Paper on Neural Networks",
             "authors": ["Smith, J.", "Doe, A."],
             "year": 2024,
-            "abstract": "A comprehensive study of neural networks."
+            "abstract": "A comprehensive study of neural networks.",
         },
         confidence=0.95,
         project="test_project",
-        created_by="test_agent"
+        created_by="test_agent",
     )
 
 
@@ -73,13 +70,14 @@ def sample_relationship(sample_entity):
         type="CITES",
         properties={"context": "introduction"},
         confidence=0.9,
-        created_by="citation_extractor"
+        created_by="citation_extractor",
     )
 
 
 # ============================================================================
 # REQ-WM-CRUD-001: Create Entity (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-CRUD-001")
 @pytest.mark.priority("MUST")
@@ -100,10 +98,7 @@ class TestREQ_WM_CRUD_001_CreateEntity:
 
     def test_create_entity_with_auto_generated_id(self, world_model):
         """Verify entity ID is auto-generated if not provided."""
-        entity = Entity(
-            type="Concept",
-            properties={"name": "Neural Network"}
-        )
+        entity = Entity(type="Concept", properties={"name": "Neural Network"})
 
         # ID should be generated before storage
         assert entity.id is not None
@@ -114,16 +109,20 @@ class TestREQ_WM_CRUD_001_CreateEntity:
     def test_create_entity_with_all_standard_types(self, world_model):
         """Verify entities can be created with all standard types."""
         entity_types = [
-            "Paper", "Concept", "Author", "Method",
-            "Experiment", "Hypothesis", "Finding", "Dataset"
+            "Paper",
+            "Concept",
+            "Author",
+            "Method",
+            "Experiment",
+            "Hypothesis",
+            "Finding",
+            "Dataset",
         ]
 
         created_ids = []
         for entity_type in entity_types:
             entity = Entity(
-                type=entity_type,
-                properties={"name": f"Test {entity_type}"},
-                project="test_project"
+                type=entity_type, properties={"name": f"Test {entity_type}"}, project="test_project"
             )
             entity_id = world_model.add_entity(entity)
             assert entity_id is not None
@@ -135,28 +134,20 @@ class TestREQ_WM_CRUD_001_CreateEntity:
     def test_create_entity_with_validation(self, world_model):
         """Verify entity validation during creation."""
         # Valid entity should succeed
-        valid_entity = Entity(
-            type="Paper",
-            properties={"title": "Valid Paper"},
-            confidence=0.9
-        )
+        valid_entity = Entity(type="Paper", properties={"title": "Valid Paper"}, confidence=0.9)
         entity_id = world_model.add_entity(valid_entity)
         assert entity_id is not None
 
         # Invalid confidence should fail at model level
         with pytest.raises(ValueError):
-            invalid_entity = Entity(
-                type="Paper",
-                properties={"title": "Invalid Paper"},
-                confidence=1.5  # Invalid
-            )
+            Entity(type="Paper", properties={"title": "Invalid Paper"}, confidence=1.5)  # Invalid
 
     def test_create_entity_with_project_namespace(self, world_model):
         """Verify entities can be created with project namespace."""
         entity = Entity(
             type="Concept",
             properties={"name": "Project-Specific Concept"},
-            project="research_project_2024"
+            project="research_project_2024",
         )
 
         entity_id = world_model.add_entity(entity)
@@ -171,6 +162,7 @@ class TestREQ_WM_CRUD_001_CreateEntity:
 # ============================================================================
 # REQ-WM-CRUD-002: Read Entity (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-CRUD-002")
 @pytest.mark.priority("MUST")
@@ -200,19 +192,11 @@ class TestREQ_WM_CRUD_002_ReadEntity:
 
     def test_read_entity_with_project_filter(self, world_model):
         """Verify entity retrieval with project filtering."""
-        entity1 = Entity(
-            type="Paper",
-            properties={"title": "Project A Paper"},
-            project="project_a"
-        )
-        entity2 = Entity(
-            type="Paper",
-            properties={"title": "Project B Paper"},
-            project="project_b"
-        )
+        entity1 = Entity(type="Paper", properties={"title": "Project A Paper"}, project="project_a")
+        entity2 = Entity(type="Paper", properties={"title": "Project B Paper"}, project="project_b")
 
         id1 = world_model.add_entity(entity1)
-        id2 = world_model.add_entity(entity2)
+        world_model.add_entity(entity2)
 
         # Retrieve with correct project filter
         retrieved1 = world_model.get_entity(id1, project="project_a")
@@ -231,15 +215,13 @@ class TestREQ_WM_CRUD_002_ReadEntity:
                 "statement": "Test hypothesis",
                 "rationale": "Based on evidence",
                 "testability_score": 0.8,
-                "related_papers": ["paper1", "paper2"]
+                "related_papers": ["paper1", "paper2"],
             },
             confidence=0.9,
             project="test_project",
             created_by="hypothesis_generator",
             verified=True,
-            annotations=[
-                Annotation(text="Important", created_by="reviewer")
-            ]
+            annotations=[Annotation(text="Important", created_by="reviewer")],
         )
 
         entity_id = world_model.add_entity(entity)
@@ -257,6 +239,7 @@ class TestREQ_WM_CRUD_002_ReadEntity:
 # REQ-WM-CRUD-003: Update Entity (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-CRUD-003")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_CRUD_003_UpdateEntity:
@@ -270,11 +253,7 @@ class TestREQ_WM_CRUD_003_UpdateEntity:
         entity_id = world_model.add_entity(sample_entity)
 
         # Update properties
-        updates = {
-            "properties.impact_score": 9.5,
-            "properties.citations": 150,
-            "verified": True
-        }
+        updates = {"properties.impact_score": 9.5, "properties.citations": 150, "verified": True}
         world_model.update_entity(entity_id, updates)
 
         # Verify updates
@@ -288,7 +267,7 @@ class TestREQ_WM_CRUD_003_UpdateEntity:
         fake_id = str(uuid.uuid4())
 
         # Should raise error for non-existent entity
-        with pytest.raises(Exception):  # Specific exception depends on implementation
+        with pytest.raises((ValueError, KeyError, RuntimeError)):
             world_model.update_entity(fake_id, {"verified": True})
 
     def test_update_preserves_entity_id(self, world_model, sample_entity):
@@ -307,11 +286,11 @@ class TestREQ_WM_CRUD_003_UpdateEntity:
     def test_update_modifies_updated_at_timestamp(self, world_model, sample_entity):
         """Verify updated_at timestamp is modified on update."""
         entity_id = world_model.add_entity(sample_entity)
-        original = world_model.get_entity(entity_id)
-        original_updated_at = original.updated_at if original else None
+        world_model.get_entity(entity_id)
 
         # Wait briefly and update
         import time
+
         time.sleep(0.1)
 
         world_model.update_entity(entity_id, {"verified": True})
@@ -325,6 +304,7 @@ class TestREQ_WM_CRUD_003_UpdateEntity:
 # ============================================================================
 # REQ-WM-CRUD-004: Delete Entity (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-CRUD-004")
 @pytest.mark.priority("MUST")
@@ -351,7 +331,7 @@ class TestREQ_WM_CRUD_004_DeleteEntity:
         """Verify deleting non-existent entity raises error."""
         fake_id = str(uuid.uuid4())
 
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, KeyError, RuntimeError)):
             world_model.delete_entity(fake_id)
 
     def test_delete_entity_removes_relationships(self, world_model):
@@ -381,6 +361,7 @@ class TestREQ_WM_CRUD_004_DeleteEntity:
 # REQ-WM-CRUD-005: Merge Entity (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-CRUD-005")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_CRUD_005_MergeEntity:
@@ -397,7 +378,7 @@ class TestREQ_WM_CRUD_005_MergeEntity:
             type="Paper",
             properties={"title": "Neural Networks", "year": 2024},
             confidence=0.8,
-            project="test_project"
+            project="test_project",
         )
         world_model.add_entity(entity1, merge=True)
 
@@ -407,7 +388,7 @@ class TestREQ_WM_CRUD_005_MergeEntity:
             type="Paper",
             properties={"title": "Neural Networks", "authors": ["Smith"]},
             confidence=0.9,
-            project="test_project"
+            project="test_project",
         )
         world_model.add_entity(entity2, merge=True)
 
@@ -424,7 +405,7 @@ class TestREQ_WM_CRUD_005_MergeEntity:
             type="Concept",
             properties={"name": "Deep Learning"},
             confidence=0.7,
-            project="test_project"
+            project="test_project",
         )
         world_model.add_entity(entity1, merge=True)
 
@@ -433,7 +414,7 @@ class TestREQ_WM_CRUD_005_MergeEntity:
             type="Concept",
             properties={"name": "Deep Learning"},
             confidence=0.95,
-            project="test_project"
+            project="test_project",
         )
         world_model.add_entity(entity2, merge=True)
 
@@ -444,18 +425,10 @@ class TestREQ_WM_CRUD_005_MergeEntity:
 
     def test_merge_false_prevents_duplicate_handling(self, world_model):
         """Verify merge=False creates separate entities even if duplicate."""
-        entity1 = Entity(
-            type="Paper",
-            properties={"title": "Same Title"},
-            project="test_project"
-        )
+        entity1 = Entity(type="Paper", properties={"title": "Same Title"}, project="test_project")
         id1 = world_model.add_entity(entity1, merge=False)
 
-        entity2 = Entity(
-            type="Paper",
-            properties={"title": "Same Title"},
-            project="test_project"
-        )
+        entity2 = Entity(type="Paper", properties={"title": "Same Title"}, project="test_project")
         id2 = world_model.add_entity(entity2, merge=False)
 
         # Should have different IDs (no merge)
@@ -465,6 +438,7 @@ class TestREQ_WM_CRUD_005_MergeEntity:
 # ============================================================================
 # REQ-WM-CRUD-006: Create and Read Relationships (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-CRUD-006")
 @pytest.mark.priority("MUST")
@@ -501,10 +475,7 @@ class TestREQ_WM_CRUD_006_CreateReadRelationships:
         id2 = world_model.add_entity(entity2)
 
         rel = Relationship(
-            source_id=id1,
-            target_id=id2,
-            type="MENTIONS",
-            properties={"section": "introduction"}
+            source_id=id1, target_id=id2, type="MENTIONS", properties={"section": "introduction"}
         )
         rel_id = world_model.add_relationship(rel)
 
@@ -527,7 +498,7 @@ class TestREQ_WM_CRUD_006_CreateReadRelationships:
         rel = Relationship(source_id=id1, target_id=fake_id, type="CITES")
 
         # Should raise error (specific error depends on implementation)
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, KeyError, RuntimeError)):
             world_model.add_relationship(rel)
 
     def test_create_relationship_with_all_types(self, world_model):
@@ -551,6 +522,7 @@ class TestREQ_WM_CRUD_006_CreateReadRelationships:
 # REQ-WM-CRUD-007: Entity and Relationship Statistics (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-CRUD-007")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_CRUD_007_Statistics:
@@ -564,9 +536,7 @@ class TestREQ_WM_CRUD_007_Statistics:
         # Create some entities
         for i in range(3):
             entity = Entity(
-                type="Paper",
-                properties={"title": f"Paper {i}"},
-                project="test_project"
+                type="Paper", properties={"title": f"Paper {i}"}, project="test_project"
             )
             world_model.add_entity(entity)
 
@@ -598,9 +568,7 @@ class TestREQ_WM_CRUD_007_Statistics:
         types_to_create = ["Paper", "Concept", "Author"]
         for entity_type in types_to_create:
             entity = Entity(
-                type=entity_type,
-                properties={"name": f"Test {entity_type}"},
-                project="test_project"
+                type=entity_type, properties={"name": f"Test {entity_type}"}, project="test_project"
             )
             world_model.add_entity(entity)
 

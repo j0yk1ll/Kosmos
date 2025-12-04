@@ -26,13 +26,13 @@ Example workflow:
     patterns = analyzer.analyze_pathway_pattern(results)
 """
 
-from typing import Dict, List, Optional, Any, Literal
-from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from scipy import stats
 from pydantic import BaseModel, Field
+from scipy import stats
 
 from kosmos.domains.biology.apis import KEGGClient
 from kosmos.utils.compat import model_to_dict
@@ -41,6 +41,7 @@ from kosmos.utils.compat import model_to_dict
 # Enums for metabolite classification
 class MetaboliteCategory(str, Enum):
     """Biochemical pathway category"""
+
     PURINE = "purine"
     PYRIMIDINE = "pyrimidine"
     AMINO_ACID = "amino_acid"
@@ -51,6 +52,7 @@ class MetaboliteCategory(str, Enum):
 
 class MetaboliteType(str, Enum):
     """Type of metabolite in pathway"""
+
     SALVAGE_PRECURSOR = "salvage_precursor"
     SYNTHESIS_PRODUCT = "synthesis_product"
     INTERMEDIATE = "intermediate"
@@ -61,6 +63,7 @@ class MetaboliteType(str, Enum):
 # Pydantic models for results
 class MetabolomicsResult(BaseModel):
     """Result from metabolite group comparison"""
+
     metabolite: str
     category: MetaboliteCategory
     metabolite_type: MetaboliteType
@@ -70,7 +73,7 @@ class MetabolomicsResult(BaseModel):
     t_statistic: float
     p_value: float
     significant: bool = Field(default=False)
-    pathways: List[str] = Field(default_factory=list)
+    pathways: list[str] = Field(default_factory=list)
 
     class Config:
         use_enum_values = True
@@ -78,6 +81,7 @@ class MetabolomicsResult(BaseModel):
 
 class PathwayPattern(BaseModel):
     """Pathway-level pattern analysis result"""
+
     pathway_category: MetaboliteCategory
     metabolite_type: MetaboliteType
     n_metabolites: int
@@ -87,7 +91,7 @@ class PathwayPattern(BaseModel):
     n_decreased: int
     n_significant: int
     pattern_description: str
-    pattern_p_value: Optional[float] = None
+    pattern_p_value: float | None = None
 
     class Config:
         use_enum_values = True
@@ -95,6 +99,7 @@ class PathwayPattern(BaseModel):
 
 class PathwayComparison(BaseModel):
     """Comparison between pathway groups (e.g., salvage vs synthesis)"""
+
     category: MetaboliteCategory
     salvage_mean_fc: float
     synthesis_mean_fc: float
@@ -121,38 +126,94 @@ class MetabolomicsAnalyzer:
 
     # Purine nucleotides and derivatives
     PURINE_METABOLITES = [
-        'Adenine', 'Adenosine', 'AMP', 'ADP', 'ATP',
-        'Guanine', 'Guanosine', 'GMP', 'GDP', 'GTP',
-        'Inosine', 'IMP', 'Hypoxanthine', 'Xanthine',
-        'Xanthosine', 'XMP', 'dAMP', 'dADP', 'dATP',
-        'dGMP', 'dGDP', 'dGTP', 'cAMP', 'cGMP'
+        "Adenine",
+        "Adenosine",
+        "AMP",
+        "ADP",
+        "ATP",
+        "Guanine",
+        "Guanosine",
+        "GMP",
+        "GDP",
+        "GTP",
+        "Inosine",
+        "IMP",
+        "Hypoxanthine",
+        "Xanthine",
+        "Xanthosine",
+        "XMP",
+        "dAMP",
+        "dADP",
+        "dATP",
+        "dGMP",
+        "dGDP",
+        "dGTP",
+        "cAMP",
+        "cGMP",
     ]
 
     # Pyrimidine nucleotides and derivatives
     PYRIMIDINE_METABOLITES = [
-        'Cytosine', 'Cytidine', 'CMP', 'CDP', 'CTP',
-        'Uracil', 'Uridine', 'UMP', 'UDP', 'UTP',
-        'Thymine', 'Thymidine', 'TMP', 'TDP', 'TTP',
-        'dCMP', 'dCDP', 'dCTP', 'dUMP', 'dUDP', 'dUTP',
-        'Orotate', 'Dihydroorotate'
+        "Cytosine",
+        "Cytidine",
+        "CMP",
+        "CDP",
+        "CTP",
+        "Uracil",
+        "Uridine",
+        "UMP",
+        "UDP",
+        "UTP",
+        "Thymine",
+        "Thymidine",
+        "TMP",
+        "TDP",
+        "TTP",
+        "dCMP",
+        "dCDP",
+        "dCTP",
+        "dUMP",
+        "dUDP",
+        "dUTP",
+        "Orotate",
+        "Dihydroorotate",
     ]
 
     # Salvage pathway precursors (bases and nucleosides)
     SALVAGE_PRECURSORS = [
-        'Adenine', 'Adenosine', 'Guanine', 'Guanosine',
-        'Hypoxanthine', 'Inosine', 'Xanthine', 'Xanthosine',
-        'Cytosine', 'Cytidine', 'Uracil', 'Uridine',
-        'Thymine', 'Thymidine'
+        "Adenine",
+        "Adenosine",
+        "Guanine",
+        "Guanosine",
+        "Hypoxanthine",
+        "Inosine",
+        "Xanthine",
+        "Xanthosine",
+        "Cytosine",
+        "Cytidine",
+        "Uracil",
+        "Uridine",
+        "Thymine",
+        "Thymidine",
     ]
 
     # De novo synthesis products (nucleotides)
     SYNTHESIS_PRODUCTS = [
-        'AMP', 'GMP', 'IMP', 'XMP',
-        'CMP', 'UMP', 'TMP',
-        'dAMP', 'dGMP', 'dCMP', 'dUMP', 'dTMP'
+        "AMP",
+        "GMP",
+        "IMP",
+        "XMP",
+        "CMP",
+        "UMP",
+        "TMP",
+        "dAMP",
+        "dGMP",
+        "dCMP",
+        "dUMP",
+        "dTMP",
     ]
 
-    def __init__(self, kegg_client: Optional[KEGGClient] = None):
+    def __init__(self, kegg_client: KEGGClient | None = None):
         """
         Initialize MetabolomicsAnalyzer.
 
@@ -162,11 +223,7 @@ class MetabolomicsAnalyzer:
         """
         self.kegg_client = kegg_client or KEGGClient()
 
-    def categorize_metabolite(
-        self,
-        compound_name: str,
-        use_kegg: bool = True
-    ) -> Dict[str, Any]:
+    def categorize_metabolite(self, compound_name: str, use_kegg: bool = True) -> dict[str, Any]:
         """
         Categorize a metabolite by pathway and type.
 
@@ -191,24 +248,20 @@ class MetabolomicsAnalyzer:
         if use_kegg:
             try:
                 kegg_info = self.kegg_client.categorize_metabolite(compound_clean)
-                if kegg_info and 'pathways' in kegg_info:
-                    pathways = kegg_info['pathways']
-            except Exception as e:
+                if kegg_info and "pathways" in kegg_info:
+                    pathways = kegg_info["pathways"]
+            except Exception:
                 # Silently fail KEGG queries, use heuristics only
                 pass
 
         return {
-            'compound_name': compound_clean,
-            'category': category,
-            'metabolite_type': metabolite_type,
-            'pathways': pathways
+            "compound_name": compound_clean,
+            "category": category,
+            "metabolite_type": metabolite_type,
+            "pathways": pathways,
         }
 
-    def _determine_category(
-        self,
-        compound_name: str,
-        use_kegg: bool = True
-    ) -> MetaboliteCategory:
+    def _determine_category(self, compound_name: str, use_kegg: bool = True) -> MetaboliteCategory:
         """Determine metabolite pathway category"""
         # Check against known lists first (fast)
         if compound_name in self.PURINE_METABOLITES:
@@ -220,39 +273,80 @@ class MetabolomicsAnalyzer:
         compound_lower = compound_name.lower()
 
         # Purine patterns
-        if any(pattern in compound_lower for pattern in [
-            'adenine', 'adenosine', 'guanine', 'guanosine',
-            'inosine', 'hypoxanthine', 'xanthine'
-        ]):
+        if any(
+            pattern in compound_lower
+            for pattern in [
+                "adenine",
+                "adenosine",
+                "guanine",
+                "guanosine",
+                "inosine",
+                "hypoxanthine",
+                "xanthine",
+            ]
+        ):
             return MetaboliteCategory.PURINE
 
         # Pyrimidine patterns
-        if any(pattern in compound_lower for pattern in [
-            'cytosine', 'cytidine', 'uracil', 'uridine',
-            'thymine', 'thymidine', 'orotate'
-        ]):
+        if any(
+            pattern in compound_lower
+            for pattern in [
+                "cytosine",
+                "cytidine",
+                "uracil",
+                "uridine",
+                "thymine",
+                "thymidine",
+                "orotate",
+            ]
+        ):
             return MetaboliteCategory.PYRIMIDINE
 
         # Amino acid patterns
-        if any(pattern in compound_lower for pattern in [
-            'alanine', 'glycine', 'leucine', 'isoleucine',
-            'valine', 'lysine', 'arginine', 'glutamate',
-            'aspartate', 'serine', 'threonine'
-        ]):
+        if any(
+            pattern in compound_lower
+            for pattern in [
+                "alanine",
+                "glycine",
+                "leucine",
+                "isoleucine",
+                "valine",
+                "lysine",
+                "arginine",
+                "glutamate",
+                "aspartate",
+                "serine",
+                "threonine",
+            ]
+        ):
             return MetaboliteCategory.AMINO_ACID
 
         # Lipid patterns
-        if any(pattern in compound_lower for pattern in [
-            'fatty acid', 'phospholipid', 'sphingolipid',
-            'cholesterol', 'triglyceride'
-        ]):
+        if any(
+            pattern in compound_lower
+            for pattern in [
+                "fatty acid",
+                "phospholipid",
+                "sphingolipid",
+                "cholesterol",
+                "triglyceride",
+            ]
+        ):
             return MetaboliteCategory.LIPID
 
         # Carbohydrate patterns
-        if any(pattern in compound_lower for pattern in [
-            'glucose', 'fructose', 'galactose', 'mannose',
-            'ribose', 'glycogen', 'sucrose'
-        ]):
+        if any(
+            pattern in compound_lower
+            for pattern in [
+                "glucose",
+                "fructose",
+                "galactose",
+                "mannose",
+                "ribose",
+                "glycogen",
+                "sucrose",
+            ]
+        ):
             return MetaboliteCategory.CARBOHYDRATE
 
         return MetaboliteCategory.OTHER
@@ -269,21 +363,22 @@ class MetabolomicsAnalyzer:
         compound_lower = compound_name.lower()
 
         # Salvage precursors: bases and nucleosides (end in -ine or -osine)
-        if compound_name.endswith(('ine', 'osine')) and not any(
-            x in compound_lower for x in ['mp', 'dp', 'tp']
+        if compound_name.endswith(("ine", "osine")) and not any(
+            x in compound_lower for x in ["mp", "dp", "tp"]
         ):
             return MetaboliteType.SALVAGE_PRECURSOR
 
         # Synthesis products: nucleotides (contain MP, DP, TP)
-        if any(x in compound_name for x in ['MP', 'DP', 'TP']):
+        if any(x in compound_name for x in ["MP", "DP", "TP"]):
             # But exclude salvage-like names
-            if not compound_name.endswith(('ine', 'osine')):
+            if not compound_name.endswith(("ine", "osine")):
                 return MetaboliteType.SYNTHESIS_PRODUCT
 
         # Degradation products
-        if any(pattern in compound_lower for pattern in [
-            'uric acid', 'allantoin', 'urea', 'beta-alanine'
-        ]):
+        if any(
+            pattern in compound_lower
+            for pattern in ["uric acid", "allantoin", "urea", "beta-alanine"]
+        ):
             return MetaboliteType.DEGRADATION_PRODUCT
 
         return MetaboliteType.INTERMEDIATE
@@ -291,13 +386,13 @@ class MetabolomicsAnalyzer:
     def analyze_group_comparison(
         self,
         data_df: pd.DataFrame,
-        group1_samples: List[str],
-        group2_samples: List[str],
-        metabolites: Optional[List[str]] = None,
+        group1_samples: list[str],
+        group2_samples: list[str],
+        metabolites: list[str] | None = None,
         log2_transform: bool = True,
         p_threshold: float = 0.05,
-        use_kegg: bool = False  # Disabled by default for speed
-    ) -> List[MetabolomicsResult]:
+        use_kegg: bool = False,  # Disabled by default for speed
+    ) -> list[MetabolomicsResult]:
         """
         Perform statistical comparison between two groups.
 
@@ -368,15 +463,15 @@ class MetabolomicsAnalyzer:
             # Create result
             result = MetabolomicsResult(
                 metabolite=metabolite,
-                category=categorization['category'],
-                metabolite_type=categorization['metabolite_type'],
+                category=categorization["category"],
+                metabolite_type=categorization["metabolite_type"],
                 group1_mean=float(group1_mean),
                 group2_mean=float(group2_mean),
                 log2_fold_change=float(log2_fc),
                 t_statistic=float(t_stat),
                 p_value=float(p_val),
                 significant=(p_val < p_threshold),
-                pathways=categorization['pathways']
+                pathways=categorization["pathways"],
             )
 
             results.append(result)
@@ -384,10 +479,8 @@ class MetabolomicsAnalyzer:
         return results
 
     def analyze_pathway_pattern(
-        self,
-        results: List[MetabolomicsResult],
-        category_filter: Optional[MetaboliteCategory] = None
-    ) -> List[PathwayPattern]:
+        self, results: list[MetabolomicsResult], category_filter: MetaboliteCategory | None = None
+    ) -> list[PathwayPattern]:
         """
         Analyze pathway-level patterns from metabolomics results.
 
@@ -406,18 +499,18 @@ class MetabolomicsAnalyzer:
 
         # Filter by category if specified
         if category_filter:
-            results_df = results_df[results_df['category'] == category_filter.value]
+            results_df = results_df[results_df["category"] == category_filter.value]
 
         patterns = []
 
         # Group by category and metabolite_type
-        for (category, met_type), group in results_df.groupby(['category', 'metabolite_type']):
+        for (category, met_type), group in results_df.groupby(["category", "metabolite_type"]):
             n_metabolites = len(group)
-            mean_fc = group['log2_fold_change'].mean()
-            median_fc = group['log2_fold_change'].median()
-            n_increased = (group['log2_fold_change'] > 0).sum()
-            n_decreased = (group['log2_fold_change'] < 0).sum()
-            n_significant = group['significant'].sum()
+            mean_fc = group["log2_fold_change"].mean()
+            median_fc = group["log2_fold_change"].median()
+            n_increased = (group["log2_fold_change"] > 0).sum()
+            n_decreased = (group["log2_fold_change"] < 0).sum()
+            n_significant = group["significant"].sum()
 
             # Describe pattern
             if mean_fc > 0.5:
@@ -440,7 +533,7 @@ class MetabolomicsAnalyzer:
                 n_increased=int(n_increased),
                 n_decreased=int(n_decreased),
                 n_significant=int(n_significant),
-                pattern_description=pattern_desc
+                pattern_description=pattern_desc,
             )
 
             patterns.append(pattern)
@@ -449,9 +542,9 @@ class MetabolomicsAnalyzer:
 
     def compare_salvage_vs_synthesis(
         self,
-        results: List[MetabolomicsResult],
-        category: MetaboliteCategory = MetaboliteCategory.PURINE
-    ) -> Optional[PathwayComparison]:
+        results: list[MetabolomicsResult],
+        category: MetaboliteCategory = MetaboliteCategory.PURINE,
+    ) -> PathwayComparison | None:
         """
         Compare salvage vs synthesis pathways (Figure 2 pattern).
 
@@ -472,12 +565,10 @@ class MetabolomicsAnalyzer:
 
         # Separate salvage and synthesis
         salvage = [
-            r for r in category_results
-            if r.metabolite_type == MetaboliteType.SALVAGE_PRECURSOR
+            r for r in category_results if r.metabolite_type == MetaboliteType.SALVAGE_PRECURSOR
         ]
         synthesis = [
-            r for r in category_results
-            if r.metabolite_type == MetaboliteType.SYNTHESIS_PRODUCT
+            r for r in category_results if r.metabolite_type == MetaboliteType.SYNTHESIS_PRODUCT
         ]
 
         if not salvage or not synthesis:
@@ -515,5 +606,5 @@ class MetabolomicsAnalyzer:
             t_statistic=float(t_stat),
             p_value=float(p_val),
             pattern=pattern,
-            significant=(p_val < 0.05)
+            significant=(p_val < 0.05),
         )

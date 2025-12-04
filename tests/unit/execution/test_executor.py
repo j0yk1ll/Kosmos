@@ -4,18 +4,21 @@ Tests for code execution system.
 Tests code execution, retry logic, error handling, output capture, and sandbox integration.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+
 from kosmos.execution.executor import (
     CodeExecutor,
-    ExecutionResult,
     CodeValidator,
+    ExecutionResult,
     RetryStrategy,
-    execute_protocol_code
+    execute_protocol_code,
 )
 
 
 # Fixtures
+
 
 @pytest.fixture
 def executor():
@@ -49,6 +52,7 @@ def code_with_import():
 
 # Basic Execution Tests
 
+
 class TestBasicExecution:
     """Tests for basic code execution."""
 
@@ -57,7 +61,7 @@ class TestBasicExecution:
         result = executor.execute(simple_code)
 
         assert result.success is True
-        assert result.return_value == {'value': 2}
+        assert result.return_value == {"value": 2}
         assert result.error is None
         assert result.execution_time > 0
 
@@ -67,24 +71,24 @@ class TestBasicExecution:
 
         assert result.success is True
         assert "Hello, World!" in result.stdout
-        assert result.return_value == {'status': 'success'}
+        assert result.return_value == {"status": "success"}
 
     def test_execute_code_with_numpy(self, executor, code_with_import):
         """Test execution with imports."""
         result = executor.execute(code_with_import)
 
         assert result.success is True
-        assert result.return_value == {'mean': 2.0}
+        assert result.return_value == {"mean": 2.0}
 
     def test_execute_code_with_local_vars(self, executor):
         """Test execution with local variables."""
         code = "y = x * 2\nresults = {'y': y}"
-        local_vars = {'x': 5}
+        local_vars = {"x": 5}
 
         result = executor.execute(code, local_vars=local_vars)
 
         assert result.success is True
-        assert result.return_value == {'y': 10}
+        assert result.return_value == {"y": 10}
 
     def test_execution_result_to_dict(self, executor, simple_code):
         """Test converting ExecutionResult to dict."""
@@ -92,13 +96,14 @@ class TestBasicExecution:
         result_dict = result.to_dict()
 
         assert isinstance(result_dict, dict)
-        assert 'success' in result_dict
-        assert 'return_value' in result_dict
-        assert 'execution_time' in result_dict
-        assert result_dict['success'] is True
+        assert "success" in result_dict
+        assert "return_value" in result_dict
+        assert "execution_time" in result_dict
+        assert result_dict["success"] is True
 
 
 # Error Handling Tests
+
 
 class TestErrorHandling:
     """Tests for error handling during execution."""
@@ -109,7 +114,9 @@ class TestErrorHandling:
 
         assert result.success is False
         assert result.error is not None
-        assert "division by zero" in result.error.lower() or "ZeroDivisionError" in result.error_type
+        assert (
+            "division by zero" in result.error.lower() or "ZeroDivisionError" in result.error_type
+        )
         assert result.error_type == "ZeroDivisionError"
 
     def test_execute_code_with_syntax_error(self, executor):
@@ -143,6 +150,7 @@ class TestErrorHandling:
 
 
 # Retry Logic Tests
+
 
 class TestRetryLogic:
     """Tests for execution retry logic."""
@@ -189,6 +197,7 @@ class TestRetryLogic:
 
 # Output Capture Tests
 
+
 class TestOutputCapture:
     """Tests for stdout/stderr capture."""
 
@@ -227,6 +236,7 @@ results = {}
 
 # Return Value Extraction Tests
 
+
 class TestReturnValueExtraction:
     """Tests for extracting return values."""
 
@@ -236,7 +246,7 @@ class TestReturnValueExtraction:
 
         result = executor.execute(code)
 
-        assert result.return_value == {'a': 1, 'b': 2}
+        assert result.return_value == {"a": 1, "b": 2}
 
     def test_extract_result_variable(self, executor):
         """Test extraction of 'result' variable (singular)."""
@@ -244,7 +254,7 @@ class TestReturnValueExtraction:
 
         result = executor.execute(code)
 
-        assert result.return_value == {'value': 42}
+        assert result.return_value == {"value": 42}
 
     def test_results_preferred_over_result(self, executor):
         """Test 'results' is preferred over 'result'."""
@@ -252,7 +262,7 @@ class TestReturnValueExtraction:
 
         result = executor.execute(code)
 
-        assert result.return_value == {'correct': 2}
+        assert result.return_value == {"correct": 2}
 
     def test_no_return_value_if_not_set(self, executor):
         """Test return value is None if not set."""
@@ -265,6 +275,7 @@ class TestReturnValueExtraction:
 
 # Code Validation Tests
 
+
 class TestCodeValidation:
     """Tests for code validation."""
 
@@ -274,8 +285,8 @@ class TestCodeValidation:
 
         validation = CodeValidator.validate(safe_code)
 
-        assert validation['valid'] is True
-        assert len(validation['errors']) == 0
+        assert validation["valid"] is True
+        assert len(validation["errors"]) == 0
 
     def test_validate_dangerous_imports(self):
         """Test validation rejects dangerous imports."""
@@ -283,9 +294,9 @@ class TestCodeValidation:
 
         validation = CodeValidator.validate(dangerous_code)
 
-        assert validation['valid'] is False
-        assert len(validation['errors']) > 0
-        assert any('os' in error.lower() for error in validation['errors'])
+        assert validation["valid"] is False
+        assert len(validation["errors"]) > 0
+        assert any("os" in error.lower() for error in validation["errors"])
 
     def test_validate_dangerous_operations(self):
         """Test validation rejects dangerous operations."""
@@ -293,8 +304,8 @@ class TestCodeValidation:
 
         validation = CodeValidator.validate(dangerous_code)
 
-        assert validation['valid'] is False
-        assert len(validation['errors']) > 0
+        assert validation["valid"] is False
+        assert len(validation["errors"]) > 0
 
     def test_validate_syntax_errors(self):
         """Test validation catches syntax errors."""
@@ -302,8 +313,8 @@ class TestCodeValidation:
 
         validation = CodeValidator.validate(invalid_code)
 
-        assert validation['valid'] is False
-        assert len(validation['errors']) > 0
+        assert validation["valid"] is False
+        assert len(validation["errors"]) > 0
 
     def test_validate_file_read_allowed(self):
         """Test file read is allowed with flag."""
@@ -312,7 +323,7 @@ class TestCodeValidation:
         validation = CodeValidator.validate(code, allow_file_read=True)
 
         # Should have warning but be valid
-        assert validation['valid'] is True or len(validation['warnings']) > 0
+        assert validation["valid"] is True or len(validation["warnings"]) > 0
 
     def test_validate_file_write_rejected(self):
         """Test file write is rejected."""
@@ -320,10 +331,11 @@ class TestCodeValidation:
 
         validation = CodeValidator.validate(code, allow_file_read=True)
 
-        assert validation['valid'] is False
+        assert validation["valid"] is False
 
 
 # Execute with Data Tests
+
 
 class TestExecuteWithData:
     """Tests for execute_with_data method."""
@@ -339,10 +351,11 @@ class TestExecuteWithData:
         result = executor.execute_with_data(code, str(data_file))
 
         assert result.success is True
-        assert result.return_value['data_path'] == str(data_file)
+        assert result.return_value["data_path"] == str(data_file)
 
 
 # Convenience Function Tests
+
 
 class TestExecuteProtocolCode:
     """Tests for execute_protocol_code convenience function."""
@@ -353,8 +366,8 @@ class TestExecuteProtocolCode:
 
         result = execute_protocol_code(code, validate_safety=False)
 
-        assert result['success'] is True
-        assert result['return_value'] == {'value': 42}
+        assert result["success"] is True
+        assert result["return_value"] == {"value": 42}
 
     def test_execute_protocol_code_with_validation(self):
         """Test protocol code execution with validation."""
@@ -362,7 +375,7 @@ class TestExecuteProtocolCode:
 
         result = execute_protocol_code(safe_code, validate_safety=True)
 
-        assert result['success'] is True
+        assert result["success"] is True
 
     def test_execute_protocol_code_rejects_unsafe(self):
         """Test protocol code execution rejects unsafe code."""
@@ -370,8 +383,8 @@ class TestExecuteProtocolCode:
 
         result = execute_protocol_code(unsafe_code, validate_safety=True)
 
-        assert result['success'] is False
-        assert 'validation_errors' in result
+        assert result["success"] is False
+        assert "validation_errors" in result
 
     def test_execute_protocol_code_with_data(self, tmp_path):
         """Test protocol code execution with data file."""
@@ -382,17 +395,18 @@ class TestExecuteProtocolCode:
 
         result = execute_protocol_code(code, data_path=str(data_file), validate_safety=False)
 
-        assert result['success'] is True
-        assert result['return_value']['rows'] == 2
+        assert result["success"] is True
+        assert result["return_value"]["rows"] == 2
 
 
 # Sandbox Integration Tests (Mocked)
 
+
 class TestSandboxIntegration:
     """Tests for sandbox integration (mocked)."""
 
-    @patch('kosmos.execution.executor.SANDBOX_AVAILABLE', True)
-    @patch('kosmos.execution.executor.DockerSandbox')
+    @patch("kosmos.execution.executor.SANDBOX_AVAILABLE", True)
+    @patch("kosmos.execution.executor.DockerSandbox")
     def test_executor_uses_sandbox_when_enabled(self, mock_sandbox_class):
         """Test executor uses sandbox when use_sandbox=True."""
         mock_sandbox_instance = Mock()
@@ -403,11 +417,11 @@ class TestSandboxIntegration:
         assert executor.sandbox is not None
         assert executor.use_sandbox is True
 
-    @patch('kosmos.execution.executor.SANDBOX_AVAILABLE', False)
+    @patch("kosmos.execution.executor.SANDBOX_AVAILABLE", False)
     def test_executor_raises_error_if_sandbox_unavailable(self):
         """Test executor raises error if sandbox requested but unavailable."""
         with pytest.raises(RuntimeError):
-            executor = CodeExecutor(use_sandbox=True)
+            CodeExecutor(use_sandbox=True)
 
 
 if __name__ == "__main__":

@@ -4,13 +4,15 @@ Base agent class and communication protocol.
 All agents (HypothesisGenerator, ExperimentDesigner, DataAnalyst, etc.) inherit from this base.
 """
 
-from typing import Dict, Any, Optional, List, Callable
-from enum import Enum
-from datetime import datetime
-from pydantic import BaseModel, Field
+import json
 import logging
 import uuid
-import json
+from collections.abc import Callable
+from datetime import datetime
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class AgentStatus(str, Enum):
     """Agent lifecycle status."""
+
     CREATED = "created"
     STARTING = "starting"
     RUNNING = "running"
@@ -30,6 +33,7 @@ class AgentStatus(str, Enum):
 
 class MessageType(str, Enum):
     """Types of inter-agent messages."""
+
     REQUEST = "request"
     RESPONSE = "response"
     NOTIFICATION = "notification"
@@ -51,16 +55,17 @@ class AgentMessage(BaseModel):
         )
         ```
     """
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     type: MessageType
     from_agent: str
     to_agent: str
-    content: Dict[str, Any]
-    correlation_id: Optional[str] = None  # For tracking request/response pairs
+    content: dict[str, Any]
+    correlation_id: str | None = None  # For tracking request/response pairs
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "id": self.id,
@@ -70,7 +75,7 @@ class AgentMessage(BaseModel):
             "content": self.content,
             "correlation_id": self.correlation_id,
             "timestamp": self.timestamp.isoformat(),
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
     def to_json(self) -> str:
@@ -80,10 +85,11 @@ class AgentMessage(BaseModel):
 
 class AgentState(BaseModel):
     """Agent state for persistence."""
+
     agent_id: str
     agent_type: str
     status: AgentStatus
-    data: Dict[str, Any] = Field(default_factory=dict)
+    data: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -106,9 +112,9 @@ class BaseAgent:
 
     def __init__(
         self,
-        agent_id: Optional[str] = None,
-        agent_type: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None
+        agent_id: str | None = None,
+        agent_type: str | None = None,
+        config: dict[str, Any] | None = None,
     ):
         """
         Initialize agent.
@@ -127,12 +133,12 @@ class BaseAgent:
         self.updated_at = datetime.utcnow()
 
         # Message handling
-        self.message_queue: List[AgentMessage] = []
-        self.message_handlers: Dict[str, Callable] = {}
-        self._message_router: Optional[Callable[[AgentMessage], None]] = None
+        self.message_queue: list[AgentMessage] = []
+        self.message_handlers: dict[str, Callable] = {}
+        self._message_router: Callable[[AgentMessage], None] | None = None
 
         # State management
-        self.state_data: Dict[str, Any] = {}
+        self.state_data: dict[str, Any] = {}
 
         # Statistics
         self.messages_received = 0
@@ -206,7 +212,7 @@ class BaseAgent:
         """
         return self.status in [AgentStatus.RUNNING, AgentStatus.IDLE, AgentStatus.WORKING]
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Get agent status information.
 
@@ -236,9 +242,9 @@ class BaseAgent:
     def send_message(
         self,
         to_agent: str,
-        content: Dict[str, Any],
+        content: dict[str, Any],
         message_type: MessageType = MessageType.REQUEST,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None,
     ) -> AgentMessage:
         """
         Send message to another agent.
@@ -257,7 +263,7 @@ class BaseAgent:
             from_agent=self.agent_id,
             to_agent=to_agent,
             content=content,
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
         )
 
         self.messages_sent += 1
@@ -283,7 +289,9 @@ class BaseAgent:
         self.messages_received += 1
         self.message_queue.append(message)
 
-        logger.debug(f"Agent {self.agent_id} received message from {message.from_agent}: {message.type}")
+        logger.debug(
+            f"Agent {self.agent_id} received message from {message.from_agent}: {message.type}"
+        )
 
         # Process message
         try:
@@ -293,11 +301,11 @@ class BaseAgent:
             logger.error(f"Error processing message in {self.agent_id}: {e}")
             # Send error response
             if message.type == MessageType.REQUEST:
-                error_msg = self.send_message(
+                self.send_message(
                     to_agent=message.from_agent,
                     content={"error": str(e)},
                     message_type=MessageType.ERROR,
-                    correlation_id=message.id
+                    correlation_id=message.id,
                 )
 
     def process_message(self, message: AgentMessage):
@@ -309,7 +317,9 @@ class BaseAgent:
         Args:
             message: Message to process
         """
-        logger.warning(f"Agent {self.agent_id} received message but process_message() not implemented")
+        logger.warning(
+            f"Agent {self.agent_id} received message but process_message() not implemented"
+        )
 
     def register_message_handler(self, message_type: str, handler: Callable):
         """
@@ -354,7 +364,7 @@ class BaseAgent:
             status=self.status,
             data=self.state_data,
             created_at=self.created_at,
-            updated_at=self.updated_at
+            updated_at=self.updated_at,
         )
 
     def restore_state(self, state: AgentState):
@@ -386,7 +396,7 @@ class BaseAgent:
     # EXECUTION
     # ========================================================================
 
-    def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         """
         Execute agent task.
 

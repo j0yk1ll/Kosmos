@@ -5,16 +5,15 @@ Validates experimental protocols for scientific rigor and completeness.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 
+from kosmos.experiments.statistical_power import PowerAnalyzer
 from kosmos.models.experiment import (
     ExperimentProtocol,
     ValidationCheck,
     ValidationReport,
     VariableType,
 )
-from kosmos.experiments.statistical_power import PowerAnalyzer
+
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ class ExperimentValidator:
         require_control_group: bool = True,
         min_sample_size: int = 20,
         require_power_analysis: bool = True,
-        min_rigor_score: float = 0.6
+        min_rigor_score: float = 0.6,
     ):
         """
         Initialize validator.
@@ -127,7 +126,10 @@ class ExperimentValidator:
 
         # Determine severity level
         if checks_failed > 0:
-            if any(c.severity == "error" and c.check_type in ["control_group", "sample_size"] for c in checks):
+            if any(
+                c.severity == "error" and c.check_type in ["control_group", "sample_size"]
+                for c in checks
+            ):
                 severity = "critical"
             else:
                 severity = "major"
@@ -150,7 +152,8 @@ class ExperimentValidator:
             checks_warnings=checks_warnings,
             has_control_group=protocol.has_control_group(),
             control_group_adequate=self._assess_control_group_adequacy(protocol),
-            sample_size_adequate=protocol.sample_size is not None and protocol.sample_size >= self.min_sample_size,
+            sample_size_adequate=protocol.sample_size is not None
+            and protocol.sample_size >= self.min_sample_size,
             sample_size=protocol.sample_size,
             recommended_sample_size=self._recommend_sample_size(protocol),
             power_analysis_performed=protocol.power_analysis_performed,
@@ -184,7 +187,7 @@ class ExperimentValidator:
                 severity="error",
                 status="failed",
                 message="No control groups defined - experiment lacks baseline comparison",
-                recommendation="Add a control group with baseline/standard conditions for comparison"
+                recommendation="Add a control group with baseline/standard conditions for comparison",
             )
         elif not has_control:
             return ValidationCheck(
@@ -193,7 +196,7 @@ class ExperimentValidator:
                 severity="warning",
                 status="passed",
                 message="No control group - may limit interpretation",
-                recommendation="Consider adding control group for stronger conclusions"
+                recommendation="Consider adding control group for stronger conclusions",
             )
         else:
             return ValidationCheck(
@@ -201,7 +204,7 @@ class ExperimentValidator:
                 description="Control group presence",
                 severity="info",
                 status="passed",
-                message=f"Protocol includes {len(protocol.control_groups)} control group(s)"
+                message=f"Protocol includes {len(protocol.control_groups)} control group(s)",
             )
 
     def _check_sample_size(self, protocol: ExperimentProtocol) -> ValidationCheck:
@@ -213,7 +216,7 @@ class ExperimentValidator:
                 severity="warning",
                 status="failed",
                 message="Sample size not specified",
-                recommendation="Specify sample size based on power analysis"
+                recommendation="Specify sample size based on power analysis",
             )
 
         if protocol.sample_size < self.min_sample_size:
@@ -223,7 +226,7 @@ class ExperimentValidator:
                 severity="error",
                 status="failed",
                 message=f"Sample size ({protocol.sample_size}) below minimum ({self.min_sample_size})",
-                recommendation=f"Increase sample size to at least {self.min_sample_size}"
+                recommendation=f"Increase sample size to at least {self.min_sample_size}",
             )
 
         return ValidationCheck(
@@ -231,7 +234,7 @@ class ExperimentValidator:
             description="Sample size adequacy",
             severity="info",
             status="passed",
-            message=f"Sample size ({protocol.sample_size}) meets minimum requirement"
+            message=f"Sample size ({protocol.sample_size}) meets minimum requirement",
         )
 
     def _check_power_analysis(self, protocol: ExperimentProtocol) -> ValidationCheck:
@@ -243,7 +246,7 @@ class ExperimentValidator:
                 severity="warning",
                 status="failed",
                 message="No power analysis performed",
-                recommendation="Conduct power analysis to justify sample size"
+                recommendation="Conduct power analysis to justify sample size",
             )
 
         if protocol.power_analysis_performed and protocol.sample_size_rationale:
@@ -252,7 +255,7 @@ class ExperimentValidator:
                 description="Statistical power analysis",
                 severity="info",
                 status="passed",
-                message="Power analysis performed and documented"
+                message="Power analysis performed and documented",
             )
 
         return ValidationCheck(
@@ -260,207 +263,239 @@ class ExperimentValidator:
             description="Statistical power analysis",
             severity="info",
             status="passed",
-            message="Power analysis check skipped"
+            message="Power analysis check skipped",
         )
 
-    def _check_variables(self, protocol: ExperimentProtocol) -> List[ValidationCheck]:
+    def _check_variables(self, protocol: ExperimentProtocol) -> list[ValidationCheck]:
         """Check variable definitions."""
         checks = []
 
         # Check for independent variables
         independent_vars = protocol.get_independent_variables()
         if not independent_vars:
-            checks.append(ValidationCheck(
-                check_type="variables",
-                description="Independent variables",
-                severity="error",
-                status="failed",
-                message="No independent variables defined",
-                recommendation="Define at least one independent (manipulated) variable"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="variables",
+                    description="Independent variables",
+                    severity="error",
+                    status="failed",
+                    message="No independent variables defined",
+                    recommendation="Define at least one independent (manipulated) variable",
+                )
+            )
         else:
-            checks.append(ValidationCheck(
-                check_type="variables",
-                description="Independent variables",
-                severity="info",
-                status="passed",
-                message=f"{len(independent_vars)} independent variable(s) defined"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="variables",
+                    description="Independent variables",
+                    severity="info",
+                    status="passed",
+                    message=f"{len(independent_vars)} independent variable(s) defined",
+                )
+            )
 
         # Check for dependent variables
         dependent_vars = protocol.get_dependent_variables()
         if not dependent_vars:
-            checks.append(ValidationCheck(
-                check_type="variables",
-                description="Dependent variables",
-                severity="error",
-                status="failed",
-                message="No dependent variables defined",
-                recommendation="Define at least one dependent (measured outcome) variable"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="variables",
+                    description="Dependent variables",
+                    severity="error",
+                    status="failed",
+                    message="No dependent variables defined",
+                    recommendation="Define at least one dependent (measured outcome) variable",
+                )
+            )
         else:
-            checks.append(ValidationCheck(
-                check_type="variables",
-                description="Dependent variables",
-                severity="info",
-                status="passed",
-                message=f"{len(dependent_vars)} dependent variable(s) defined"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="variables",
+                    description="Dependent variables",
+                    severity="info",
+                    status="passed",
+                    message=f"{len(dependent_vars)} dependent variable(s) defined",
+                )
+            )
 
         return checks
 
-    def _check_statistical_tests(self, protocol: ExperimentProtocol) -> List[ValidationCheck]:
+    def _check_statistical_tests(self, protocol: ExperimentProtocol) -> list[ValidationCheck]:
         """Check statistical test specifications."""
         checks = []
 
         if not protocol.statistical_tests:
-            checks.append(ValidationCheck(
-                check_type="statistical_tests",
-                description="Statistical tests",
-                severity="warning",
-                status="failed",
-                message="No statistical tests specified",
-                recommendation="Define statistical tests to analyze results"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="statistical_tests",
+                    description="Statistical tests",
+                    severity="warning",
+                    status="failed",
+                    message="No statistical tests specified",
+                    recommendation="Define statistical tests to analyze results",
+                )
+            )
         else:
-            checks.append(ValidationCheck(
-                check_type="statistical_tests",
-                description="Statistical tests",
-                severity="info",
-                status="passed",
-                message=f"{len(protocol.statistical_tests)} statistical test(s) defined"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="statistical_tests",
+                    description="Statistical tests",
+                    severity="info",
+                    status="passed",
+                    message=f"{len(protocol.statistical_tests)} statistical test(s) defined",
+                )
+            )
 
             # Check if tests have proper parameters
             for test in protocol.statistical_tests:
                 if not test.null_hypothesis:
-                    checks.append(ValidationCheck(
-                        check_type="statistical_tests",
-                        description=f"{test.test_type} null hypothesis",
-                        severity="warning",
-                        status="failed",
-                        message=f"Test {test.test_type} missing null hypothesis",
-                        recommendation="Define clear null hypothesis for each test"
-                    ))
+                    checks.append(
+                        ValidationCheck(
+                            check_type="statistical_tests",
+                            description=f"{test.test_type} null hypothesis",
+                            severity="warning",
+                            status="failed",
+                            message=f"Test {test.test_type} missing null hypothesis",
+                            recommendation="Define clear null hypothesis for each test",
+                        )
+                    )
 
         return checks
 
-    def _detect_biases(self, protocol: ExperimentProtocol) -> List[ValidationCheck]:
+    def _detect_biases(self, protocol: ExperimentProtocol) -> list[ValidationCheck]:
         """Detect potential sources of bias."""
         checks = []
 
         # Selection bias
         if not protocol.random_seed:
-            checks.append(ValidationCheck(
-                check_type="bias_detection",
-                description="Selection bias (random assignment)",
-                severity="warning",
-                status="failed",
-                message="No random seed specified - may introduce selection bias",
-                details={"bias_type": "selection"},
-                recommendation="Set random seed for random assignment to conditions"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="bias_detection",
+                    description="Selection bias (random assignment)",
+                    severity="warning",
+                    status="failed",
+                    message="No random seed specified - may introduce selection bias",
+                    details={"bias_type": "selection"},
+                    recommendation="Set random seed for random assignment to conditions",
+                )
+            )
 
         # Confounding variables
-        confounding_vars = [v for v in protocol.variables.values() if v.type == VariableType.CONFOUNDING]
+        confounding_vars = [
+            v for v in protocol.variables.values() if v.type == VariableType.CONFOUNDING
+        ]
         if confounding_vars:
-            checks.append(ValidationCheck(
-                check_type="bias_detection",
-                description="Confounding variables identified",
-                severity="info",
-                status="passed",
-                message=f"Protocol acknowledges {len(confounding_vars)} potential confound(s)",
-                details={"confounds": [v.name for v in confounding_vars]}
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="bias_detection",
+                    description="Confounding variables identified",
+                    severity="info",
+                    status="passed",
+                    message=f"Protocol acknowledges {len(confounding_vars)} potential confound(s)",
+                    details={"confounds": [v.name for v in confounding_vars]},
+                )
+            )
 
         return checks
 
-    def _check_reproducibility(self, protocol: ExperimentProtocol) -> List[ValidationCheck]:
+    def _check_reproducibility(self, protocol: ExperimentProtocol) -> list[ValidationCheck]:
         """Check reproducibility features."""
         checks = []
 
         # Random seed
         if protocol.random_seed is not None:
-            checks.append(ValidationCheck(
-                check_type="reproducibility",
-                description="Random seed",
-                severity="info",
-                status="passed",
-                message=f"Random seed set to {protocol.random_seed}"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="reproducibility",
+                    description="Random seed",
+                    severity="info",
+                    status="passed",
+                    message=f"Random seed set to {protocol.random_seed}",
+                )
+            )
         else:
-            checks.append(ValidationCheck(
-                check_type="reproducibility",
-                description="Random seed",
-                severity="warning",
-                status="failed",
-                message="No random seed - results may not be reproducible",
-                recommendation="Set random seed for reproducibility"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="reproducibility",
+                    description="Random seed",
+                    severity="warning",
+                    status="failed",
+                    message="No random seed - results may not be reproducible",
+                    recommendation="Set random seed for reproducibility",
+                )
+            )
 
         # Reproducibility notes
         if protocol.reproducibility_notes:
-            checks.append(ValidationCheck(
-                check_type="reproducibility",
-                description="Reproducibility documentation",
-                severity="info",
-                status="passed",
-                message="Reproducibility notes provided"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="reproducibility",
+                    description="Reproducibility documentation",
+                    severity="info",
+                    status="passed",
+                    message="Reproducibility notes provided",
+                )
+            )
         else:
-            checks.append(ValidationCheck(
-                check_type="reproducibility",
-                description="Reproducibility documentation",
-                severity="warning",
-                status="failed",
-                message="No reproducibility notes",
-                recommendation="Document steps needed to reproduce results"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="reproducibility",
+                    description="Reproducibility documentation",
+                    severity="warning",
+                    status="failed",
+                    message="No reproducibility notes",
+                    recommendation="Document steps needed to reproduce results",
+                )
+            )
 
         return checks
 
-    def _check_completeness(self, protocol: ExperimentProtocol) -> List[ValidationCheck]:
+    def _check_completeness(self, protocol: ExperimentProtocol) -> list[ValidationCheck]:
         """Check protocol completeness."""
         checks = []
 
         # Steps
         if len(protocol.steps) < 3:
-            checks.append(ValidationCheck(
-                check_type="completeness",
-                description="Protocol steps",
-                severity="warning",
-                status="failed",
-                message=f"Only {len(protocol.steps)} steps - protocol may be incomplete",
-                recommendation="Add more detailed steps for clarity"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="completeness",
+                    description="Protocol steps",
+                    severity="warning",
+                    status="failed",
+                    message=f"Only {len(protocol.steps)} steps - protocol may be incomplete",
+                    recommendation="Add more detailed steps for clarity",
+                )
+            )
 
         # Resource estimates
         if not protocol.resource_requirements.estimated_cost_usd:
-            checks.append(ValidationCheck(
-                check_type="completeness",
-                description="Cost estimate",
-                severity="info",
-                status="failed",
-                message="No cost estimate provided",
-                recommendation="Estimate experiment cost"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="completeness",
+                    description="Cost estimate",
+                    severity="info",
+                    status="failed",
+                    message="No cost estimate provided",
+                    recommendation="Estimate experiment cost",
+                )
+            )
 
         if not protocol.resource_requirements.estimated_duration_days:
-            checks.append(ValidationCheck(
-                check_type="completeness",
-                description="Duration estimate",
-                severity="info",
-                status="failed",
-                message="No duration estimate provided",
-                recommendation="Estimate experiment duration"
-            ))
+            checks.append(
+                ValidationCheck(
+                    check_type="completeness",
+                    description="Duration estimate",
+                    severity="info",
+                    status="failed",
+                    message="No duration estimate provided",
+                    recommendation="Estimate experiment duration",
+                )
+            )
 
         return checks
 
     def _calculate_rigor_score(
-        self,
-        protocol: ExperimentProtocol,
-        checks: List[ValidationCheck]
+        self, protocol: ExperimentProtocol, checks: list[ValidationCheck]
     ) -> float:
         """Calculate overall scientific rigor score (0.0-1.0)."""
         score = 1.0
@@ -483,9 +518,7 @@ class ExperimentValidator:
         return max(0.0, min(1.0, score))
 
     def _calculate_reproducibility_score(
-        self,
-        protocol: ExperimentProtocol,
-        checks: List[ValidationCheck]
+        self, protocol: ExperimentProtocol, checks: list[ValidationCheck]
     ) -> float:
         """Calculate reproducibility score (0.0-1.0)."""
         score = 0.0
@@ -516,7 +549,7 @@ class ExperimentValidator:
 
         return True
 
-    def _recommend_sample_size(self, protocol: ExperimentProtocol) -> Optional[int]:
+    def _recommend_sample_size(self, protocol: ExperimentProtocol) -> int | None:
         """Recommend sample size based on power analysis."""
         if not protocol.statistical_tests:
             return None
@@ -538,7 +571,7 @@ class ExperimentValidator:
 
         return None
 
-    def _estimate_statistical_power(self, protocol: ExperimentProtocol) -> Optional[float]:
+    def _estimate_statistical_power(self, protocol: ExperimentProtocol) -> float | None:
         """Estimate statistical power if sample size is known."""
         if not protocol.sample_size or not protocol.statistical_tests:
             return None
@@ -556,42 +589,44 @@ class ExperimentValidator:
         return None
 
     def _assess_reproducibility(
-        self,
-        protocol: ExperimentProtocol,
-        checks: List[ValidationCheck]
+        self, protocol: ExperimentProtocol, checks: list[ValidationCheck]
     ) -> bool:
         """Assess if experiment is reproducible."""
         reproducibility_checks = [c for c in checks if c.check_type == "reproducibility"]
         failed = [c for c in reproducibility_checks if c.status == "failed"]
         return len(failed) == 0
 
-    def _list_potential_biases(self, checks: List[ValidationCheck]) -> List[Dict[str, str]]:
+    def _list_potential_biases(self, checks: list[ValidationCheck]) -> list[dict[str, str]]:
         """Extract potential biases from checks."""
-        bias_checks = [c for c in checks if c.check_type == "bias_detection" and c.status == "failed"]
+        bias_checks = [
+            c for c in checks if c.check_type == "bias_detection" and c.status == "failed"
+        ]
         return [
             {
                 "type": c.details.get("bias_type", "unknown") if c.details else "unknown",
-                "description": c.message or ""
+                "description": c.message or "",
             }
             for c in bias_checks
         ]
 
-    def _list_bias_mitigations(self, checks: List[ValidationCheck]) -> List[str]:
+    def _list_bias_mitigations(self, checks: list[ValidationCheck]) -> list[str]:
         """Extract bias mitigation suggestions."""
         bias_checks = [c for c in checks if c.check_type == "bias_detection" and c.recommendation]
         return [c.recommendation for c in bias_checks if c.recommendation]
 
-    def _list_reproducibility_issues(self, checks: List[ValidationCheck]) -> List[str]:
+    def _list_reproducibility_issues(self, checks: list[ValidationCheck]) -> list[str]:
         """Extract reproducibility issues."""
-        repro_checks = [c for c in checks if c.check_type == "reproducibility" and c.status == "failed"]
+        repro_checks = [
+            c for c in checks if c.check_type == "reproducibility" and c.status == "failed"
+        ]
         return [c.message or "" for c in repro_checks]
 
     def _generate_summary(
         self,
         protocol: ExperimentProtocol,
-        checks: List[ValidationCheck],
+        checks: list[ValidationCheck],
         passed: bool,
-        rigor_score: float
+        rigor_score: float,
     ) -> str:
         """Generate validation summary."""
         if passed:
@@ -602,10 +637,8 @@ class ExperimentValidator:
             return f"Protocol '{protocol.name}' has {len(errors)} error(s) and {len(warnings)} warning(s). Rigor score: {rigor_score:.2f}. See recommendations for improvements."
 
     def _generate_recommendations(
-        self,
-        protocol: ExperimentProtocol,
-        checks: List[ValidationCheck]
-    ) -> List[str]:
+        self, protocol: ExperimentProtocol, checks: list[ValidationCheck]
+    ) -> list[str]:
         """Generate improvement recommendations."""
         recommendations = []
 

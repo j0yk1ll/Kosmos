@@ -38,9 +38,10 @@ Thread Safety:
 """
 
 import logging
-from typing import Literal, Optional
+from typing import Literal
 
 from kosmos.world_model.interface import WorldModelStorage
+
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +50,11 @@ logger = logging.getLogger(__name__)
 # - kosmos.knowledge.graph.get_knowledge_graph()
 # - kosmos.knowledge.vector_db.get_vector_db()
 # - kosmos.knowledge.embeddings.get_embedder()
-_world_model: Optional[WorldModelStorage] = None
+_world_model: WorldModelStorage | None = None
 
 
 def get_world_model(
-    mode: Optional[Literal["simple", "production"]] = None,
+    mode: Literal["simple", "production"] | None = None,
     reset: bool = False,
 ) -> WorldModelStorage:
     """Get or create the singleton world model instance.
@@ -138,8 +139,7 @@ def get_world_model(
 
         else:
             raise ValueError(
-                f"Unknown world model mode: '{mode}'. "
-                f"Valid options: 'simple', 'production'"
+                f"Unknown world model mode: '{mode}'. " f"Valid options: 'simple', 'production'"
             )
 
     return _world_model

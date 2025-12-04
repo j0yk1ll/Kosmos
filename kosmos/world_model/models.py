@@ -26,7 +26,7 @@ import uuid
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 # Export format version for compatibility checking
@@ -55,7 +55,7 @@ class Annotation:
 
     text: str
     created_by: str
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     def __post_init__(self):
         """Validate annotation."""
@@ -120,15 +120,15 @@ class Entity:
     """
 
     type: str
-    properties: Dict[str, Any]
-    id: Optional[str] = None
+    properties: dict[str, Any]
+    id: str | None = None
     confidence: float = 1.0
-    project: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    created_by: Optional[str] = None
+    project: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    created_by: str | None = None
     verified: bool = False
-    annotations: List[Annotation] = field(default_factory=list)
+    annotations: list[Annotation] = field(default_factory=list)
 
     # Standard entity types (can be extended)
     VALID_TYPES = {
@@ -201,7 +201,11 @@ class Entity:
             "statement": hypothesis.statement,
             "rationale": hypothesis.rationale,
             "domain": hypothesis.domain,
-            "status": hypothesis.status.value if hasattr(hypothesis.status, 'value') else str(hypothesis.status),
+            "status": (
+                hypothesis.status.value
+                if hasattr(hypothesis.status, "value")
+                else str(hypothesis.status)
+            ),
         }
 
         # Add scores if present
@@ -254,18 +258,22 @@ class Entity:
         properties = {
             "name": protocol.name,
             "hypothesis_id": protocol.hypothesis_id,
-            "experiment_type": protocol.experiment_type.value if hasattr(protocol.experiment_type, 'value') else str(protocol.experiment_type),
+            "experiment_type": (
+                protocol.experiment_type.value
+                if hasattr(protocol.experiment_type, "value")
+                else str(protocol.experiment_type)
+            ),
             "domain": protocol.domain,
             "description": protocol.description,
             "objective": protocol.objective,
         }
 
         # Add rigor score if present
-        if hasattr(protocol, 'rigor_score') and protocol.rigor_score is not None:
+        if hasattr(protocol, "rigor_score") and protocol.rigor_score is not None:
             properties["rigor_score"] = protocol.rigor_score
 
         # Add template info if present
-        if hasattr(protocol, 'template_name') and protocol.template_name:
+        if hasattr(protocol, "template_name") and protocol.template_name:
             properties["template_name"] = protocol.template_name
 
         # Note: Not storing full steps/variables to keep entity lightweight
@@ -276,8 +284,8 @@ class Entity:
             type="ExperimentProtocol",
             properties=properties,
             confidence=properties.get("rigor_score", 1.0),
-            created_at=protocol.created_at if hasattr(protocol, 'created_at') else None,
-            updated_at=protocol.updated_at if hasattr(protocol, 'updated_at') else None,
+            created_at=protocol.created_at if hasattr(protocol, "created_at") else None,
+            updated_at=protocol.updated_at if hasattr(protocol, "updated_at") else None,
             created_by=created_by,
         )
 
@@ -301,23 +309,25 @@ class Entity:
         properties = {
             "experiment_id": result.experiment_id,
             "protocol_id": result.protocol_id,
-            "status": result.status.value if hasattr(result.status, 'value') else str(result.status),
+            "status": (
+                result.status.value if hasattr(result.status, "value") else str(result.status)
+            ),
         }
 
         # Add hypothesis link if present
-        if hasattr(result, 'hypothesis_id') and result.hypothesis_id:
+        if hasattr(result, "hypothesis_id") and result.hypothesis_id:
             properties["hypothesis_id"] = result.hypothesis_id
 
         # Add support/refute information
-        if hasattr(result, 'supports_hypothesis') and result.supports_hypothesis is not None:
+        if hasattr(result, "supports_hypothesis") and result.supports_hypothesis is not None:
             properties["supports_hypothesis"] = result.supports_hypothesis
 
         # Add interpretation if present
-        if hasattr(result, 'interpretation') and result.interpretation:
+        if hasattr(result, "interpretation") and result.interpretation:
             properties["interpretation"] = result.interpretation
 
         # Add summary if present
-        if hasattr(result, 'summary') and result.summary:
+        if hasattr(result, "summary") and result.summary:
             properties["summary"] = result.summary
 
         return cls(
@@ -325,17 +335,14 @@ class Entity:
             type="ExperimentResult",
             properties=properties,
             confidence=1.0,
-            created_at=result.created_at if hasattr(result, 'created_at') else None,
-            updated_at=result.updated_at if hasattr(result, 'updated_at') else None,
+            created_at=result.created_at if hasattr(result, "created_at") else None,
+            updated_at=result.updated_at if hasattr(result, "updated_at") else None,
             created_by=created_by,
         )
 
     @classmethod
     def from_research_question(
-        cls,
-        question_text: str,
-        domain: Optional[str] = None,
-        created_by: str = "research_director"
+        cls, question_text: str, domain: str | None = None, created_by: str = "research_director"
     ) -> "Entity":
         """
         Create Entity for a research question.
@@ -365,7 +372,7 @@ class Entity:
             created_by=created_by,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert entity to dictionary for serialization.
 
@@ -398,7 +405,7 @@ class Entity:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Entity":
+    def from_dict(cls, data: dict[str, Any]) -> "Entity":
         """
         Create entity from dictionary (for import).
 
@@ -497,11 +504,11 @@ class Relationship:
     source_id: str
     target_id: str
     type: str
-    id: Optional[str] = None
-    properties: Dict[str, Any] = field(default_factory=dict)
+    id: str | None = None
+    properties: dict[str, Any] = field(default_factory=dict)
     confidence: float = 1.0
-    created_at: Optional[datetime] = None
-    created_by: Optional[str] = None
+    created_at: datetime | None = None
+    created_by: str | None = None
 
     # Standard relationship types
     VALID_TYPES = {
@@ -559,7 +566,7 @@ class Relationship:
         rel_type: str,
         agent: str,
         confidence: float = 1.0,
-        **metadata: Any
+        **metadata: Any,
     ) -> "Relationship":
         """
         Create relationship with rich provenance metadata.
@@ -615,7 +622,7 @@ class Relationship:
             created_by=agent,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert relationship to dictionary.
 
@@ -634,7 +641,7 @@ class Relationship:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Relationship":
+    def from_dict(cls, data: dict[str, Any]) -> "Relationship":
         """
         Create relationship from dictionary.
 

@@ -6,14 +6,15 @@ to build a comprehensive knowledge graph of scientific literature.
 """
 
 import logging
-from typing import List, Dict, Any, Optional, Set
 import time
+from typing import Any
 
-from kosmos.literature.base_client import PaperMetadata
-from kosmos.knowledge.graph import get_knowledge_graph, KnowledgeGraph
-from kosmos.knowledge.concept_extractor import get_concept_extractor, ConceptExtractor
-from kosmos.knowledge.vector_db import get_vector_db
+from kosmos.knowledge.concept_extractor import ConceptExtractor, get_concept_extractor
 from kosmos.knowledge.embeddings import get_embedder
+from kosmos.knowledge.graph import KnowledgeGraph, get_knowledge_graph
+from kosmos.knowledge.vector_db import get_vector_db
+from kosmos.literature.base_client import PaperMetadata
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,10 @@ class GraphBuilder:
 
     def __init__(
         self,
-        graph: Optional[KnowledgeGraph] = None,
-        concept_extractor: Optional[ConceptExtractor] = None,
+        graph: KnowledgeGraph | None = None,
+        concept_extractor: ConceptExtractor | None = None,
         add_semantic_edges: bool = True,
-        similarity_threshold: float = 0.8
+        similarity_threshold: float = 0.8,
     ):
         """
         Initialize graph builder.
@@ -78,7 +79,7 @@ class GraphBuilder:
             "methods_added": 0,
             "citations_added": 0,
             "relationships_added": 0,
-            "errors": 0
+            "errors": 0,
         }
 
         logger.info("Initialized GraphBuilder")
@@ -88,8 +89,8 @@ class GraphBuilder:
         paper: PaperMetadata,
         extract_concepts: bool = True,
         add_authors: bool = True,
-        add_citations: bool = True
-    ) -> Optional[Any]:
+        add_citations: bool = True,
+    ) -> Any | None:
         """
         Add a paper to the knowledge graph.
 
@@ -143,13 +144,13 @@ class GraphBuilder:
 
     def build_from_papers(
         self,
-        papers: List[PaperMetadata],
+        papers: list[PaperMetadata],
         extract_concepts: bool = True,
         add_authors: bool = True,
         add_citations: bool = True,
         add_semantic_relationships: bool = True,
         show_progress: bool = True,
-        batch_size: int = 10
+        batch_size: int = 10,
     ):
         """
         Build knowledge graph from a corpus of papers.
@@ -180,17 +181,19 @@ class GraphBuilder:
 
         # Add papers in batches
         for i in range(0, len(papers), batch_size):
-            batch = papers[i:i + batch_size]
+            batch = papers[i : i + batch_size]
 
             if show_progress:
-                logger.info(f"Processing batch {i // batch_size + 1}/{(len(papers) - 1) // batch_size + 1}")
+                logger.info(
+                    f"Processing batch {i // batch_size + 1}/{(len(papers) - 1) // batch_size + 1}"
+                )
 
             for paper in batch:
                 self.add_paper(
                     paper,
                     extract_concepts=extract_concepts,
                     add_authors=add_authors,
-                    add_citations=add_citations
+                    add_citations=add_citations,
                 )
 
         # Add semantic relationships after all papers are added
@@ -213,10 +216,10 @@ class GraphBuilder:
         for i, author in enumerate(paper.authors):
             try:
                 # Create Author node
-                author_node = self.graph.create_author(
+                self.graph.create_author(
                     name=author.name,
                     affiliation=author.affiliation if hasattr(author, "affiliation") else None,
-                    merge=True
+                    merge=True,
                 )
 
                 # Check if this is first occurrence
@@ -224,13 +227,15 @@ class GraphBuilder:
                     self.stats["authors_added"] += 1
 
                 # Create AUTHORED relationship
-                role = "first" if i == 0 else "corresponding" if i == len(paper.authors) - 1 else None
+                role = (
+                    "first" if i == 0 else "corresponding" if i == len(paper.authors) - 1 else None
+                )
                 self.graph.create_authored(
                     author_name=author.name,
                     paper_id=paper.primary_identifier,
                     order=i + 1,
                     role=role,
-                    merge=True
+                    merge=True,
                 )
 
                 self.stats["relationships_added"] += 1
@@ -248,19 +253,18 @@ class GraphBuilder:
         try:
             # Extract using Claude
             extraction_result = self.concept_extractor.extract_from_paper(
-                paper,
-                include_relationships=True
+                paper, include_relationships=True
             )
 
             # Add concepts
             for concept in extraction_result.concepts:
                 try:
                     # Create Concept node
-                    concept_node = self.graph.create_concept(
+                    self.graph.create_concept(
                         name=concept.name,
                         description=concept.description,
                         domain=concept.domain,
-                        merge=True
+                        merge=True,
                     )
 
                     # Check if new
@@ -272,7 +276,7 @@ class GraphBuilder:
                         paper_id=paper.primary_identifier,
                         concept_name=concept.name,
                         relevance_score=concept.relevance,
-                        merge=True
+                        merge=True,
                     )
 
                     self.stats["relationships_added"] += 1
@@ -284,11 +288,11 @@ class GraphBuilder:
             for method in extraction_result.methods:
                 try:
                     # Create Method node
-                    method_node = self.graph.create_method(
+                    self.graph.create_method(
                         name=method.name,
                         description=method.description,
                         category=method.category,
-                        merge=True
+                        merge=True,
                     )
 
                     # Check if new
@@ -300,7 +304,7 @@ class GraphBuilder:
                         paper_id=paper.primary_identifier,
                         method_name=method.name,
                         confidence=method.confidence,
-                        merge=True
+                        merge=True,
                     )
 
                     self.stats["relationships_added"] += 1
@@ -316,7 +320,7 @@ class GraphBuilder:
                         concept2_name=rel.concept2,
                         similarity=rel.strength,
                         source="claude_extraction",
-                        merge=True
+                        merge=True,
                     )
 
                     self.stats["relationships_added"] += 1
@@ -345,9 +349,7 @@ class GraphBuilder:
                 if cited_node:
                     # Create CITES relationship
                     self.graph.create_citation(
-                        citing_paper_id=paper.primary_identifier,
-                        cited_paper_id=ref_id,
-                        merge=True
+                        citing_paper_id=paper.primary_identifier, cited_paper_id=ref_id, merge=True
                     )
 
                     self.stats["citations_added"] += 1
@@ -355,7 +357,7 @@ class GraphBuilder:
             except Exception as e:
                 logger.error(f"Error adding citation {paper.primary_identifier} -> {ref_id}: {e}")
 
-    def _add_semantic_relationships(self, papers: List[PaperMetadata]):
+    def _add_semantic_relationships(self, papers: list[PaperMetadata]):
         """
         Add semantic similarity edges between papers.
 
@@ -371,7 +373,7 @@ class GraphBuilder:
         logger.info("Computing semantic similarity edges...")
 
         # Check if vector_db was initialized
-        if not hasattr(self, 'vector_db') or self.vector_db is None:
+        if not hasattr(self, "vector_db") or self.vector_db is None:
             logger.warning("Vector DB not initialized. Cannot compute semantic edges.")
             return
 
@@ -391,11 +393,7 @@ class GraphBuilder:
 
             try:
                 # Find similar papers
-                similar = self.vector_db.search_by_paper(
-                    paper,
-                    top_k=5,
-                    filters=None
-                )
+                similar = self.vector_db.search_by_paper(paper, top_k=5, filters=None)
 
                 # Add edges for highly similar papers
                 for result in similar:
@@ -417,10 +415,7 @@ class GraphBuilder:
         logger.info(f"Added {added_edges} semantic similarity edges")
 
     def add_citation_network(
-        self,
-        seed_paper: PaperMetadata,
-        max_depth: int = 2,
-        max_papers_per_level: int = 10
+        self, seed_paper: PaperMetadata, max_depth: int = 2, max_papers_per_level: int = 10
     ):
         """
         Build citation network starting from a seed paper.
@@ -445,9 +440,9 @@ class GraphBuilder:
         logger.info(f"Building citation network from: {seed_paper.title}")
 
         # Track visited papers
-        visited: Set[str] = set()
+        visited: set[str] = set()
 
-        def _add_level(papers: List[PaperMetadata], depth: int):
+        def _add_level(papers: list[PaperMetadata], depth: int):
             if depth > max_depth:
                 return
 
@@ -471,7 +466,7 @@ class GraphBuilder:
         # Start with seed paper
         _add_level([seed_paper], 1)
 
-    def get_build_stats(self) -> Dict[str, Any]:
+    def get_build_stats(self) -> dict[str, Any]:
         """
         Get graph building statistics.
 
@@ -480,10 +475,7 @@ class GraphBuilder:
         """
         graph_stats = self.graph.get_stats()
 
-        return {
-            **self.stats,
-            "graph_stats": graph_stats
-        }
+        return {**self.stats, "graph_stats": graph_stats}
 
     def clear_stats(self):
         """Reset build statistics."""
@@ -494,18 +486,18 @@ class GraphBuilder:
             "methods_added": 0,
             "citations_added": 0,
             "relationships_added": 0,
-            "errors": 0
+            "errors": 0,
         }
 
 
 # Singleton instance
-_graph_builder: Optional[GraphBuilder] = None
+_graph_builder: GraphBuilder | None = None
 
 
 def get_graph_builder(
-    graph: Optional[KnowledgeGraph] = None,
-    concept_extractor: Optional[ConceptExtractor] = None,
-    reset: bool = False
+    graph: KnowledgeGraph | None = None,
+    concept_extractor: ConceptExtractor | None = None,
+    reset: bool = False,
 ) -> GraphBuilder:
     """
     Get or create the singleton graph builder instance.
@@ -520,10 +512,7 @@ def get_graph_builder(
     """
     global _graph_builder
     if _graph_builder is None or reset:
-        _graph_builder = GraphBuilder(
-            graph=graph,
-            concept_extractor=concept_extractor
-        )
+        _graph_builder = GraphBuilder(graph=graph, concept_extractor=concept_extractor)
     return _graph_builder
 
 

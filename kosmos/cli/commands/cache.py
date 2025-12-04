@@ -4,33 +4,34 @@ Cache command for Kosmos CLI.
 Manage caching system - view stats, clear cache, health check.
 """
 
-from typing import Optional
-
 import typer
 from rich.panel import Panel
-from rich.progress import Progress, BarColumn
-from rich.text import Text
 
 from kosmos.cli.utils import (
-    console,
-    print_success,
-    print_error,
-    print_info,
-    get_icon,
-    create_table,
-    create_metric_text,
-    format_size,
-    format_currency,
     confirm_action,
+    console,
+    create_metric_text,
+    create_table,
+    format_currency,
+    format_size,
+    get_icon,
+    print_error,
+    print_success,
 )
 
 
 def manage_cache(
     stats: bool = typer.Option(False, "--stats", "-s", help="Show cache statistics"),
     clear: bool = typer.Option(False, "--clear", "-c", help="Clear all caches"),
-    clear_type: Optional[str] = typer.Option(None, "--clear-type", help="Clear specific cache type (claude, experiment, embedding, general)"),
+    clear_type: str | None = typer.Option(
+        None,
+        "--clear-type",
+        help="Clear specific cache type (claude, experiment, embedding, general)",
+    ),
     health: bool = typer.Option(False, "--health", "-h", help="Run health check"),
-    optimize: bool = typer.Option(False, "--optimize", "-o", help="Optimize caches (cleanup expired)"),
+    optimize: bool = typer.Option(
+        False, "--optimize", "-o", help="Optimize caches (cleanup expired)"
+    ),
 ):
     """
     Manage caching system.
@@ -82,11 +83,11 @@ def manage_cache(
 
     except KeyboardInterrupt:
         console.print("\n[warning]Cache operation cancelled[/warning]")
-        raise typer.Exit(130)
+        raise typer.Exit(130) from None
 
     except Exception as e:
         print_error(f"Cache operation failed: {str(e)}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def display_cache_stats(cache_manager):
@@ -113,10 +114,7 @@ def display_cache_stats(cache_manager):
     overall_table.add_row("Total Requests", str(total_requests))
     overall_table.add_row("Cache Hits", str(total_hits))
     overall_table.add_row("Cache Misses", str(total_misses))
-    overall_table.add_row(
-        "Hit Rate",
-        create_metric_text(hit_rate / 100, format_type="percentage")
-    )
+    overall_table.add_row("Hit Rate", create_metric_text(hit_rate / 100, format_type="percentage"))
 
     console.print(overall_table)
     console.print()
@@ -186,7 +184,9 @@ def display_health_check(cache_manager):
     )
 
     for cache_type, result in health_results.items():
-        status = "[success]✓ Healthy[/success]" if result["healthy"] else "[error]✗ Unhealthy[/error]"
+        status = (
+            "[success]✓ Healthy[/success]" if result["healthy"] else "[error]✗ Unhealthy[/error]"
+        )
         details = result.get("details", "OK")
 
         table.add_row(cache_type.title(), status, details)
@@ -199,7 +199,9 @@ def display_health_check(cache_manager):
     if all_healthy:
         print_success("All caches are healthy!", title="Health Check Complete")
     else:
-        print_error("Some caches have issues. Consider running --optimize", title="Health Check Failed")
+        print_error(
+            "Some caches have issues. Consider running --optimize", title="Health Check Failed"
+        )
 
 
 def optimize_caches(cache_manager):

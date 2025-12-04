@@ -8,32 +8,34 @@ Matches exact formatting standards from kosmos-figures repository:
 - Proper spine/grid formatting
 """
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
-from typing import Optional, List, Tuple, Dict, Any
-from pathlib import Path
 import logging
+from typing import Any
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 try:
     from scipy import stats as sp_stats
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
 
-from kosmos.models.result import ExperimentResult, StatisticalTestResult
+from kosmos.models.result import ExperimentResult
+
 
 logger = logging.getLogger(__name__)
 
 
 # kosmos-figures color scheme (EXACT colors from repository)
 COLORS = {
-    'red': '#d7191c',  # Negative/decreased
-    'blue_dark': '#2c7bb6',  # Positive/increased (dark)
-    'blue': '#0072B2',  # Positive/increased (standard)
-    'neutral': '#abd9e9',  # Data points
-    'gray': '#808080',  # Non-significant
-    'black': '#000000'  # Reference lines
+    "red": "#d7191c",  # Negative/decreased
+    "blue_dark": "#2c7bb6",  # Positive/increased (dark)
+    "blue": "#0072B2",  # Positive/increased (standard)
+    "neutral": "#abd9e9",  # Data points
+    "gray": "#808080",  # Non-significant
+    "black": "#000000",  # Reference lines
 }
 
 
@@ -76,19 +78,21 @@ class PublicationVisualizer:
     def __init__(self):
         """Initialize visualizer with kosmos-figures formatting standards."""
         # Set publication standards from kosmos-figures
-        plt.rcParams.update({
-            'font.family': 'Arial',
-            'font.size': 10,
-            'axes.labelsize': 12,
-            'xtick.labelsize': 10,
-            'ytick.labelsize': 10,
-            'legend.fontsize': 11,
-            'pdf.fonttype': 42,  # TrueType for editability
-            'ps.fonttype': 42,
-            'figure.dpi': 100,  # Display DPI
-            'savefig.dpi': 300,  # Save DPI (default, can override)
-            'savefig.bbox': 'tight'
-        })
+        plt.rcParams.update(
+            {
+                "font.family": "Arial",
+                "font.size": 10,
+                "axes.labelsize": 12,
+                "xtick.labelsize": 10,
+                "ytick.labelsize": 10,
+                "legend.fontsize": 11,
+                "pdf.fonttype": 42,  # TrueType for editability
+                "ps.fonttype": 42,
+                "figure.dpi": 100,  # Display DPI
+                "savefig.dpi": 300,  # Save DPI (default, can override)
+                "savefig.bbox": "tight",
+            }
+        )
 
         logger.info("PublicationVisualizer initialized with kosmos-figures formatting")
 
@@ -100,14 +104,14 @@ class PublicationVisualizer:
         self,
         log2fc: np.ndarray,
         p_values: np.ndarray,
-        labels: Optional[np.ndarray] = None,
+        labels: np.ndarray | None = None,
         fc_threshold: float = 0.5,
         p_threshold: float = 0.05,
         title: str = "Volcano Plot",
         x_label: str = "Log2 Fold Change",
         y_label: str = "-log10(p-value)",
-        output_path: Optional[str] = None,
-        show_plot: bool = False
+        output_path: str | None = None,
+        show_plot: bool = False,
     ) -> str:
         """
         Create volcano plot: -log10(p) vs log2(fold change).
@@ -136,23 +140,23 @@ class PublicationVisualizer:
 
         # Color by significance
         colors = [
-            COLORS['red'] if (abs(fc) > fc_threshold and p < p_threshold) else COLORS['gray']
-            for fc, p in zip(log2fc, p_values)
+            COLORS["red"] if (abs(fc) > fc_threshold and p < p_threshold) else COLORS["gray"]
+            for fc, p in zip(log2fc, p_values, strict=False)
         ]
 
         # Scatter plot
-        ax.scatter(log2fc, log_p, c=colors, alpha=0.7, s=60, edgecolors='none')
+        ax.scatter(log2fc, log_p, c=colors, alpha=0.7, s=60, edgecolors="none")
 
         # Threshold lines
         ax.axhline(
             y=-np.log10(p_threshold),
-            color=COLORS['black'],
-            linestyle='--',
+            color=COLORS["black"],
+            linestyle="--",
             alpha=0.7,
             linewidth=1.5,
-            label=f'p={p_threshold}'
+            label=f"p={p_threshold}",
         )
-        ax.axvline(x=0, color=COLORS['black'], linestyle='-', alpha=0.3, linewidth=1)
+        ax.axvline(x=0, color=COLORS["black"], linestyle="-", alpha=0.3, linewidth=1)
 
         # Labels
         ax.set_xlabel(x_label, fontsize=12)
@@ -161,24 +165,24 @@ class PublicationVisualizer:
         ax.legend(fontsize=11)
 
         # Grid (kosmos-figures style - light grid for volcano plots)
-        ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+        ax.grid(True, alpha=0.3, linestyle=":", linewidth=0.5)
 
         # Remove top and right spines
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
         # Annotate significant points if labels provided
         if labels is not None:
-            for i, (fc, p, label) in enumerate(zip(log2fc, p_values, labels)):
+            for _i, (fc, p, label) in enumerate(zip(log2fc, p_values, labels, strict=False)):
                 if abs(fc) > fc_threshold and p < p_threshold:
                     ax.annotate(
                         label,
                         (fc, -np.log10(p + 1e-300)),
                         xytext=(5, 5),
-                        textcoords='offset points',
+                        textcoords="offset points",
                         fontsize=8,
-                        ha='left',
-                        alpha=0.8
+                        ha="left",
+                        alpha=0.8,
                     )
 
         plt.tight_layout()
@@ -186,7 +190,7 @@ class PublicationVisualizer:
         # Save
         if output_path:
             output_path = str(output_path)
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.savefig(output_path, dpi=300, bbox_inches="tight")
             logger.info(f"Saved volcano plot to {output_path}")
 
         if show_plot:
@@ -199,15 +203,15 @@ class PublicationVisualizer:
     def custom_heatmap(
         self,
         data: np.ndarray,
-        row_labels: List[str],
-        col_labels: List[str],
+        row_labels: list[str],
+        col_labels: list[str],
         title: str = "Heatmap",
-        cmap: str = 'RdBu_r',
-        vmin: Optional[float] = None,
-        vmax: Optional[float] = None,
+        cmap: str = "RdBu_r",
+        vmin: float | None = None,
+        vmax: float | None = None,
         annot: bool = True,
-        output_path: Optional[str] = None,
-        show_plot: bool = False
+        output_path: str | None = None,
+        show_plot: bool = False,
     ) -> str:
         """
         Create custom heatmap with publication formatting.
@@ -232,25 +236,25 @@ class PublicationVisualizer:
         fig, ax = plt.subplots(figsize=(10, 8))
 
         # Create heatmap
-        im = ax.imshow(data, cmap=cmap, aspect='auto', vmin=vmin, vmax=vmax)
+        im = ax.imshow(data, cmap=cmap, aspect="auto", vmin=vmin, vmax=vmax)
 
         # Set ticks and labels
         ax.set_xticks(range(len(col_labels)))
         ax.set_yticks(range(len(row_labels)))
-        ax.set_xticklabels(col_labels, fontsize=12, rotation=45, ha='right')
+        ax.set_xticklabels(col_labels, fontsize=12, rotation=45, ha="right")
         ax.set_yticklabels(row_labels, fontsize=12)
         ax.set_title(title, pad=12, fontsize=14)
 
         # Colorbar
         cbar = plt.colorbar(im, ax=ax, shrink=0.8)
-        cbar.set_label('Value', rotation=270, labelpad=20, fontsize=12)
+        cbar.set_label("Value", rotation=270, labelpad=20, fontsize=12)
 
         # Add text annotations if requested
         if annot:
             for i in range(len(row_labels)):
                 for j in range(len(col_labels)):
                     value = data[i, j]
-                    text = f'{value:.2f}' if not np.isnan(value) else 'N/A'
+                    text = f"{value:.2f}" if not np.isnan(value) else "N/A"
 
                     # Determine text color for visibility
                     if vmax is not None:
@@ -258,12 +262,17 @@ class PublicationVisualizer:
                     else:
                         threshold = np.nanmax(np.abs(data)) * 0.5
 
-                    color = 'white' if abs(value) > threshold else 'black'
+                    color = "white" if abs(value) > threshold else "black"
 
                     ax.text(
-                        j, i, text,
-                        ha='center', va='center',
-                        color=color, fontsize=10, weight='bold'
+                        j,
+                        i,
+                        text,
+                        ha="center",
+                        va="center",
+                        color=color,
+                        fontsize=10,
+                        weight="bold",
                     )
 
         plt.tight_layout()
@@ -271,7 +280,7 @@ class PublicationVisualizer:
         # Save
         if output_path:
             output_path = str(output_path)
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.savefig(output_path, dpi=300, bbox_inches="tight")
             logger.info(f"Saved heatmap to {output_path}")
 
         if show_plot:
@@ -288,8 +297,8 @@ class PublicationVisualizer:
         x_label: str,
         y_label: str,
         title: str,
-        output_path: Optional[str] = None,
-        show_plot: bool = False
+        output_path: str | None = None,
+        show_plot: bool = False,
     ) -> str:
         """
         Scatter plot with linear regression fit.
@@ -316,12 +325,7 @@ class PublicationVisualizer:
 
         # Scatter plot - using kosmos-figures color scheme
         ax.scatter(
-            x, y,
-            alpha=0.7,
-            s=60,
-            color=COLORS['neutral'],
-            edgecolors='black',
-            linewidth=0.5
+            x, y, alpha=0.7, s=60, color=COLORS["neutral"], edgecolors="black", linewidth=0.5
         )
 
         # Linear fit - using kosmos-figures red color
@@ -330,12 +334,13 @@ class PublicationVisualizer:
         y_trend = slope * x_trend + intercept
 
         ax.plot(
-            x_trend, y_trend,
-            color=COLORS['red'],
-            linestyle='--',
+            x_trend,
+            y_trend,
+            color=COLORS["red"],
+            linestyle="--",
             alpha=0.8,
             linewidth=2,
-            label=f'Linear fit (r = {r_value:.3f}, p = {p_value:.4f})'
+            label=f"Linear fit (r = {r_value:.3f}, p = {p_value:.4f})",
         )
 
         # Formatting (kosmos-figures style)
@@ -346,15 +351,15 @@ class PublicationVisualizer:
 
         # Remove grid and top/right spines
         ax.grid(False)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
         plt.tight_layout()
 
         # Save
         if output_path:
             output_path = str(output_path)
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.savefig(output_path, dpi=300, bbox_inches="tight")
             logger.info(f"Saved scatter plot to {output_path}")
 
         if show_plot:
@@ -371,9 +376,9 @@ class PublicationVisualizer:
         x_label: str,
         y_label: str,
         title: str,
-        color: str = COLORS['blue'],
-        output_path: Optional[str] = None,
-        show_plot: bool = False
+        color: str = COLORS["blue"],
+        output_path: str | None = None,
+        show_plot: bool = False,
     ) -> str:
         """
         Log-log scatter plot for power law relationships.
@@ -396,11 +401,11 @@ class PublicationVisualizer:
         fig, ax = plt.subplots(figsize=(6, 6))
 
         # Log-log scatter
-        ax.scatter(x, y, alpha=0.6, s=40, color=color, edgecolors='none')
+        ax.scatter(x, y, alpha=0.6, s=40, color=color, edgecolors="none")
 
         # Set log scales
-        ax.set_xscale('log')
-        ax.set_yscale('log')
+        ax.set_xscale("log")
+        ax.set_yscale("log")
 
         # Labels with large fonts (kosmos-figures style for panels)
         ax.set_xlabel(x_label, fontsize=24)
@@ -409,10 +414,10 @@ class PublicationVisualizer:
         ax.tick_params(labelsize=20, width=2, length=7)
 
         # Thicker spines (kosmos-figures panel style)
-        ax.spines['bottom'].set_linewidth(2)
-        ax.spines['left'].set_linewidth(2)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["bottom"].set_linewidth(2)
+        ax.spines["left"].set_linewidth(2)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
         # No grid
         ax.grid(False)
@@ -422,7 +427,7 @@ class PublicationVisualizer:
         # Save with high DPI for panels
         if output_path:
             output_path = str(output_path)
-            plt.savefig(output_path, dpi=600, bbox_inches='tight')
+            plt.savefig(output_path, dpi=600, bbox_inches="tight")
             logger.info(f"Saved log-log plot to {output_path}")
 
         if show_plot:
@@ -438,11 +443,11 @@ class PublicationVisualizer:
 
     def box_plot_with_points(
         self,
-        data: Dict[str, np.ndarray],
+        data: dict[str, np.ndarray],
         title: str = "Box Plot",
         y_label: str = "Value",
-        output_path: Optional[str] = None,
-        show_plot: bool = False
+        output_path: str | None = None,
+        show_plot: bool = False,
     ) -> str:
         """
         Box plot with overlaid individual data points.
@@ -466,25 +471,26 @@ class PublicationVisualizer:
             positions=positions,
             widths=0.6,
             patch_artist=True,
-            showfliers=False  # We'll overlay individual points
+            showfliers=False,  # We'll overlay individual points
         )
 
         # Color boxes
-        for patch in bp['boxes']:
-            patch.set_facecolor(COLORS['neutral'])
+        for patch in bp["boxes"]:
+            patch.set_facecolor(COLORS["neutral"])
             patch.set_alpha(0.7)
 
         # Overlay individual points with jitter
-        for i, (label, values) in enumerate(data.items()):
+        for i, (_label, values) in enumerate(data.items()):
             # Add jitter to x-positions
             x_jitter = np.random.normal(positions[i], 0.04, size=len(values))
             ax.scatter(
-                x_jitter, values,
+                x_jitter,
+                values,
                 alpha=0.5,
                 s=30,
-                color=COLORS['blue_dark'],
-                edgecolors='black',
-                linewidth=0.5
+                color=COLORS["blue_dark"],
+                edgecolors="black",
+                linewidth=0.5,
             )
 
         # Labels
@@ -494,16 +500,16 @@ class PublicationVisualizer:
         ax.set_title(title, fontsize=12, pad=20)
 
         # Remove top and right spines
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.grid(True, alpha=0.3, axis='y', linestyle=':', linewidth=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.grid(True, alpha=0.3, axis="y", linestyle=":", linewidth=0.5)
 
         plt.tight_layout()
 
         # Save
         if output_path:
             output_path = str(output_path)
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.savefig(output_path, dpi=300, bbox_inches="tight")
             logger.info(f"Saved box plot to {output_path}")
 
         if show_plot:
@@ -515,11 +521,11 @@ class PublicationVisualizer:
 
     def violin_plot(
         self,
-        data: Dict[str, np.ndarray],
+        data: dict[str, np.ndarray],
         title: str = "Violin Plot",
         y_label: str = "Value",
-        output_path: Optional[str] = None,
-        show_plot: bool = False
+        output_path: str | None = None,
+        show_plot: bool = False,
     ) -> str:
         """
         Violin plot for distribution visualization.
@@ -541,16 +547,12 @@ class PublicationVisualizer:
 
         # Create violin plot using matplotlib
         parts = ax.violinplot(
-            data.values(),
-            positions=positions,
-            widths=0.7,
-            showmeans=True,
-            showmedians=True
+            data.values(), positions=positions, widths=0.7, showmeans=True, showmedians=True
         )
 
         # Color violins
-        for pc in parts['bodies']:
-            pc.set_facecolor(COLORS['neutral'])
+        for pc in parts["bodies"]:
+            pc.set_facecolor(COLORS["neutral"])
             pc.set_alpha(0.7)
 
         # Labels
@@ -560,16 +562,16 @@ class PublicationVisualizer:
         ax.set_title(title, fontsize=12, pad=20)
 
         # Remove top and right spines
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.grid(True, alpha=0.3, axis='y', linestyle=':', linewidth=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.grid(True, alpha=0.3, axis="y", linestyle=":", linewidth=0.5)
 
         plt.tight_layout()
 
         # Save
         if output_path:
             output_path = str(output_path)
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.savefig(output_path, dpi=300, bbox_inches="tight")
             logger.info(f"Saved violin plot to {output_path}")
 
         if show_plot:
@@ -583,8 +585,8 @@ class PublicationVisualizer:
         self,
         data: np.ndarray,
         title: str = "Q-Q Plot",
-        output_path: Optional[str] = None,
-        show_plot: bool = False
+        output_path: str | None = None,
+        show_plot: bool = False,
     ) -> str:
         """
         Quantile-quantile plot for normality checking.
@@ -608,29 +610,35 @@ class PublicationVisualizer:
         (osm, osr), (slope, intercept, r) = sp_stats.probplot(data, dist="norm")
 
         # Plot
-        ax.scatter(osm, osr, alpha=0.7, s=40, color=COLORS['blue'], edgecolors='none')
+        ax.scatter(osm, osr, alpha=0.7, s=40, color=COLORS["blue"], edgecolors="none")
 
         # Reference line
-        ax.plot(osm, slope * osm + intercept, color=COLORS['red'], linestyle='--', linewidth=2,
-                label=f'Normal (R²={r**2:.3f})')
+        ax.plot(
+            osm,
+            slope * osm + intercept,
+            color=COLORS["red"],
+            linestyle="--",
+            linewidth=2,
+            label=f"Normal (R²={r**2:.3f})",
+        )
 
         # Labels
-        ax.set_xlabel('Theoretical Quantiles', fontsize=12)
-        ax.set_ylabel('Sample Quantiles', fontsize=12)
+        ax.set_xlabel("Theoretical Quantiles", fontsize=12)
+        ax.set_ylabel("Sample Quantiles", fontsize=12)
         ax.set_title(title, fontsize=12, pad=20)
         ax.legend(fontsize=11)
 
         # Remove top and right spines
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.grid(True, alpha=0.3, linestyle=':', linewidth=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.grid(True, alpha=0.3, linestyle=":", linewidth=0.5)
 
         plt.tight_layout()
 
         # Save
         if output_path:
             output_path = str(output_path)
-            plt.savefig(output_path, dpi=300, bbox_inches='tight')
+            plt.savefig(output_path, dpi=300, bbox_inches="tight")
             logger.info(f"Saved Q-Q plot to {output_path}")
 
         if show_plot:
@@ -644,7 +652,7 @@ class PublicationVisualizer:
     # AUTOMATIC PLOT SELECTION
     # ========================================================================
 
-    def select_plot_types(self, result: ExperimentResult) -> List[Dict[str, Any]]:
+    def select_plot_types(self, result: ExperimentResult) -> list[dict[str, Any]]:
         """
         Automatically select appropriate plot types based on experiment result.
 
@@ -661,39 +669,40 @@ class PublicationVisualizer:
             primary_test = result.primary_test.lower() if result.primary_test else ""
 
             # T-test or ANOVA → Box plot or violin plot
-            if 't-test' in primary_test or 'anova' in primary_test:
-                plots.append({
-                    'type': 'box_plot_with_points',
-                    'description': 'Box plot for group comparison'
-                })
+            if "t-test" in primary_test or "anova" in primary_test:
+                plots.append(
+                    {"type": "box_plot_with_points", "description": "Box plot for group comparison"}
+                )
 
             # Correlation → Scatter with regression
-            if 'correlation' in primary_test or 'regression' in primary_test:
-                plots.append({
-                    'type': 'scatter_with_regression',
-                    'description': 'Scatter plot with linear regression'
-                })
+            if "correlation" in primary_test or "regression" in primary_test:
+                plots.append(
+                    {
+                        "type": "scatter_with_regression",
+                        "description": "Scatter plot with linear regression",
+                    }
+                )
 
             # Multiple tests → Volcano plot (if fold changes available)
             if len(result.statistical_tests) >= 3:
-                plots.append({
-                    'type': 'volcano_plot',
-                    'description': 'Volcano plot for multiple comparisons'
-                })
+                plots.append(
+                    {"type": "volcano_plot", "description": "Volcano plot for multiple comparisons"}
+                )
 
         # Check for multiple variables → Heatmap
         if result.variable_results and len(result.variable_results) >= 3:
-            plots.append({
-                'type': 'custom_heatmap',
-                'description': 'Heatmap for multi-variable comparison'
-            })
+            plots.append(
+                {"type": "custom_heatmap", "description": "Heatmap for multi-variable comparison"}
+            )
 
         # Default: If no specific plots selected, suggest basic visualizations
         if not plots:
-            plots.append({
-                'type': 'box_plot_with_points',
-                'description': 'Default: Box plot for data visualization'
-            })
+            plots.append(
+                {
+                    "type": "box_plot_with_points",
+                    "description": "Default: Box plot for data visualization",
+                }
+            )
 
         logger.info(f"Selected {len(plots)} plot types for experiment {result.experiment_id}")
         return plots

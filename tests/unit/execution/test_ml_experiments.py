@@ -4,14 +4,13 @@ Tests for machine learning experiments module.
 Tests MLAnalyzer and FeatureEngineering classes.
 """
 
-import pytest
-import pandas as pd
 import numpy as np
-from sklearn.linear_model import LogisticRegression, LinearRegression
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+import pandas as pd
 from sklearn.datasets import make_classification, make_regression
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LinearRegression, LogisticRegression
 
-from kosmos.execution.ml_experiments import MLAnalyzer, FeatureEngineering
+from kosmos.execution.ml_experiments import FeatureEngineering, MLAnalyzer
 
 
 class TestMLAnalyzer:
@@ -63,18 +62,18 @@ class TestMLAnalyzer:
         analyzer = MLAnalyzer(random_state=42)
 
         result = analyzer.cross_validate_model(
-            model, X, y, cv=5, stratified=True, scoring='accuracy'
+            model, X, y, cv=5, stratified=True, scoring="accuracy"
         )
 
         # Check structure
-        assert 'mean_score' in result
-        assert 'std_score' in result
-        assert 'fold_scores' in result
-        assert result['n_folds'] == 5
+        assert "mean_score" in result
+        assert "std_score" in result
+        assert "fold_scores" in result
+        assert result["n_folds"] == 5
 
         # Check values
-        assert 0 <= result['mean_score'] <= 1
-        assert len(result['fold_scores']) == 5
+        assert 0 <= result["mean_score"] <= 1
+        assert len(result["fold_scores"]) == 5
 
     def test_cross_validate_model_multiple_metrics(self):
         """Test cross-validation with multiple metrics."""
@@ -84,40 +83,38 @@ class TestMLAnalyzer:
         analyzer = MLAnalyzer(random_state=42)
 
         result = analyzer.cross_validate_model(
-            model, X, y, cv=3,
-            scoring=['accuracy', 'precision', 'recall']
+            model, X, y, cv=3, scoring=["accuracy", "precision", "recall"]
         )
 
         # Check structure
-        assert 'scores' in result
-        assert 'accuracy' in result['scores']
-        assert 'precision' in result['scores']
-        assert 'recall' in result['scores']
+        assert "scores" in result
+        assert "accuracy" in result["scores"]
+        assert "precision" in result["scores"]
+        assert "recall" in result["scores"]
 
         # Check each metric has mean, std, fold_scores
-        for metric in ['accuracy', 'precision', 'recall']:
-            assert 'mean' in result['scores'][metric]
-            assert 'std' in result['scores'][metric]
-            assert 'fold_scores' in result['scores'][metric]
+        for metric in ["accuracy", "precision", "recall"]:
+            assert "mean" in result["scores"][metric]
+            assert "std" in result["scores"][metric]
+            assert "fold_scores" in result["scores"][metric]
 
     def test_cross_validate_stratified(self):
         """Test stratified cross-validation."""
         # Imbalanced classification
         X, y = make_classification(
-            n_samples=100, n_features=10,
-            weights=[0.9, 0.1], random_state=42
+            n_samples=100, n_features=10, weights=[0.9, 0.1], random_state=42
         )
 
         model = LogisticRegression(random_state=42)
         analyzer = MLAnalyzer(random_state=42)
 
         result = analyzer.cross_validate_model(
-            model, X, y, cv=5, stratified=True, scoring='accuracy'
+            model, X, y, cv=5, stratified=True, scoring="accuracy"
         )
 
         # Should complete without error
-        assert result['n_folds'] == 5
-        assert 'mean_score' in result
+        assert result["n_folds"] == 5
+        assert "mean_score" in result
 
     def test_evaluate_classification(self):
         """Test classification model evaluation."""
@@ -131,23 +128,23 @@ class TestMLAnalyzer:
         result = analyzer.evaluate_classification(y_true, y_pred, y_prob)
 
         # Check structure
-        assert 'accuracy' in result
-        assert 'precision' in result
-        assert 'recall' in result
-        assert 'f1_score' in result
-        assert 'confusion_matrix' in result
-        assert 'roc_auc' in result
-        assert 'classification_report' in result
+        assert "accuracy" in result
+        assert "precision" in result
+        assert "recall" in result
+        assert "f1_score" in result
+        assert "confusion_matrix" in result
+        assert "roc_auc" in result
+        assert "classification_report" in result
 
         # Check types
-        assert isinstance(result['accuracy'], float)
-        assert isinstance(result['confusion_matrix'], list)
-        assert isinstance(result['classification_report'], str)
+        assert isinstance(result["accuracy"], float)
+        assert isinstance(result["confusion_matrix"], list)
+        assert isinstance(result["classification_report"], str)
 
         # Check values in valid ranges
-        assert 0 <= result['accuracy'] <= 1
-        assert 0 <= result['precision'] <= 1
-        assert 0 <= result['f1_score'] <= 1
+        assert 0 <= result["accuracy"] <= 1
+        assert 0 <= result["precision"] <= 1
+        assert 0 <= result["f1_score"] <= 1
 
     def test_evaluate_classification_without_probabilities(self):
         """Test classification evaluation without probabilities."""
@@ -158,7 +155,7 @@ class TestMLAnalyzer:
         result = analyzer.evaluate_classification(y_true, y_pred, y_prob=None)
 
         # Should not have ROC-AUC
-        assert 'roc_auc' not in result or result['roc_auc'] is None
+        assert "roc_auc" not in result or result["roc_auc"] is None
 
     def test_evaluate_regression(self):
         """Test regression model evaluation."""
@@ -171,34 +168,34 @@ class TestMLAnalyzer:
         result = analyzer.evaluate_regression(y_true, y_pred)
 
         # Check structure
-        assert 'mse' in result
-        assert 'rmse' in result
-        assert 'mae' in result
-        assert 'r2' in result
-        assert 'explained_variance' in result
-        assert 'mean_residual' in result
-        assert 'std_residual' in result
+        assert "mse" in result
+        assert "rmse" in result
+        assert "mae" in result
+        assert "r2" in result
+        assert "explained_variance" in result
+        assert "mean_residual" in result
+        assert "std_residual" in result
 
         # Check types
-        assert isinstance(result['mse'], float)
-        assert isinstance(result['r2'], float)
+        assert isinstance(result["mse"], float)
+        assert isinstance(result["r2"], float)
 
         # Check values
-        assert result['mse'] >= 0
-        assert result['rmse'] >= 0
-        assert result['mae'] >= 0
+        assert result["mse"] >= 0
+        assert result["rmse"] >= 0
+        assert result["mae"] >= 0
 
     def test_create_pipeline_with_scaler(self):
         """Test pipeline creation with scaler."""
         model = LogisticRegression()
         analyzer = MLAnalyzer()
 
-        pipeline = analyzer.create_pipeline(model, scaler='standard', include_scaler=True)
+        pipeline = analyzer.create_pipeline(model, scaler="standard", include_scaler=True)
 
         # Check pipeline has scaler and model
         assert len(pipeline.steps) == 2
-        assert pipeline.steps[0][0] == 'scaler'
-        assert pipeline.steps[1][0] == 'model'
+        assert pipeline.steps[0][0] == "scaler"
+        assert pipeline.steps[1][0] == "model"
 
     def test_create_pipeline_without_scaler(self):
         """Test pipeline creation without scaler."""
@@ -209,85 +206,70 @@ class TestMLAnalyzer:
 
         # Check pipeline has only model
         assert len(pipeline.steps) == 1
-        assert pipeline.steps[0][0] == 'model'
+        assert pipeline.steps[0][0] == "model"
 
     def test_create_pipeline_minmax_scaler(self):
         """Test pipeline with MinMax scaler."""
         model = LogisticRegression()
         analyzer = MLAnalyzer()
 
-        pipeline = analyzer.create_pipeline(model, scaler='minmax')
+        pipeline = analyzer.create_pipeline(model, scaler="minmax")
 
         # Check scaler type
         assert len(pipeline.steps) == 2
-        assert pipeline.steps[0][0] == 'scaler'
+        assert pipeline.steps[0][0] == "scaler"
 
     def test_grid_search(self):
         """Test hyperparameter grid search."""
         X, y = make_classification(n_samples=100, n_features=5, random_state=42)
 
         model = LogisticRegression()
-        param_grid = {
-            'C': [0.1, 1.0, 10.0],
-            'penalty': ['l2']
-        }
+        param_grid = {"C": [0.1, 1.0, 10.0], "penalty": ["l2"]}
 
         analyzer = MLAnalyzer(random_state=42)
-        result = analyzer.grid_search(
-            model, X, y,
-            param_grid=param_grid,
-            cv=3,
-            scoring='accuracy'
-        )
+        result = analyzer.grid_search(model, X, y, param_grid=param_grid, cv=3, scoring="accuracy")
 
         # Check structure
-        assert 'best_params' in result
-        assert 'best_score' in result
-        assert 'best_estimator' in result
-        assert 'cv_results' in result
+        assert "best_params" in result
+        assert "best_score" in result
+        assert "best_estimator" in result
+        assert "cv_results" in result
 
         # Check best params is one of the grid combinations
-        assert result['best_params']['C'] in [0.1, 1.0, 10.0]
-        assert result['best_params']['penalty'] == 'l2'
+        assert result["best_params"]["C"] in [0.1, 1.0, 10.0]
+        assert result["best_params"]["penalty"] == "l2"
 
         # Check tested 3 combinations
-        assert result['n_combinations_tested'] == 3
+        assert result["n_combinations_tested"] == 3
 
     def test_run_experiment_classification(self):
         """Test complete classification experiment."""
-        X, y = make_classification(
-            n_samples=100, n_features=10,
-            n_informative=5, random_state=42
-        )
+        X, y = make_classification(n_samples=100, n_features=10, n_informative=5, random_state=42)
 
         model = LogisticRegression(random_state=42)
         analyzer = MLAnalyzer(random_state=42)
 
         result = analyzer.run_experiment(
-            model, X, y,
-            test_size=0.2,
-            cv=3,
-            task_type='classification',
-            scale_features=True
+            model, X, y, test_size=0.2, cv=3, task_type="classification", scale_features=True
         )
 
         # Check structure
-        assert 'train_test_results' in result
-        assert 'cv_results' in result
-        assert 'model' in result
-        assert 'train_size' in result
-        assert 'test_size' in result
+        assert "train_test_results" in result
+        assert "cv_results" in result
+        assert "model" in result
+        assert "train_size" in result
+        assert "test_size" in result
 
         # Check train/test split
-        assert result['train_size'] == 80
-        assert result['test_size'] == 20
+        assert result["train_size"] == 80
+        assert result["test_size"] == 20
 
         # Check test results have classification metrics
-        assert 'accuracy' in result['train_test_results']
-        assert 'f1_score' in result['train_test_results']
+        assert "accuracy" in result["train_test_results"]
+        assert "f1_score" in result["train_test_results"]
 
         # Check CV results
-        assert 'mean_score' in result['cv_results']
+        assert "mean_score" in result["cv_results"]
 
     def test_run_experiment_regression(self):
         """Test complete regression experiment."""
@@ -297,21 +279,17 @@ class TestMLAnalyzer:
         analyzer = MLAnalyzer(random_state=42)
 
         result = analyzer.run_experiment(
-            model, X, y,
-            test_size=0.3,
-            cv=5,
-            task_type='regression',
-            scale_features=True
+            model, X, y, test_size=0.3, cv=5, task_type="regression", scale_features=True
         )
 
         # Check structure
-        assert 'train_test_results' in result
-        assert 'cv_results' in result
+        assert "train_test_results" in result
+        assert "cv_results" in result
 
         # Check test results have regression metrics
-        assert 'r2' in result['train_test_results']
-        assert 'mse' in result['train_test_results']
-        assert 'rmse' in result['train_test_results']
+        assert "r2" in result["train_test_results"]
+        assert "mse" in result["train_test_results"]
+        assert "rmse" in result["train_test_results"]
 
     def test_run_experiment_no_scaling(self):
         """Test experiment without feature scaling."""
@@ -321,13 +299,11 @@ class TestMLAnalyzer:
         analyzer = MLAnalyzer(random_state=42)
 
         result = analyzer.run_experiment(
-            model, X, y,
-            scale_features=False,
-            task_type='classification'
+            model, X, y, scale_features=False, task_type="classification"
         )
 
         # Should complete successfully
-        assert 'train_test_results' in result
+        assert "train_test_results" in result
 
     def test_run_experiment_feature_importance(self):
         """Test feature importance extraction."""
@@ -338,14 +314,12 @@ class TestMLAnalyzer:
         analyzer = MLAnalyzer(random_state=42)
 
         result = analyzer.run_experiment(
-            model, X, y,
-            scale_features=False,
-            task_type='classification'
+            model, X, y, scale_features=False, task_type="classification"
         )
 
         # Should extract feature importances
-        assert result['feature_importance'] is not None
-        assert len(result['feature_importance']) == 5
+        assert result["feature_importance"] is not None
+        assert len(result["feature_importance"]) == 5
 
     def test_results_history(self):
         """Test results history tracking."""
@@ -355,15 +329,15 @@ class TestMLAnalyzer:
 
         # Run multiple experiments
         model1 = LogisticRegression(random_state=42)
-        result1 = analyzer.run_experiment(model1, X, y, task_type='classification')
+        analyzer.run_experiment(model1, X, y, task_type="classification")
 
         model2 = RandomForestClassifier(n_estimators=5, random_state=42)
-        result2 = analyzer.run_experiment(model2, X, y, task_type='classification')
+        analyzer.run_experiment(model2, X, y, task_type="classification")
 
         # Check history
         assert len(analyzer.results_history) == 2
-        assert all('timestamp' in r for r in analyzer.results_history)
-        assert all('task_type' in r for r in analyzer.results_history)
+        assert all("timestamp" in r for r in analyzer.results_history)
+        assert all("task_type" in r for r in analyzer.results_history)
 
 
 class TestFeatureEngineering:
@@ -371,39 +345,33 @@ class TestFeatureEngineering:
 
     def test_encode_categorical_label(self):
         """Test label encoding."""
-        df = pd.DataFrame({
-            'category': ['A', 'B', 'C', 'A', 'B'],
-            'value': [1, 2, 3, 4, 5]
-        })
+        df = pd.DataFrame({"category": ["A", "B", "C", "A", "B"], "value": [1, 2, 3, 4, 5]})
 
         df_encoded, info = FeatureEngineering.encode_categorical(
-            df, columns=['category'], method='label'
+            df, columns=["category"], method="label"
         )
 
         # Check encoding
-        assert 'category' in df_encoded.columns
-        assert df_encoded['category'].dtype in [np.int32, np.int64]
+        assert "category" in df_encoded.columns
+        assert df_encoded["category"].dtype in [np.int32, np.int64]
 
         # Check info
-        assert 'category' in info
-        assert 'classes' in info['category']
-        assert len(info['category']['classes']) == 3
+        assert "category" in info
+        assert "classes" in info["category"]
+        assert len(info["category"]["classes"]) == 3
 
     def test_encode_categorical_onehot(self):
         """Test one-hot encoding."""
-        df = pd.DataFrame({
-            'category': ['A', 'B', 'C'],
-            'value': [1, 2, 3]
-        })
+        df = pd.DataFrame({"category": ["A", "B", "C"], "value": [1, 2, 3]})
 
         df_encoded, info = FeatureEngineering.encode_categorical(
-            df, columns=['category'], method='onehot'
+            df, columns=["category"], method="onehot"
         )
 
         # Should create new columns (drop_first=True, so 2 new columns for 3 categories)
         assert len(df_encoded.columns) > len(df.columns)
-        assert 'method' in info
-        assert info['method'] == 'onehot'
+        assert "method" in info
+        assert info["method"] == "onehot"
 
     def test_create_polynomial_features(self):
         """Test polynomial feature creation."""
@@ -419,13 +387,11 @@ class TestFeatureEngineering:
         """Test feature selection."""
         # Create data with some informative features
         X, y = make_classification(
-            n_samples=100, n_features=20,
-            n_informative=5, n_redundant=5,
-            random_state=42
+            n_samples=100, n_features=20, n_informative=5, n_redundant=5, random_state=42
         )
 
         X_selected, scores = FeatureEngineering.select_k_best_features(
-            X, y, k=10, score_func='f_classif'
+            X, y, k=10, score_func="f_classif"
         )
 
         # Should select k features
@@ -438,7 +404,7 @@ class TestFeatureEngineering:
         X, y = make_regression(n_samples=100, n_features=15, n_informative=8, random_state=42)
 
         X_selected, scores = FeatureEngineering.select_k_best_features(
-            X, y, k=8, score_func='f_regression'
+            X, y, k=8, score_func="f_regression"
         )
 
         assert X_selected.shape[1] == 8
@@ -451,9 +417,7 @@ class TestMLAnalyzerIntegration:
         """Test end-to-end classification pipeline."""
         # Create realistic data
         X, y = make_classification(
-            n_samples=200, n_features=15,
-            n_informative=10, n_redundant=3,
-            random_state=42
+            n_samples=200, n_features=15, n_informative=10, n_redundant=3, random_state=42
         )
 
         # Initialize analyzer
@@ -466,7 +430,7 @@ class TestMLAnalyzerIntegration:
 
         # Create pipeline
         model = LogisticRegression(random_state=42, max_iter=1000)
-        pipeline = analyzer.create_pipeline(model, scaler='standard')
+        pipeline = analyzer.create_pipeline(model, scaler="standard")
 
         # Train
         pipeline.fit(X_train, y_train)
@@ -479,8 +443,8 @@ class TestMLAnalyzerIntegration:
         results = analyzer.evaluate_classification(y_test, y_pred, y_prob)
 
         # Should have reasonable performance
-        assert results['accuracy'] > 0.5
-        assert 'roc_auc' in results
+        assert results["accuracy"] > 0.5
+        assert "roc_auc" in results
 
     def test_complete_regression_pipeline(self):
         """Test end-to-end regression pipeline."""
@@ -492,20 +456,16 @@ class TestMLAnalyzerIntegration:
         # Run complete experiment
         model = RandomForestRegressor(n_estimators=10, random_state=42)
         results = analyzer.run_experiment(
-            model, X, y,
-            test_size=0.25,
-            cv=5,
-            task_type='regression',
-            scale_features=False
+            model, X, y, test_size=0.25, cv=5, task_type="regression", scale_features=False
         )
 
         # Check all results present
-        assert 'train_test_results' in results
-        assert 'cv_results' in results
-        assert 'feature_importance' in results
+        assert "train_test_results" in results
+        assert "cv_results" in results
+        assert "feature_importance" in results
 
         # Should have good R²
-        assert results['train_test_results']['r2'] > 0.5
+        assert results["train_test_results"]["r2"] > 0.5
 
     def test_hyperparameter_tuning_workflow(self):
         """Test hyperparameter tuning workflow."""
@@ -514,22 +474,16 @@ class TestMLAnalyzerIntegration:
         analyzer = MLAnalyzer(random_state=42)
 
         # Define parameter grid
-        param_grid = {
-            'max_depth': [3, 5, 7],
-            'n_estimators': [5, 10]
-        }
+        param_grid = {"max_depth": [3, 5, 7], "n_estimators": [5, 10]}
 
         # Grid search
         model = RandomForestClassifier(random_state=42)
         grid_results = analyzer.grid_search(
-            model, X, y,
-            param_grid=param_grid,
-            cv=3,
-            scoring='accuracy'
+            model, X, y, param_grid=param_grid, cv=3, scoring="accuracy"
         )
 
         # Use best model for final evaluation
-        best_model = grid_results['best_estimator']
+        best_model = grid_results["best_estimator"]
 
         # Split and evaluate
         X_train, X_test, y_train, y_test = analyzer.train_test_split_data(X, y, test_size=0.2)
@@ -539,4 +493,4 @@ class TestMLAnalyzerIntegration:
         eval_results = analyzer.evaluate_classification(y_test, y_pred)
 
         # Should have decent performance
-        assert eval_results['accuracy'] > 0.5
+        assert eval_results["accuracy"] > 0.5

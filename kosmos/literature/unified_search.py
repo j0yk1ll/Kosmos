@@ -5,17 +5,21 @@ Searches arXiv, Semantic Scholar, and PubMed simultaneously, deduplicates result
 and ranks by relevance.
 """
 
-from typing import List, Optional, Dict, Any, Set
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
-from collections import defaultdict
 import logging
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    TimeoutError as FuturesTimeoutError,
+    as_completed,
+)
+from typing import Any
 
-from kosmos.literature.base_client import PaperMetadata, PaperSource
-from kosmos.literature.arxiv_client import ArxivClient
-from kosmos.literature.semantic_scholar import SemanticScholarClient
-from kosmos.literature.pubmed_client import PubMedClient
-from kosmos.literature.pdf_extractor import get_pdf_extractor
 from kosmos.config import get_config
+from kosmos.literature.arxiv_client import ArxivClient
+from kosmos.literature.base_client import PaperMetadata, PaperSource
+from kosmos.literature.pdf_extractor import get_pdf_extractor
+from kosmos.literature.pubmed_client import PubMedClient
+from kosmos.literature.semantic_scholar import SemanticScholarClient
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +37,9 @@ class UnifiedLiteratureSearch:
         arxiv_enabled: bool = True,
         semantic_scholar_enabled: bool = True,
         pubmed_enabled: bool = True,
-        semantic_scholar_api_key: Optional[str] = None,
-        pubmed_api_key: Optional[str] = None,
-        pubmed_email: Optional[str] = None
+        semantic_scholar_api_key: str | None = None,
+        pubmed_api_key: str | None = None,
+        pubmed_email: str | None = None,
     ):
         """
         Initialize unified search.
@@ -48,7 +52,7 @@ class UnifiedLiteratureSearch:
             pubmed_api_key: Optional PubMed API key
             pubmed_email: Optional email for PubMed
         """
-        self.clients: Dict[PaperSource, Any] = {}
+        self.clients: dict[PaperSource, Any] = {}
 
         if arxiv_enabled:
             self.clients[PaperSource.ARXIV] = ArxivClient()
@@ -60,8 +64,7 @@ class UnifiedLiteratureSearch:
 
         if pubmed_enabled:
             self.clients[PaperSource.PUBMED] = PubMedClient(
-                api_key=pubmed_api_key,
-                email=pubmed_email
+                api_key=pubmed_api_key, email=pubmed_email
             )
 
         self.pdf_extractor = get_pdf_extractor()
@@ -71,21 +74,23 @@ class UnifiedLiteratureSearch:
         self.search_timeout = config.literature.search_timeout
         self.pdf_timeout = config.literature.pdf_download_timeout
 
-        logger.info(f"Initialized unified search with {len(self.clients)} sources (timeout={self.search_timeout}s)")
+        logger.info(
+            f"Initialized unified search with {len(self.clients)} sources (timeout={self.search_timeout}s)"
+        )
 
     def search(
         self,
         query: str,
         max_results_per_source: int = 10,
-        total_max_results: Optional[int] = None,
-        fields: Optional[List[str]] = None,
-        year_from: Optional[int] = None,
-        year_to: Optional[int] = None,
+        total_max_results: int | None = None,
+        fields: list[str] | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
         deduplicate: bool = True,
         extract_full_text: bool = False,
-        sources: Optional[List[PaperSource]] = None,
-        **kwargs
-    ) -> List[PaperMetadata]:
+        sources: list[PaperSource] | None = None,
+        **kwargs,
+    ) -> list[PaperMetadata]:
         """
         Search across all enabled literature sources.
 
@@ -138,11 +143,11 @@ class UnifiedLiteratureSearch:
             return []
 
         # Search all sources in parallel
-        all_papers: List[PaperMetadata] = []
+        all_papers: list[PaperMetadata] = []
 
         # Remove max_results from kwargs if present to avoid duplicate argument
         # (max_results_per_source is passed explicitly to _search_source)
-        kwargs_filtered = {k: v for k, v in kwargs.items() if k != 'max_results'}
+        kwargs_filtered = {k: v for k, v in kwargs.items() if k != "max_results"}
 
         with ThreadPoolExecutor(max_workers=len(search_clients)) as executor:
             future_to_source = {
@@ -155,7 +160,7 @@ class UnifiedLiteratureSearch:
                     fields,
                     year_from,
                     year_to,
-                    **kwargs_filtered
+                    **kwargs_filtered,
                 ): source
                 for source, client in search_clients.items()
             }
@@ -170,9 +175,14 @@ class UnifiedLiteratureSearch:
                     except Exception as e:
                         logger.error(f"Error searching {source.value}: {e}")
             except FuturesTimeoutError:
-                completed_sources = [s.value for s, c in search_clients.items()
-                                     if any(f.done() for f in future_to_source if future_to_source[f] == s)]
-                logger.warning(f"Literature search timed out after {self.search_timeout}s. Completed sources: {completed_sources}")
+                completed_sources = [
+                    s.value
+                    for s, c in search_clients.items()
+                    if any(f.done() for f in future_to_source if future_to_source[f] == s)
+                ]
+                logger.warning(
+                    f"Literature search timed out after {self.search_timeout}s. Completed sources: {completed_sources}"
+                )
 
         logger.info(f"Total papers retrieved (before dedup): {len(all_papers)}")
 
@@ -194,7 +204,7 @@ class UnifiedLiteratureSearch:
 
         return all_papers
 
-    def search_by_doi(self, doi: str) -> Optional[PaperMetadata]:
+    def search_by_doi(self, doi: str) -> PaperMetadata | None:
         """
         Search for a paper by DOI across all sources.
 
@@ -218,7 +228,7 @@ class UnifiedLiteratureSearch:
 
         return None
 
-    def search_by_arxiv_id(self, arxiv_id: str) -> Optional[PaperMetadata]:
+    def search_by_arxiv_id(self, arxiv_id: str) -> PaperMetadata | None:
         """
         Search for a paper by arXiv ID.
 
@@ -242,11 +252,7 @@ class UnifiedLiteratureSearch:
 
         return None
 
-    def get_citations(
-        self,
-        paper: PaperMetadata,
-        max_citations: int = 50
-    ) -> List[PaperMetadata]:
+    def get_citations(self, paper: PaperMetadata, max_citations: int = 50) -> list[PaperMetadata]:
         """
         Get papers that cite the given paper.
 
@@ -280,11 +286,7 @@ class UnifiedLiteratureSearch:
         logger.warning(f"Could not retrieve citations for paper {paper.id}")
         return []
 
-    def get_references(
-        self,
-        paper: PaperMetadata,
-        max_references: int = 50
-    ) -> List[PaperMetadata]:
+    def get_references(self, paper: PaperMetadata, max_references: int = 50) -> list[PaperMetadata]:
         """
         Get papers referenced by the given paper.
 
@@ -301,9 +303,9 @@ class UnifiedLiteratureSearch:
             for paper_id in [paper.doi, paper.arxiv_id, paper.pubmed_id, paper.id]:
                 if paper_id:
                     try:
-                        references = self.clients[PaperSource.SEMANTIC_SCHOLAR].get_paper_references(
-                            paper_id, max_references
-                        )
+                        references = self.clients[
+                            PaperSource.SEMANTIC_SCHOLAR
+                        ].get_paper_references(paper_id, max_references)
                         if references:
                             return references
                     except Exception:
@@ -324,11 +326,11 @@ class UnifiedLiteratureSearch:
         source: PaperSource,
         query: str,
         max_results: int,
-        fields: Optional[List[str]],
-        year_from: Optional[int],
-        year_to: Optional[int],
-        **kwargs
-    ) -> List[PaperMetadata]:
+        fields: list[str] | None,
+        year_from: int | None,
+        year_to: int | None,
+        **kwargs,
+    ) -> list[PaperMetadata]:
         """
         Search a single source.
 
@@ -347,20 +349,20 @@ class UnifiedLiteratureSearch:
         """
         try:
             # Remove max_results from kwargs if present to avoid duplicate argument
-            kwargs_filtered = {k: v for k, v in kwargs.items() if k != 'max_results'}
+            kwargs_filtered = {k: v for k, v in kwargs.items() if k != "max_results"}
             return client.search(
                 query=query,
                 max_results=max_results,
                 fields=fields,
                 year_from=year_from,
                 year_to=year_to,
-                **kwargs_filtered
+                **kwargs_filtered,
             )
         except Exception as e:
             logger.error(f"Error searching {source.value}: {e}")
             return []
 
-    def _deduplicate_papers(self, papers: List[PaperMetadata]) -> List[PaperMetadata]:
+    def _deduplicate_papers(self, papers: list[PaperMetadata]) -> list[PaperMetadata]:
         """
         Deduplicate papers by DOI, arXiv ID, PubMed ID, or title similarity.
 
@@ -372,10 +374,10 @@ class UnifiedLiteratureSearch:
         Returns:
             Deduplicated list of papers
         """
-        seen_dois: Set[str] = set()
-        seen_arxiv: Set[str] = set()
-        seen_pubmed: Set[str] = set()
-        seen_titles: Set[str] = set()
+        seen_dois: set[str] = set()
+        seen_arxiv: set[str] = set()
+        seen_pubmed: set[str] = set()
+        seen_titles: set[str] = set()
 
         unique_papers = []
 
@@ -432,13 +434,14 @@ class UnifiedLiteratureSearch:
         if not title:
             return ""
         import re
+
         # Lowercase, remove punctuation, extra spaces
         title = title.lower()
-        title = re.sub(r'[^\w\s]', '', title)
-        title = re.sub(r'\s+', ' ', title)
+        title = re.sub(r"[^\w\s]", "", title)
+        title = re.sub(r"\s+", " ", title)
         return title.strip()
 
-    def _rank_papers(self, papers: List[PaperMetadata], query: str) -> List[PaperMetadata]:
+    def _rank_papers(self, papers: list[PaperMetadata], query: str) -> list[PaperMetadata]:
         """
         Rank papers by relevance.
 
@@ -482,6 +485,7 @@ class UnifiedLiteratureSearch:
             # Recency score (max 20 points, last 5 years)
             if paper.year:
                 from datetime import datetime
+
                 current_year = datetime.now().year
                 years_ago = current_year - paper.year
                 if years_ago <= 5:
@@ -494,7 +498,7 @@ class UnifiedLiteratureSearch:
 
         return [paper for paper, _ in papers_with_scores]
 
-    def _extract_full_text(self, papers: List[PaperMetadata], pdf_timeout: int = 30):
+    def _extract_full_text(self, papers: list[PaperMetadata], pdf_timeout: int = 30):
         """
         Extract full text for papers with PDF URLs.
 

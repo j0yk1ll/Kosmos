@@ -4,23 +4,13 @@ Config command for Kosmos CLI.
 View and manage Kosmos configuration.
 """
 
-from typing import Optional
 from pathlib import Path
 
 import typer
-from rich.syntax import Syntax
-from rich.panel import Panel
 
-from kosmos.cli.utils import (
-    console,
-    print_success,
-    print_error,
-    print_info,
-    get_icon,
-    create_table,
-)
+from kosmos.cli.utils import console, create_table, get_icon, print_error, print_info, print_success
+from kosmos.config import _DEFAULT_CLAUDE_HAIKU_MODEL, _DEFAULT_CLAUDE_SONNET_MODEL
 
-from kosmos.config import _DEFAULT_CLAUDE_SONNET_MODEL, _DEFAULT_CLAUDE_HAIKU_MODEL
 
 def manage_config(
     show: bool = typer.Option(False, "--show", "-s", help="Show current configuration"),
@@ -73,16 +63,15 @@ def manage_config(
 
     except KeyboardInterrupt:
         console.print("\n[warning]Config operation cancelled[/warning]")
-        raise typer.Exit(130)
+        raise typer.Exit(130) from None
 
     except Exception as e:
         print_error(f"Config operation failed: {str(e)}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def show_config_path():
     """Show configuration file path."""
-    import os
 
     console.print()
     console.print(f"[h3]{get_icon('path')} Configuration File Locations[/h3]")
@@ -99,7 +88,7 @@ def show_config_path():
     table.add_row(
         ".env",
         str(env_path.absolute()),
-        "[success]✓[/success]" if env_path.exists() else "[error]✗[/error]"
+        "[success]✓[/success]" if env_path.exists() else "[error]✗[/error]",
     )
 
     # Example .env
@@ -107,7 +96,7 @@ def show_config_path():
     table.add_row(
         ".env.example",
         str(env_example.absolute()),
-        "[success]✓[/success]" if env_example.exists() else "[error]✗[/error]"
+        "[success]✓[/success]" if env_example.exists() else "[error]✗[/error]",
     )
 
     console.print(table)
@@ -165,15 +154,18 @@ def display_config():
         research_table.add_row("Max Iterations", str(config.research.max_iterations))
         research_table.add_row(
             "Enabled Domains",
-            ", ".join(config.research.enabled_domains) if config.research.enabled_domains else "All"
+            (
+                ", ".join(config.research.enabled_domains)
+                if config.research.enabled_domains
+                else "All"
+            ),
         )
         research_table.add_row(
-            "Experiment Types",
-            ", ".join(config.research.enabled_experiment_types)
+            "Experiment Types", ", ".join(config.research.enabled_experiment_types)
         )
         research_table.add_row(
             "Budget (USD)",
-            f"${config.research.budget_usd}" if config.research.budget_usd else "No limit"
+            f"${config.research.budget_usd}" if config.research.budget_usd else "No limit",
         )
 
         console.print(research_table)
@@ -193,7 +185,7 @@ def display_config():
 
     except Exception as e:
         print_error(f"Failed to load configuration: {str(e)}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def validate_config():
@@ -203,8 +195,9 @@ def validate_config():
     console.print()
 
     try:
-        from kosmos.config import get_config
         import os
+
+        from kosmos.config import get_config
 
         config = get_config()
 
@@ -215,41 +208,46 @@ def validate_config():
         llm_provider = os.getenv("LLM_PROVIDER", "anthropic")
         if llm_provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
-            checks.append((
-                "OpenAI API Key",
-                "Configured" if api_key else "Missing",
-                bool(api_key)
-            ))
+            checks.append(("OpenAI API Key", "Configured" if api_key else "Missing", bool(api_key)))
         else:
             api_key = os.getenv("ANTHROPIC_API_KEY")
-            checks.append((
-                "Anthropic API Key",
-                "Configured" if api_key else "Missing",
-                bool(api_key)
-            ))
+            checks.append(
+                ("Anthropic API Key", "Configured" if api_key else "Missing", bool(api_key))
+            )
 
         # Check model
         if config.claude:
-            checks.append((
-                "Claude Model",
-                config.claude.model,
-                config.claude.model in [_DEFAULT_CLAUDE_SONNET_MODEL, _DEFAULT_CLAUDE_HAIKU_MODEL]
-            ))
+            checks.append(
+                (
+                    "Claude Model",
+                    config.claude.model,
+                    config.claude.model
+                    in [_DEFAULT_CLAUDE_SONNET_MODEL, _DEFAULT_CLAUDE_HAIKU_MODEL],
+                )
+            )
         elif config.openai:
-            checks.append((
-                "OpenAI Model",
-                config.openai.model,
-                True  # Any valid model is acceptable
-            ))
+            checks.append(
+                ("OpenAI Model", config.openai.model, True)  # Any valid model is acceptable
+            )
 
         # Check domains
         valid_domains = {"biology", "neuroscience", "materials", "physics", "chemistry", "general"}
-        domains_valid = all(d in valid_domains for d in config.research.enabled_domains) if config.research.enabled_domains else True
-        checks.append((
-            "Enabled Domains",
-            ", ".join(config.research.enabled_domains) if config.research.enabled_domains else "All",
-            domains_valid
-        ))
+        domains_valid = (
+            all(d in valid_domains for d in config.research.enabled_domains)
+            if config.research.enabled_domains
+            else True
+        )
+        checks.append(
+            (
+                "Enabled Domains",
+                (
+                    ", ".join(config.research.enabled_domains)
+                    if config.research.enabled_domains
+                    else "All"
+                ),
+                domains_valid,
+            )
+        )
 
         # Check database
         if config.database.url.startswith("sqlite:///"):
@@ -258,11 +256,7 @@ def validate_config():
         else:
             # For non-SQLite databases, URL presence indicates configuration exists
             db_exists = bool(config.database.url)
-        checks.append((
-            "Database",
-            config.database.url,
-            db_exists
-        ))
+        checks.append(("Database", config.database.url, db_exists))
 
         # Display results
         table = create_table(
@@ -283,12 +277,14 @@ def validate_config():
         if all_valid:
             print_success("Configuration is valid!", title="Validation Complete")
         else:
-            print_error("Configuration has issues. Please review and fix.", title="Validation Failed")
+            print_error(
+                "Configuration has issues. Please review and fix.", title="Validation Failed"
+            )
             raise typer.Exit(1)
 
     except Exception as e:
         print_error(f"Validation failed: {str(e)}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def edit_config():
@@ -304,6 +300,7 @@ def edit_config():
         env_example = Path(".env.example")
         if env_example.exists():
             import shutil
+
             shutil.copy(env_example, env_path)
         else:
             # Create minimal .env
@@ -325,7 +322,9 @@ def reset_config():
 
     from rich.prompt import Confirm
 
-    if not Confirm.ask("[warning]Reset configuration to defaults? This will overwrite your .env file.[/warning]"):
+    if not Confirm.ask(
+        "[warning]Reset configuration to defaults? This will overwrite your .env file.[/warning]"
+    ):
         console.print("[info]Reset cancelled[/info]")
         return
 
@@ -334,6 +333,7 @@ def reset_config():
 
     if env_example.exists():
         import shutil
+
         shutil.copy(env_example, env_path)
         print_success("Configuration reset to defaults", title="Reset Complete")
     else:

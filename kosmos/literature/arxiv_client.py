@@ -6,13 +6,13 @@ Note: The arxiv package may have compatibility issues with Python 3.11+
 due to sgmllib3k dependency. This module includes fallback handling.
 """
 
-from typing import List, Optional
-from datetime import datetime
 import logging
+
 
 # Handle arxiv import with fallback for Python 3.11+ compatibility
 try:
     import arxiv
+
     HAS_ARXIV = True
 except ImportError as e:
     HAS_ARXIV = False
@@ -23,14 +23,9 @@ except ImportError as e:
         "Consider using Semantic Scholar as an alternative."
     )
 
-from kosmos.literature.base_client import (
-    BaseLiteratureClient,
-    PaperMetadata,
-    PaperSource,
-    Author
-)
-from kosmos.literature.cache import get_cache
 from kosmos.config import get_config
+from kosmos.literature.base_client import Author, BaseLiteratureClient, PaperMetadata, PaperSource
+from kosmos.literature.cache import get_cache
 
 
 class ArxivClient(BaseLiteratureClient):
@@ -41,7 +36,7 @@ class ArxivClient(BaseLiteratureClient):
     https://github.com/lukasschwab/arxiv.py
     """
 
-    def __init__(self, api_key: Optional[str] = None, cache_enabled: bool = True):
+    def __init__(self, api_key: str | None = None, cache_enabled: bool = True):
         """
         Initialize the arXiv client.
 
@@ -76,7 +71,7 @@ class ArxivClient(BaseLiteratureClient):
         self.client = arxiv.Client(
             page_size=100,  # Max results per page
             delay_seconds=3.0,  # Rate limiting: 3 seconds between requests
-            num_retries=3
+            num_retries=3,
         )
 
         self.logger.info("Initialized arXiv client")
@@ -85,11 +80,11 @@ class ArxivClient(BaseLiteratureClient):
         self,
         query: str,
         max_results: int = 10,
-        fields: Optional[List[str]] = None,
-        year_from: Optional[int] = None,
-        year_to: Optional[int] = None,
-        **kwargs
-    ) -> List[PaperMetadata]:
+        fields: list[str] | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
+        **kwargs,
+    ) -> list[PaperMetadata]:
         """
         Search for papers on arXiv.
 
@@ -134,7 +129,7 @@ class ArxivClient(BaseLiteratureClient):
             "max_results": max_results,
             "fields": fields,
             "year_from": year_from,
-            "year_to": year_to
+            "year_to": year_to,
         }
 
         if self.cache:
@@ -155,7 +150,7 @@ class ArxivClient(BaseLiteratureClient):
                 query=search_query,
                 max_results=min(max_results, self.max_results),
                 sort_by=sort_by,
-                sort_order=sort_order
+                sort_order=sort_order,
             )
 
             # Execute search
@@ -175,7 +170,7 @@ class ArxivClient(BaseLiteratureClient):
             self._handle_api_error(e, f"search query='{query}'")
             return []
 
-    def get_paper_by_id(self, paper_id: str) -> Optional[PaperMetadata]:
+    def get_paper_by_id(self, paper_id: str) -> PaperMetadata | None:
         """
         Retrieve a specific paper by arXiv ID.
 
@@ -227,7 +222,7 @@ class ArxivClient(BaseLiteratureClient):
             self._handle_api_error(e, f"get_paper_by_id id={paper_id}")
             return None
 
-    def get_paper_references(self, paper_id: str, max_refs: int = 50) -> List[PaperMetadata]:
+    def get_paper_references(self, paper_id: str, max_refs: int = 50) -> list[PaperMetadata]:
         """
         Get papers cited by the given paper.
 
@@ -243,10 +238,12 @@ class ArxivClient(BaseLiteratureClient):
         Returns:
             Empty list (arXiv doesn't provide citations)
         """
-        self.logger.warning("arXiv API does not provide citation data. Use Semantic Scholar instead.")
+        self.logger.warning(
+            "arXiv API does not provide citation data. Use Semantic Scholar instead."
+        )
         return []
 
-    def get_paper_citations(self, paper_id: str, max_cites: int = 50) -> List[PaperMetadata]:
+    def get_paper_citations(self, paper_id: str, max_cites: int = 50) -> list[PaperMetadata]:
         """
         Get papers that cite the given paper.
 
@@ -262,15 +259,17 @@ class ArxivClient(BaseLiteratureClient):
         Returns:
             Empty list (arXiv doesn't provide citations)
         """
-        self.logger.warning("arXiv API does not provide citation data. Use Semantic Scholar instead.")
+        self.logger.warning(
+            "arXiv API does not provide citation data. Use Semantic Scholar instead."
+        )
         return []
 
     def _build_query(
         self,
         query: str,
-        fields: Optional[List[str]] = None,
-        year_from: Optional[int] = None,
-        year_to: Optional[int] = None
+        fields: list[str] | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
     ) -> str:
         """
         Build arXiv query with filters.
@@ -311,10 +310,7 @@ class ArxivClient(BaseLiteratureClient):
         arxiv_id = result.entry_id.split("/")[-1].split("v")[0]
 
         # Convert authors
-        authors = [
-            Author(name=author.name)
-            for author in result.authors
-        ]
+        authors = [Author(name=author.name) for author in result.authors]
 
         # Extract publication year
         year = result.published.year if result.published else None
@@ -340,11 +336,11 @@ class ArxivClient(BaseLiteratureClient):
                 "entry_id": result.entry_id,
                 "updated": result.updated.isoformat() if result.updated else None,
                 "comment": result.comment,
-                "primary_category": result.primary_category
-            }
+                "primary_category": result.primary_category,
+            },
         )
 
-    def get_categories(self) -> List[str]:
+    def get_categories(self) -> list[str]:
         """
         Get list of arXiv categories.
 
@@ -362,8 +358,21 @@ class ArxivClient(BaseLiteratureClient):
         """
         # https://arxiv.org/category_taxonomy
         return [
-            "cs.AI", "cs.CL", "cs.CV", "cs.LG", "cs.NE", "cs.RO",
-            "physics.gen-ph", "physics.comp-ph", "quant-ph",
-            "q-bio.BM", "q-bio.GN", "q-bio.NC", "q-bio.QM",
-            "astro-ph", "cond-mat", "math.ST", "stat.ML"
+            "cs.AI",
+            "cs.CL",
+            "cs.CV",
+            "cs.LG",
+            "cs.NE",
+            "cs.RO",
+            "physics.gen-ph",
+            "physics.comp-ph",
+            "quant-ph",
+            "q-bio.BM",
+            "q-bio.GN",
+            "q-bio.NC",
+            "q-bio.QM",
+            "astro-ph",
+            "cond-mat",
+            "math.ST",
+            "stat.ML",
         ]

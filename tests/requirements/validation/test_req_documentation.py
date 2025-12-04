@@ -12,12 +12,11 @@ Requirements tested:
 - REQ-DOC-005 (SHOULD): Example workflows across different domains
 """
 
-import os
 import re
-import pytest
 from pathlib import Path
-from typing import List, Dict, Set
-from unittest.mock import Mock, patch
+
+import pytest
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -29,6 +28,7 @@ pytestmark = [
 # ============================================================================
 # REQ-DOC-001: User Documentation (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-DOC-001")
 @pytest.mark.priority("MUST")
@@ -46,11 +46,11 @@ def test_req_doc_001_user_documentation_exists():
 
     # Check for main user documentation
     user_doc_locations = [
-        project_root / 'README.md',
-        project_root / 'docs' / 'README.md',
-        project_root / 'docs' / 'user_guide.md',
-        project_root / 'docs' / 'getting_started.md',
-        project_root / 'USER_GUIDE.md',
+        project_root / "README.md",
+        project_root / "docs" / "README.md",
+        project_root / "docs" / "user_guide.md",
+        project_root / "docs" / "getting_started.md",
+        project_root / "USER_GUIDE.md",
     ]
 
     docs_found = []
@@ -58,13 +58,12 @@ def test_req_doc_001_user_documentation_exists():
         if doc_path.exists():
             docs_found.append(doc_path)
 
-    assert len(docs_found) > 0, \
-        "User documentation must exist (README.md or user guide)"
+    assert len(docs_found) > 0, "User documentation must exist (README.md or user guide)"
 
     print(f"✓ Found {len(docs_found)} user documentation files")
 
     # Verify README exists at minimum
-    readme = project_root / 'README.md'
+    readme = project_root / "README.md"
     assert readme.exists(), "README.md must exist at project root"
 
 
@@ -75,25 +74,18 @@ def test_req_doc_001_installation_instructions():
     REQ-DOC-001: Verify installation instructions are documented.
     """
     project_root = Path(__file__).parent.parent.parent.parent
-    readme = project_root / 'README.md'
+    readme = project_root / "README.md"
 
     assert readme.exists(), "README.md must exist"
 
     content = readme.read_text().lower()
 
     # Check for installation-related content
-    installation_keywords = [
-        'install',
-        'pip install',
-        'setup',
-        'requirements',
-        'dependencies'
-    ]
+    installation_keywords = ["install", "pip install", "setup", "requirements", "dependencies"]
 
     has_installation = any(keyword in content for keyword in installation_keywords)
 
-    assert has_installation, \
-        "Documentation must include installation instructions"
+    assert has_installation, "Documentation must include installation instructions"
 
     print("✓ Installation instructions found")
 
@@ -108,9 +100,9 @@ def test_req_doc_001_configuration_documented():
 
     # Check README and docs for configuration info
     doc_files = [
-        project_root / 'README.md',
-        project_root / 'docs' / 'configuration.md',
-        project_root / 'docs' / 'setup.md',
+        project_root / "README.md",
+        project_root / "docs" / "configuration.md",
+        project_root / "docs" / "setup.md",
     ]
 
     config_documentation_found = False
@@ -121,11 +113,11 @@ def test_req_doc_001_configuration_documented():
 
             # Look for configuration topics
             config_keywords = [
-                'config',
-                'api_key',
-                'environment variable',
-                '.env',
-                'anthropic_api_key'
+                "config",
+                "api_key",
+                "environment variable",
+                ".env",
+                "anthropic_api_key",
             ]
 
             if any(keyword in content for keyword in config_keywords):
@@ -133,8 +125,7 @@ def test_req_doc_001_configuration_documented():
                 print(f"✓ Configuration documented in {doc_file.name}")
                 break
 
-    assert config_documentation_found, \
-        "Configuration instructions must be documented"
+    assert config_documentation_found, "Configuration instructions must be documented"
 
 
 @pytest.mark.requirement("REQ-DOC-001")
@@ -146,10 +137,10 @@ def test_req_doc_001_workflow_usage_examples():
     project_root = Path(__file__).parent.parent.parent.parent
 
     doc_files = [
-        project_root / 'README.md',
-        project_root / 'docs' / 'usage.md',
-        project_root / 'docs' / 'quickstart.md',
-        project_root / 'docs' / 'workflows.md',
+        project_root / "README.md",
+        project_root / "docs" / "usage.md",
+        project_root / "docs" / "quickstart.md",
+        project_root / "docs" / "workflows.md",
     ]
 
     usage_documented = False
@@ -159,27 +150,20 @@ def test_req_doc_001_workflow_usage_examples():
             content = doc_file.read_text().lower()
 
             # Look for usage/workflow topics
-            usage_keywords = [
-                'usage',
-                'how to',
-                'workflow',
-                'example',
-                'run',
-                'execute'
-            ]
+            usage_keywords = ["usage", "how to", "workflow", "example", "run", "execute"]
 
             if any(keyword in content for keyword in usage_keywords):
                 usage_documented = True
                 print(f"✓ Usage documented in {doc_file.name}")
                 break
 
-    assert usage_documented, \
-        "Workflow usage must be documented"
+    assert usage_documented, "Workflow usage must be documented"
 
 
 # ============================================================================
 # REQ-DOC-002: Developer Documentation (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-DOC-002")
 @pytest.mark.priority("MUST")
@@ -197,12 +181,12 @@ def test_req_doc_002_developer_documentation_exists():
 
     # Check for developer documentation
     dev_doc_locations = [
-        project_root / 'docs' / 'architecture.md',
-        project_root / 'docs' / 'developer_guide.md',
-        project_root / 'docs' / 'ARCHITECTURE.md',
-        project_root / 'ARCHITECTURE.md',
-        project_root / 'CONTRIBUTING.md',
-        project_root / 'docs' / 'development.md',
+        project_root / "docs" / "architecture.md",
+        project_root / "docs" / "developer_guide.md",
+        project_root / "docs" / "ARCHITECTURE.md",
+        project_root / "ARCHITECTURE.md",
+        project_root / "CONTRIBUTING.md",
+        project_root / "docs" / "development.md",
     ]
 
     dev_docs_found = []
@@ -211,8 +195,7 @@ def test_req_doc_002_developer_documentation_exists():
             dev_docs_found.append(doc_path)
             print(f"✓ Developer documentation: {doc_path.name}")
 
-    assert len(dev_docs_found) > 0, \
-        "Developer documentation must exist"
+    assert len(dev_docs_found) > 0, "Developer documentation must exist"
 
 
 @pytest.mark.requirement("REQ-DOC-002")
@@ -225,10 +208,10 @@ def test_req_doc_002_architecture_documented():
 
     # Look for architecture documentation
     arch_files = [
-        project_root / 'docs' / 'architecture.md',
-        project_root / 'docs' / 'ARCHITECTURE.md',
-        project_root / 'ARCHITECTURE.md',
-        project_root / 'docs' / 'design.md',
+        project_root / "docs" / "architecture.md",
+        project_root / "docs" / "ARCHITECTURE.md",
+        project_root / "ARCHITECTURE.md",
+        project_root / "docs" / "design.md",
     ]
 
     architecture_documented = False
@@ -239,13 +222,13 @@ def test_req_doc_002_architecture_documented():
 
             # Check for architecture topics
             arch_keywords = [
-                'architecture',
-                'component',
-                'module',
-                'design',
-                'system',
-                'workflow',
-                'agent'
+                "architecture",
+                "component",
+                "module",
+                "design",
+                "system",
+                "workflow",
+                "agent",
             ]
 
             keyword_count = sum(1 for keyword in arch_keywords if keyword in content)
@@ -271,21 +254,24 @@ def test_req_doc_002_component_interactions_documented():
 
     # Check documentation for component interaction descriptions
     doc_dirs = [
-        project_root / 'docs',
-        project_root / 'docs' / 'planning',
+        project_root / "docs",
+        project_root / "docs" / "planning",
     ]
 
     component_docs_found = 0
 
     for doc_dir in doc_dirs:
         if doc_dir.exists():
-            md_files = list(doc_dir.glob('*.md'))
+            md_files = list(doc_dir.glob("*.md"))
 
             for md_file in md_files:
                 content = md_file.read_text().lower()
 
                 # Look for component interaction keywords
-                if any(keyword in content for keyword in ['interact', 'integration', 'flow', 'communicate']):
+                if any(
+                    keyword in content
+                    for keyword in ["interact", "integration", "flow", "communicate"]
+                ):
                     component_docs_found += 1
 
     print(f"✓ Found {component_docs_found} files documenting component interactions")
@@ -298,13 +284,13 @@ def test_req_doc_002_code_documentation():
     REQ-DOC-002: Verify code has inline documentation.
     """
     project_root = Path(__file__).parent.parent.parent.parent
-    kosmos_dir = project_root / 'kosmos'
+    kosmos_dir = project_root / "kosmos"
 
     # Sample core modules
     core_modules = [
-        kosmos_dir / 'core' / 'workflow.py',
-        kosmos_dir / 'agents' / 'data_analysis_agent.py',
-        kosmos_dir / 'world_model' / 'interface.py',
+        kosmos_dir / "core" / "workflow.py",
+        kosmos_dir / "agents" / "data_analysis_agent.py",
+        kosmos_dir / "world_model" / "interface.py",
     ]
 
     documented_modules = 0
@@ -314,7 +300,9 @@ def test_req_doc_002_code_documentation():
             content = module_path.read_text()
 
             # Check for docstrings
-            has_module_docstring = content.strip().startswith('"""') or content.strip().startswith("'''")
+            has_module_docstring = content.strip().startswith('"""') or content.strip().startswith(
+                "'''"
+            )
 
             # Count class/function docstrings
             docstring_count = content.count('"""') + content.count("'''")
@@ -329,6 +317,7 @@ def test_req_doc_002_code_documentation():
 # ============================================================================
 # REQ-DOC-003: Configuration Parameters (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-DOC-003")
 @pytest.mark.priority("MUST")
@@ -346,11 +335,11 @@ def test_req_doc_003_all_config_parameters_documented():
 
     # Check for configuration documentation
     config_docs = [
-        project_root / 'docs' / 'configuration.md',
-        project_root / 'docs' / 'config.md',
-        project_root / 'CONFIG.md',
-        project_root / '.env.example',
-        project_root / 'env.example',
+        project_root / "docs" / "configuration.md",
+        project_root / "docs" / "config.md",
+        project_root / "CONFIG.md",
+        project_root / ".env.example",
+        project_root / "env.example",
     ]
 
     config_doc_found = False
@@ -363,10 +352,10 @@ def test_req_doc_003_all_config_parameters_documented():
 
             # Look for common config parameters
             params = [
-                'ANTHROPIC_API_KEY',
-                'DATABASE_URL',
-                'LOG_LEVEL',
-                'MAX_ITERATIONS',
+                "ANTHROPIC_API_KEY",
+                "DATABASE_URL",
+                "LOG_LEVEL",
+                "MAX_ITERATIONS",
             ]
 
             for param in params:
@@ -376,8 +365,7 @@ def test_req_doc_003_all_config_parameters_documented():
             print(f"✓ Configuration documented in {doc_path.name}")
             print(f"  Found {len(documented_params)} documented parameters")
 
-    assert config_doc_found, \
-        "Configuration parameters must be documented"
+    assert config_doc_found, "Configuration parameters must be documented"
 
 
 @pytest.mark.requirement("REQ-DOC-003")
@@ -389,9 +377,9 @@ def test_req_doc_003_env_example_exists():
     project_root = Path(__file__).parent.parent.parent.parent
 
     env_examples = [
-        project_root / '.env.example',
-        project_root / 'env.example',
-        project_root / '.env.template',
+        project_root / ".env.example",
+        project_root / "env.example",
+        project_root / ".env.template",
     ]
 
     env_example_found = False
@@ -402,10 +390,11 @@ def test_req_doc_003_env_example_exists():
             content = env_file.read_text()
 
             # Should have comments explaining parameters
-            comment_lines = [line for line in content.split('\n') if line.strip().startswith('#')]
+            comment_lines = [line for line in content.split("\n") if line.strip().startswith("#")]
 
-            assert len(comment_lines) > 0, \
-                f"{env_file.name} should have comments explaining parameters"
+            assert (
+                len(comment_lines) > 0
+            ), f"{env_file.name} should have comments explaining parameters"
 
             print(f"✓ {env_file.name} exists with {len(comment_lines)} comment lines")
             break
@@ -421,7 +410,7 @@ def test_req_doc_003_config_module_documented():
     REQ-DOC-003: Verify config.py has documentation for all parameters.
     """
     project_root = Path(__file__).parent.parent.parent.parent
-    config_file = project_root / 'kosmos' / 'config.py'
+    config_file = project_root / "kosmos" / "config.py"
 
     if config_file.exists():
         content = config_file.read_text()
@@ -429,11 +418,10 @@ def test_req_doc_003_config_module_documented():
         # Check for docstrings
         docstring_count = content.count('"""') + content.count("'''")
 
-        assert docstring_count > 0, \
-            "Config module should have docstrings documenting parameters"
+        assert docstring_count > 0, "Config module should have docstrings documenting parameters"
 
         # Check for class documentation
-        has_config_class = 'class' in content and 'Config' in content
+        has_config_class = "class" in content and "Config" in content
 
         if has_config_class:
             print("✓ Config module is structured and documented")
@@ -442,6 +430,7 @@ def test_req_doc_003_config_module_documented():
 # ============================================================================
 # REQ-DOC-004: Requirements Traceability (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-DOC-004")
 @pytest.mark.priority("MUST")
@@ -459,9 +448,9 @@ def test_req_doc_004_traceability_matrix_exists():
 
     # Check for traceability documentation
     traceability_files = [
-        project_root / 'REQUIREMENTS_TRACEABILITY_MATRIX.md',
-        project_root / 'docs' / 'traceability.md',
-        project_root / 'TRACEABILITY.md',
+        project_root / "REQUIREMENTS_TRACEABILITY_MATRIX.md",
+        project_root / "docs" / "traceability.md",
+        project_root / "TRACEABILITY.md",
     ]
 
     traceability_found = False
@@ -474,13 +463,12 @@ def test_req_doc_004_traceability_matrix_exists():
             content = trace_file.read_text()
 
             # Check if it contains requirement IDs
-            req_count = len(re.findall(r'REQ-[A-Z]+-\d+', content))
+            req_count = len(re.findall(r"REQ-[A-Z]+-\d+", content))
 
             if req_count > 0:
                 print(f"  References {req_count} requirements")
 
-    assert traceability_found, \
-        "Requirements traceability matrix must exist"
+    assert traceability_found, "Requirements traceability matrix must exist"
 
 
 @pytest.mark.requirement("REQ-DOC-004")
@@ -492,28 +480,27 @@ def test_req_doc_004_requirements_linked_to_tests():
     project_root = Path(__file__).parent.parent.parent.parent
 
     # Check test files for requirement markers
-    test_dir = project_root / 'tests' / 'requirements'
-    test_files = list(test_dir.glob('**/*.py'))
+    test_dir = project_root / "tests" / "requirements"
+    test_files = list(test_dir.glob("**/*.py"))
 
     tests_with_req_markers = 0
     total_req_markers = 0
 
     for test_file in test_files:
-        if test_file.name.startswith('test_'):
+        if test_file.name.startswith("test_"):
             content = test_file.read_text()
 
-            if '@pytest.mark.requirement' in content:
+            if "@pytest.mark.requirement" in content:
                 tests_with_req_markers += 1
 
             # Count requirement markers
-            marker_count = content.count('@pytest.mark.requirement')
+            marker_count = content.count("@pytest.mark.requirement")
             total_req_markers += marker_count
 
     print(f"✓ {tests_with_req_markers} test files with requirement markers")
     print(f"✓ {total_req_markers} total requirement markers found")
 
-    assert tests_with_req_markers > 0, \
-        "Tests should be linked to requirements via markers"
+    assert tests_with_req_markers > 0, "Tests should be linked to requirements via markers"
 
 
 @pytest.mark.requirement("REQ-DOC-004")
@@ -525,8 +512,8 @@ def test_req_doc_004_code_references_requirements():
     project_root = Path(__file__).parent.parent.parent.parent
 
     # Check for requirement references in code comments
-    kosmos_dir = project_root / 'kosmos'
-    py_files = list(kosmos_dir.glob('**/*.py'))
+    kosmos_dir = project_root / "kosmos"
+    py_files = list(kosmos_dir.glob("**/*.py"))
 
     files_with_req_refs = 0
 
@@ -534,7 +521,7 @@ def test_req_doc_004_code_references_requirements():
         content = py_file.read_text()
 
         # Look for requirement references in comments
-        if 'REQ-' in content:
+        if "REQ-" in content:
             files_with_req_refs += 1
 
     print(f"✓ {files_with_req_refs} source files reference requirements")
@@ -543,6 +530,7 @@ def test_req_doc_004_code_references_requirements():
 # ============================================================================
 # REQ-DOC-005: Example Workflows (SHOULD)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-DOC-005")
 @pytest.mark.priority("SHOULD")
@@ -560,10 +548,10 @@ def test_req_doc_005_example_workflows_exist():
 
     # Check for example documentation
     example_locations = [
-        project_root / 'examples',
-        project_root / 'docs' / 'examples',
-        project_root / 'demos',
-        project_root / 'tutorials',
+        project_root / "examples",
+        project_root / "docs" / "examples",
+        project_root / "demos",
+        project_root / "tutorials",
     ]
 
     examples_found = []
@@ -572,10 +560,10 @@ def test_req_doc_005_example_workflows_exist():
         if location.exists():
             # Look for example files
             example_files = (
-                list(location.glob('*.py')) +
-                list(location.glob('*.md')) +
-                list(location.glob('**/*.py')) +
-                list(location.glob('**/*.md'))
+                list(location.glob("*.py"))
+                + list(location.glob("*.md"))
+                + list(location.glob("**/*.py"))
+                + list(location.glob("**/*.md"))
             )
 
             if len(example_files) > 0:
@@ -598,16 +586,16 @@ def test_req_doc_005_multi_domain_examples():
 
     # Check examples or documentation for domain coverage
     example_locations = [
-        project_root / 'examples',
-        project_root / 'docs' / 'examples',
+        project_root / "examples",
+        project_root / "docs" / "examples",
     ]
 
     domains_covered = set()
-    domain_keywords = ['biology', 'neuroscience', 'physics', 'chemistry', 'materials']
+    domain_keywords = ["biology", "neuroscience", "physics", "chemistry", "materials"]
 
     for location in example_locations:
         if location.exists():
-            example_files = list(location.glob('**/*.py')) + list(location.glob('**/*.md'))
+            example_files = list(location.glob("**/*.py")) + list(location.glob("**/*.md"))
 
             for example_file in example_files:
                 content = example_file.read_text().lower()
@@ -633,10 +621,10 @@ def test_req_doc_005_quickstart_guide():
     project_root = Path(__file__).parent.parent.parent.parent
 
     quickstart_files = [
-        project_root / 'docs' / 'quickstart.md',
-        project_root / 'docs' / 'tutorial.md',
-        project_root / 'QUICKSTART.md',
-        project_root / 'docs' / 'getting_started.md',
+        project_root / "docs" / "quickstart.md",
+        project_root / "docs" / "tutorial.md",
+        project_root / "QUICKSTART.md",
+        project_root / "docs" / "getting_started.md",
     ]
 
     quickstart_found = False
@@ -649,7 +637,7 @@ def test_req_doc_005_quickstart_guide():
             content = qs_file.read_text().lower()
 
             # Should have step-by-step instructions
-            has_steps = 'step' in content or '1.' in content or 'first' in content
+            has_steps = "step" in content or "1." in content or "first" in content
 
             if has_steps:
                 print("  Contains step-by-step instructions")
@@ -662,6 +650,7 @@ def test_req_doc_005_quickstart_guide():
 # Integration Tests
 # ============================================================================
 
+
 class TestDocumentationIntegration:
     """Integration tests for documentation completeness."""
 
@@ -671,11 +660,11 @@ class TestDocumentationIntegration:
 
         # Essential documentation files
         essential_docs = {
-            'README.md': True,  # MUST
-            'REQUIREMENTS.md': True,  # MUST
-            'REQUIREMENTS_TRACEABILITY_MATRIX.md': True,  # MUST
-            'CONTRIBUTING.md': False,  # SHOULD
-            '.env.example': False,  # SHOULD
+            "README.md": True,  # MUST
+            "REQUIREMENTS.md": True,  # MUST
+            "REQUIREMENTS_TRACEABILITY_MATRIX.md": True,  # MUST
+            "CONTRIBUTING.md": False,  # SHOULD
+            ".env.example": False,  # SHOULD
         }
 
         for doc_name, is_required in essential_docs.items():
@@ -689,7 +678,7 @@ class TestDocumentationIntegration:
     def test_documentation_quality(self):
         """Test documentation quality metrics."""
         project_root = Path(__file__).parent.parent.parent.parent
-        readme = project_root / 'README.md'
+        readme = project_root / "README.md"
 
         if readme.exists():
             content = readme.read_text()
@@ -698,11 +687,11 @@ class TestDocumentationIntegration:
             assert len(content) > 500, "README should be substantial (>500 chars)"
 
             # Should have headers
-            header_count = content.count('#')
+            header_count = content.count("#")
             assert header_count > 3, "README should have multiple sections"
 
             # Should have code examples or commands
-            has_code = '```' in content or '`' in content
+            has_code = "```" in content or "`" in content
             assert has_code, "README should include code examples"
 
             print(f"✓ README quality: {len(content)} chars, {header_count} headers")
@@ -710,10 +699,10 @@ class TestDocumentationIntegration:
     def test_all_docs_linked(self):
         """Verify documentation files are cross-linked."""
         project_root = Path(__file__).parent.parent.parent.parent
-        docs_dir = project_root / 'docs'
+        docs_dir = project_root / "docs"
 
         if docs_dir.exists():
-            md_files = list(docs_dir.glob('**/*.md'))
+            md_files = list(docs_dir.glob("**/*.md"))
 
             # Check for cross-references
             cross_refs = 0
@@ -722,7 +711,7 @@ class TestDocumentationIntegration:
                 content = md_file.read_text()
 
                 # Look for markdown links
-                link_count = content.count('[') + content.count('](')
+                link_count = content.count("[") + content.count("](")
 
                 if link_count > 2:
                     cross_refs += 1

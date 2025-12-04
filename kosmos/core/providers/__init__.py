@@ -38,21 +38,23 @@ LiteLLM provider usage:
 
 from kosmos.core.providers.base import (
     LLMProvider,
-    Message,
-    UsageStats,
     LLMResponse,
-    ProviderAPIError
+    Message,
+    ProviderAPIError,
+    UsageStats,
 )
 from kosmos.core.providers.factory import (
     get_provider,
     get_provider_from_config,
     list_providers,
-    register_provider
+    register_provider,
 )
+
 
 # Optional: Import LiteLLMProvider if available
 try:
     from kosmos.core.providers.litellm_provider import LiteLLMProvider
+
     _LITELLM_AVAILABLE = True
 except ImportError:
     LiteLLMProvider = None

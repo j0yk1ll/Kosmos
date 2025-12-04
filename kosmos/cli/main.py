@@ -4,32 +4,21 @@ Kosmos CLI - Main entry point.
 Beautiful command-line interface for the Kosmos AI Scientist using Typer and Rich.
 """
 
-import sys
-from pathlib import Path
-from typing import Optional
 import logging
+import sys
+
+import typer
+from dotenv import load_dotenv
+from rich.panel import Panel
+from rich.traceback import install as install_rich_traceback
+
+from kosmos.cli.utils import console, get_icon, print_error, print_success
+
 
 logger = logging.getLogger(__name__)
 
-import typer
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.panel import Panel
-from rich.traceback import install as install_rich_traceback
-from dotenv import load_dotenv
-
 # Load environment variables from .env file
 load_dotenv()
-
-from kosmos.cli.utils import (
-    console,
-    print_error,
-    print_info,
-    print_success,
-    get_icon,
-)
-from kosmos.cli.themes import KOSMOS_THEME
-
 
 # Install rich traceback handler for beautiful error messages
 install_rich_traceback(show_locals=False, width=120, console=console)
@@ -46,7 +35,9 @@ app = typer.Typer(
 
 
 # Configure logging
-def setup_logging(verbose: bool = False, debug: bool = False, trace: bool = False, debug_level: int = 0):
+def setup_logging(
+    verbose: bool = False, debug: bool = False, trace: bool = False, debug_level: int = 0
+):
     """Configure logging for CLI.
 
     Args:
@@ -74,6 +65,7 @@ def setup_logging(verbose: bool = False, debug: bool = False, trace: bool = Fals
     if trace:
         try:
             from kosmos.config import get_config
+
             config = get_config()
             config.logging.log_llm_calls = True
             config.logging.log_agent_messages = True
@@ -88,8 +80,12 @@ def setup_logging(verbose: bool = False, debug: bool = False, trace: bool = Fals
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
             logging.FileHandler(log_file),
-            logging.StreamHandler() if (debug or trace or debug_level > 0) else logging.NullHandler(),
-        ]
+            (
+                logging.StreamHandler()
+                if (debug or trace or debug_level > 0)
+                else logging.NullHandler()
+            ),
+        ],
     )
 
 
@@ -99,9 +95,18 @@ def main(
     ctx: typer.Context,
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output"),
     debug: bool = typer.Option(False, "--debug", help="Enable debug mode"),
-    trace: bool = typer.Option(False, "--trace", help="Enable trace-level logging (maximum verbosity)"),
-    debug_level: int = typer.Option(0, "--debug-level", "-dl", help="Debug level 0-3 (0=off, 1=critical path, 2=full trace, 3=data dumps)"),
-    debug_modules: Optional[str] = typer.Option(None, "--debug-modules", help="Comma-separated modules to debug"),
+    trace: bool = typer.Option(
+        False, "--trace", help="Enable trace-level logging (maximum verbosity)"
+    ),
+    debug_level: int = typer.Option(
+        0,
+        "--debug-level",
+        "-dl",
+        help="Debug level 0-3 (0=off, 1=critical path, 2=full trace, 3=data dumps)",
+    ),
+    debug_modules: str | None = typer.Option(
+        None, "--debug-modules", help="Comma-separated modules to debug"
+    ),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output"),
 ):
     """
@@ -135,6 +140,7 @@ def main(
     if debug_modules:
         try:
             from kosmos.config import get_config
+
             config = get_config()
             config.logging.debug_modules = [m.strip() for m in debug_modules.split(",")]
         except Exception:
@@ -143,6 +149,7 @@ def main(
     # Initialize database
     try:
         from kosmos.db import init_from_config
+
         init_from_config()
     except Exception as e:
         # Always show database initialization errors to the user
@@ -158,7 +165,7 @@ def main(
                 "  • Database connection issues\n\n"
                 f"Error: {str(e)}\n\n"
                 "Run with --debug for full error details.",
-                title="Database Initialization Error"
+                title="Database Initialization Error",
             )
 
         # Don't exit here - let commands handle the error if they need database
@@ -172,9 +179,11 @@ def main(
 @app.command()
 def version():
     """Show Kosmos version and system information."""
-    from kosmos import __version__
     import platform
+
     import anthropic
+
+    from kosmos import __version__
 
     info_lines = [
         f"**Kosmos AI Scientist** v{__version__}",
@@ -199,10 +208,10 @@ def version():
 @app.command()
 def info():
     """Show system status and configuration."""
-    from kosmos.cli.utils import get_config_value, format_size, get_cache_dir
-    from kosmos.config import get_config
-    from kosmos.cli.utils import create_table
     import os
+
+    from kosmos.cli.utils import create_table, format_size, get_cache_dir
+    from kosmos.config import get_config
 
     console.print()
     console.print(f"[h2]{get_icon('info')} System Information[/h2]", justify="center")
@@ -228,7 +237,11 @@ def info():
             config_table.add_row("API Mode", "CLI" if config.claude.is_cli_mode else "API")
         config_table.add_row(
             "Domains",
-            ", ".join(config.research.enabled_domains) if config.research.enabled_domains else "All"
+            (
+                ", ".join(config.research.enabled_domains)
+                if config.research.enabled_domains
+                else "All"
+            ),
         )
 
         console.print(config_table)
@@ -260,15 +273,16 @@ def info():
 
     except Exception as e:
         print_error(f"Failed to load configuration: {str(e)}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command()
 def doctor():
     """Run diagnostic checks on the Kosmos installation."""
-    from kosmos.cli.utils import create_table
     import importlib
     import os
+
+    from kosmos.cli.utils import create_table
 
     console.print()
     console.print(f"[h2]{get_icon('flask')} Running Diagnostics[/h2]", justify="center")
@@ -278,8 +292,11 @@ def doctor():
 
     # Check Python version
     import sys
+
     python_ok = sys.version_info >= (3, 9)
-    checks.append(("Python Version", f"{sys.version_info.major}.{sys.version_info.minor}", python_ok))
+    checks.append(
+        ("Python Version", f"{sys.version_info.major}.{sys.version_info.minor}", python_ok)
+    )
 
     # Check required packages
     required_packages = [
@@ -311,6 +328,7 @@ def doctor():
 
     # Check cache directory
     from kosmos.cli.utils import get_cache_dir
+
     cache_dir = get_cache_dir()
     cache_ok = cache_dir.exists() and os.access(cache_dir, os.W_OK)
     checks.append(("Cache Directory", str(cache_dir), cache_ok))
@@ -318,12 +336,12 @@ def doctor():
     # Check database connection and schema
     db_issues = []
     try:
-        from kosmos.db import get_session
         from kosmos.config import get_config
+        from kosmos.db import get_session
         from kosmos.utils.setup import validate_database_schema
 
         # Test connection
-        with get_session() as session:
+        with get_session():
             pass
 
         # Validate schema completeness
@@ -387,7 +405,7 @@ def doctor():
     else:
         print_error(
             "Some checks failed. Please resolve the issues above before using Kosmos.",
-            title="Diagnostics Failed"
+            title="Diagnostics Failed",
         )
         raise typer.Exit(1)
 
@@ -398,7 +416,15 @@ def register_commands():
     """Register all CLI command groups."""
     # Import command modules when they're implemented
     try:
-        from kosmos.cli.commands import run, status, history, cache, config as config_cmd, profile, graph
+        from kosmos.cli.commands import (
+            cache,
+            config as config_cmd,
+            graph,
+            history,
+            profile,
+            run,
+            status,
+        )
 
         # Register commands
         app.command(name="run")(run.run_research)

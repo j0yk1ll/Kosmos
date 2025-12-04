@@ -25,10 +25,11 @@ Architecture Philosophy:
 
 import json
 import logging
-from pathlib import Path
-from typing import Dict, List, Optional, Any
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,29 +37,30 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Finding:
     """Container for research findings."""
+
     finding_id: str
     cycle: int
     task_id: int
     summary: str
-    statistics: Dict[str, Any]
-    methods: Optional[str] = None
-    interpretation: Optional[str] = None
+    statistics: dict[str, Any]
+    methods: str | None = None
+    interpretation: str | None = None
     evidence_type: str = "data_analysis"
-    notebook_path: Optional[str] = None
-    citations: Optional[List[Dict]] = None
-    scholar_eval: Optional[Dict] = None
-    metadata: Optional[Dict] = None
-    timestamp: Optional[str] = None
+    notebook_path: str | None = None
+    citations: list[dict] | None = None
+    scholar_eval: dict | None = None
+    metadata: dict | None = None
+    timestamp: str | None = None
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         data = asdict(self)
         if self.timestamp is None:
-            data['timestamp'] = datetime.now().isoformat()
+            data["timestamp"] = datetime.now().isoformat()
         return data
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'Finding':
+    def from_dict(cls, data: dict) -> "Finding":
         """Create Finding from dictionary."""
         return cls(**data)
 
@@ -66,21 +68,22 @@ class Finding:
 @dataclass
 class Hypothesis:
     """Container for research hypotheses."""
+
     hypothesis_id: str
     statement: str
     status: str  # "supported", "refuted", "unknown"
-    domain: Optional[str] = None
+    domain: str | None = None
     confidence: float = 0.0
-    supporting_evidence: Optional[List[str]] = None
-    refuting_evidence: Optional[List[str]] = None
-    metadata: Optional[Dict] = None
+    supporting_evidence: list[str] | None = None
+    refuting_evidence: list[str] | None = None
+    metadata: dict | None = None
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'Hypothesis':
+    def from_dict(cls, data: dict) -> "Hypothesis":
         """Create Hypothesis from dictionary."""
         return cls(**data)
 
@@ -103,12 +106,7 @@ class ArtifactStateManager:
     - Conflict detection and resolution
     """
 
-    def __init__(
-        self,
-        artifacts_dir: str = "artifacts",
-        world_model=None,
-        vector_store=None
-    ):
+    def __init__(self, artifacts_dir: str = "artifacts", world_model=None, vector_store=None):
         """
         Initialize Artifact State Manager.
 
@@ -125,8 +123,8 @@ class ArtifactStateManager:
         self.vector_store = vector_store
 
         # In-memory caches
-        self._findings_cache: Dict[str, Finding] = {}
-        self._hypotheses_cache: Dict[str, Hypothesis] = {}
+        self._findings_cache: dict[str, Finding] = {}
+        self._hypotheses_cache: dict[str, Hypothesis] = {}
 
         logger.info(
             f"Initialized ArtifactStateManager at {self.artifacts_dir}"
@@ -138,12 +136,7 @@ class ArtifactStateManager:
     # Layer 1: JSON Artifacts (Core Functionality)
     # ============================================================================
 
-    async def save_finding_artifact(
-        self,
-        cycle: int,
-        task_id: int,
-        finding: Dict
-    ) -> Path:
+    async def save_finding_artifact(self, cycle: int, task_id: int, finding: dict) -> Path:
         """
         Save finding as JSON artifact.
 
@@ -160,19 +153,19 @@ class ArtifactStateManager:
         cycle_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate finding ID if not present
-        if 'finding_id' not in finding:
-            finding['finding_id'] = f"cycle{cycle}_task{task_id}"
+        if "finding_id" not in finding:
+            finding["finding_id"] = f"cycle{cycle}_task{task_id}"
 
         # Add cycle/task metadata
-        finding['cycle'] = cycle
-        finding['task_id'] = task_id
+        finding["cycle"] = cycle
+        finding["task_id"] = task_id
 
         # Create Finding object
         finding_obj = Finding.from_dict(finding) if isinstance(finding, dict) else finding
 
         # Save as JSON
         artifact_path = cycle_dir / f"task_{task_id}_finding.json"
-        with open(artifact_path, 'w') as f:
+        with open(artifact_path, "w") as f:
             json.dump(finding_obj.to_dict(), f, indent=2)
 
         # Cache in memory
@@ -189,7 +182,7 @@ class ArtifactStateManager:
         logger.debug(f"Saved finding artifact: {artifact_path}")
         return artifact_path
 
-    async def save_hypothesis(self, hypothesis: Dict) -> str:
+    async def save_hypothesis(self, hypothesis: dict) -> str:
         """
         Save hypothesis to artifacts.
 
@@ -208,7 +201,7 @@ class ArtifactStateManager:
 
         # Save as JSON
         hyp_path = hypotheses_dir / f"{hyp_obj.hypothesis_id}.json"
-        with open(hyp_path, 'w') as f:
+        with open(hyp_path, "w") as f:
             json.dump(hyp_obj.to_dict(), f, indent=2)
 
         # Cache in memory
@@ -216,7 +209,7 @@ class ArtifactStateManager:
 
         return hyp_obj.hypothesis_id
 
-    def get_finding(self, finding_id: str) -> Optional[Finding]:
+    def get_finding(self, finding_id: str) -> Finding | None:
         """
         Retrieve finding by ID.
 
@@ -233,16 +226,16 @@ class ArtifactStateManager:
         # Search filesystem
         for cycle_dir in self.artifacts_dir.glob("cycle_*"):
             for artifact_file in cycle_dir.glob("task_*_finding.json"):
-                with open(artifact_file, 'r') as f:
+                with open(artifact_file) as f:
                     data = json.load(f)
-                    if data.get('finding_id') == finding_id:
+                    if data.get("finding_id") == finding_id:
                         finding = Finding.from_dict(data)
                         self._findings_cache[finding_id] = finding
                         return finding
 
         return None
 
-    def get_all_cycle_findings(self, cycle: int) -> List[Finding]:
+    def get_all_cycle_findings(self, cycle: int) -> list[Finding]:
         """
         Get all findings from a specific cycle.
 
@@ -260,7 +253,7 @@ class ArtifactStateManager:
 
         for artifact_file in cycle_dir.glob("task_*_finding.json"):
             try:
-                with open(artifact_file, 'r') as f:
+                with open(artifact_file) as f:
                     data = json.load(f)
                     finding = Finding.from_dict(data)
                     findings.append(finding)
@@ -271,7 +264,7 @@ class ArtifactStateManager:
 
         return findings
 
-    def get_validated_findings(self) -> List[Finding]:
+    def get_validated_findings(self) -> list[Finding]:
         """
         Get all findings that passed ScholarEval validation.
 
@@ -280,12 +273,13 @@ class ArtifactStateManager:
         """
         all_findings = self.get_all_findings()
         validated = [
-            f for f in all_findings
-            if f.scholar_eval and f.scholar_eval.get('passes_threshold', False)
+            f
+            for f in all_findings
+            if f.scholar_eval and f.scholar_eval.get("passes_threshold", False)
         ]
         return validated
 
-    def get_all_findings(self) -> List[Finding]:
+    def get_all_findings(self) -> list[Finding]:
         """
         Get all findings across all cycles.
 
@@ -294,7 +288,7 @@ class ArtifactStateManager:
         """
         findings = []
         for cycle_dir in sorted(self.artifacts_dir.glob("cycle_*")):
-            cycle_num = int(cycle_dir.name.split('_')[1])
+            cycle_num = int(cycle_dir.name.split("_")[1])
             cycle_findings = self.get_all_cycle_findings(cycle_num)
             findings.extend(cycle_findings)
         return findings
@@ -303,7 +297,7 @@ class ArtifactStateManager:
     # Context Retrieval for Task Generation
     # ============================================================================
 
-    def get_cycle_context(self, cycle: int, lookback: int = 3) -> Dict:
+    def get_cycle_context(self, cycle: int, lookback: int = 3) -> dict:
         """
         Get context for task generation in a cycle.
 
@@ -347,11 +341,11 @@ class ArtifactStateManager:
                 "total_findings": total_findings,
                 "validated_findings": validated_count,
                 "validation_rate": validation_rate,
-                "cycles_completed": cycle - 1
-            }
+                "cycles_completed": cycle - 1,
+            },
         }
 
-    def _get_unsupported_hypotheses(self) -> List[Hypothesis]:
+    def _get_unsupported_hypotheses(self) -> list[Hypothesis]:
         """Get hypotheses that lack sufficient supporting evidence."""
         hypotheses_dir = self.artifacts_dir / "hypotheses"
         if not hypotheses_dir.exists():
@@ -360,7 +354,7 @@ class ArtifactStateManager:
         unsupported = []
         for hyp_file in hypotheses_dir.glob("*.json"):
             try:
-                with open(hyp_file, 'r') as f:
+                with open(hyp_file) as f:
                     data = json.load(f)
                     hyp = Hypothesis.from_dict(data)
                     if hyp.status == "unknown" or hyp.confidence < 0.5:
@@ -392,8 +386,7 @@ class ArtifactStateManager:
 
         # Count validated findings
         validated = [
-            f for f in findings
-            if f.scholar_eval and f.scholar_eval.get('passes_threshold', False)
+            f for f in findings if f.scholar_eval and f.scholar_eval.get("passes_threshold", False)
         ]
         summary += f"**Validated Findings**: {len(validated)}\n"
         validation_rate = (len(validated) / len(findings) * 100) if findings else 0
@@ -422,7 +415,7 @@ class ArtifactStateManager:
         cycle_dir = self.artifacts_dir / f"cycle_{cycle}"
         cycle_dir.mkdir(parents=True, exist_ok=True)
         summary_path = cycle_dir / "summary.md"
-        with open(summary_path, 'w') as f:
+        with open(summary_path, "w") as f:
             f.write(summary)
 
         return summary
@@ -457,10 +450,11 @@ class ArtifactStateManager:
                     "summary": finding.summary,
                     "cycle": finding.cycle,
                     "task_id": finding.task_id,
-                    "confidence": finding.scholar_eval.get('overall_score', 0)
-                    if finding.scholar_eval else 0,
-                    "timestamp": finding.timestamp or datetime.now().isoformat()
-                }
+                    "confidence": (
+                        finding.scholar_eval.get("overall_score", 0) if finding.scholar_eval else 0
+                    ),
+                    "timestamp": finding.timestamp or datetime.now().isoformat(),
+                },
             )
 
             entity_id = self.world_model.add_entity(finding_entity)
@@ -469,10 +463,7 @@ class ArtifactStateManager:
             if finding.notebook_path:
                 evidence_entity = Entity(
                     type="Evidence",
-                    properties={
-                        "path": finding.notebook_path,
-                        "type": finding.evidence_type
-                    }
+                    properties={"path": finding.notebook_path, "type": finding.evidence_type},
                 )
                 evidence_id = self.world_model.add_entity(evidence_entity)
 
@@ -480,7 +471,7 @@ class ArtifactStateManager:
                     source_id=entity_id,
                     target_id=evidence_id,
                     type="DERIVES_FROM",
-                    properties={"evidence_type": finding.evidence_type}
+                    properties={"evidence_type": finding.evidence_type},
                 )
                 self.world_model.add_relationship(derives_from)
 
@@ -488,7 +479,7 @@ class ArtifactStateManager:
 
         except Exception as e:
             logger.warning(f"Failed to index finding to graph: {e}", exc_info=True)
-            if isinstance(e, (KeyboardInterrupt, SystemExit)):
+            if isinstance(e, KeyboardInterrupt | SystemExit):
                 raise
 
     async def _index_finding_to_vectors(self, finding: Finding):
@@ -504,7 +495,7 @@ class ArtifactStateManager:
     # Conflict Detection
     # ============================================================================
 
-    async def add_finding_with_conflict_check(self, finding: Dict) -> bool:
+    async def add_finding_with_conflict_check(self, finding: dict) -> bool:
         """
         Add finding with automatic conflict detection.
 
@@ -515,8 +506,8 @@ class ArtifactStateManager:
             True if added successfully (no blocking conflicts)
         """
         # Save the finding
-        cycle = finding.get('cycle', 0)
-        task_id = finding.get('task_id', 0)
+        cycle = finding.get("cycle", 0)
+        task_id = finding.get("task_id", 0)
         await self.save_finding_artifact(cycle, task_id, finding)
 
         # Check for contradictions with existing findings
@@ -544,15 +535,15 @@ class ArtifactStateManager:
         export_data = {
             "findings": [f.to_dict() for f in self.get_all_findings()],
             "hypotheses": list(self._hypotheses_cache.values()),
-            "export_timestamp": datetime.now().isoformat()
+            "export_timestamp": datetime.now().isoformat(),
         }
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(export_data, f, indent=2)
 
         logger.info(f"Exported artifacts to {output_path}")
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """
         Get statistics about stored artifacts.
 
@@ -562,7 +553,7 @@ class ArtifactStateManager:
         all_findings = self.get_all_findings()
         validated = self.get_validated_findings()
 
-        cycles = set(f.cycle for f in all_findings)
+        cycles = {f.cycle for f in all_findings}
 
         return {
             "total_findings": len(all_findings),
@@ -570,5 +561,5 @@ class ArtifactStateManager:
             "validation_rate": len(validated) / len(all_findings) if all_findings else 0,
             "cycles_completed": max(cycles) if cycles else 0,
             "total_hypotheses": len(self._hypotheses_cache),
-            "artifacts_directory": str(self.artifacts_dir)
+            "artifacts_directory": str(self.artifacts_dir),
         }

@@ -2,8 +2,9 @@
 Tests for kosmos.literature.arxiv_client module.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 
 from kosmos.literature.arxiv_client import ArxivClient
 from kosmos.literature.base_client import PaperMetadata, PaperSource
@@ -20,8 +21,8 @@ def mock_config():
 @pytest.fixture
 def arxiv_client(mock_config):
     """Create ArxivClient instance for testing."""
-    with patch('kosmos.literature.arxiv_client.get_config', return_value=mock_config):
-        with patch('kosmos.literature.arxiv_client.get_cache') as mock_cache:
+    with patch("kosmos.literature.arxiv_client.get_config", return_value=mock_config):
+        with patch("kosmos.literature.arxiv_client.get_cache") as mock_cache:
             mock_cache.return_value = None  # Disable caching for tests
             return ArxivClient(cache_enabled=False)
 
@@ -56,16 +57,16 @@ class TestArxivClientInit:
 
     def test_init_default(self, mock_config):
         """Test default initialization."""
-        with patch('kosmos.literature.arxiv_client.get_config', return_value=mock_config):
-            with patch('kosmos.literature.arxiv_client.get_cache'):
+        with patch("kosmos.literature.arxiv_client.get_config", return_value=mock_config):
+            with patch("kosmos.literature.arxiv_client.get_cache"):
                 client = ArxivClient()
                 assert client.max_results == 100  # From config
 
     def test_init_with_cache_disabled(self, mock_config):
         """Test initialization with cache disabled."""
-        with patch('kosmos.literature.arxiv_client.get_config', return_value=mock_config):
-            with patch('kosmos.literature.arxiv_client.get_cache') as mock_cache:
-                client = ArxivClient(cache_enabled=False)
+        with patch("kosmos.literature.arxiv_client.get_config", return_value=mock_config):
+            with patch("kosmos.literature.arxiv_client.get_cache") as mock_cache:
+                ArxivClient(cache_enabled=False)
                 mock_cache.assert_not_called()
 
 
@@ -75,7 +76,7 @@ class TestArxivSearch:
 
     def test_search_success(self, arxiv_client, mock_arxiv_result):
         """Test successful paper search."""
-        with patch.object(arxiv_client, 'client') as mock_client:
+        with patch.object(arxiv_client, "client") as mock_client:
             mock_client.results.return_value = [mock_arxiv_result]
 
             papers = arxiv_client.search("attention mechanism", max_results=1)
@@ -89,7 +90,7 @@ class TestArxivSearch:
 
     def test_search_empty_results(self, arxiv_client):
         """Test search with no results."""
-        with patch.object(arxiv_client, 'client') as mock_client:
+        with patch.object(arxiv_client, "client") as mock_client:
             mock_client.results.return_value = []
 
             papers = arxiv_client.search("nonexistent_query_xyz123")
@@ -97,7 +98,7 @@ class TestArxivSearch:
 
     def test_search_error_handling(self, arxiv_client):
         """Test error handling during search."""
-        with patch.object(arxiv_client, 'client') as mock_client:
+        with patch.object(arxiv_client, "client") as mock_client:
             mock_client.results.side_effect = Exception("API Error")
 
             papers = arxiv_client.search("test query")
@@ -110,7 +111,7 @@ class TestArxivGetPaperById:
 
     def test_get_paper_by_id_success(self, arxiv_client, mock_arxiv_result):
         """Test successfully fetching a paper by ID."""
-        with patch.object(arxiv_client, 'client') as mock_client:
+        with patch.object(arxiv_client, "client") as mock_client:
             mock_client.results.return_value = iter([mock_arxiv_result])
 
             paper = arxiv_client.get_paper_by_id("1706.03762")
@@ -121,7 +122,7 @@ class TestArxivGetPaperById:
 
     def test_get_paper_by_id_not_found(self, arxiv_client):
         """Test fetching a non-existent paper ID."""
-        with patch.object(arxiv_client, 'client') as mock_client:
+        with patch.object(arxiv_client, "client") as mock_client:
             mock_client.results.return_value = iter([])
 
             paper = arxiv_client.get_paper_by_id("9999.99999")
@@ -129,7 +130,7 @@ class TestArxivGetPaperById:
 
     def test_get_paper_by_id_strips_prefix(self, arxiv_client, mock_arxiv_result):
         """Test that arXiv: prefix is stripped from ID."""
-        with patch.object(arxiv_client, 'client') as mock_client:
+        with patch.object(arxiv_client, "client") as mock_client:
             mock_client.results.return_value = iter([mock_arxiv_result])
 
             paper = arxiv_client.get_paper_by_id("arXiv:1706.03762")

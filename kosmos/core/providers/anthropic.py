@@ -4,31 +4,35 @@ Anthropic (Claude) provider implementation.
 Supports both Anthropic API and Claude Code CLI routing.
 """
 
-import os
 import json
 import logging
-from typing import Any, Dict, List, Optional
+import os
+from typing import Any
+
 
 try:
     from anthropic import Anthropic
+
     HAS_ANTHROPIC = True
 except ImportError:
     HAS_ANTHROPIC = False
 
+from datetime import datetime
+
+from kosmos.config import _DEFAULT_CLAUDE_HAIKU_MODEL, _DEFAULT_CLAUDE_SONNET_MODEL
+from kosmos.core.claude_cache import ClaudeCache, get_claude_cache
 from kosmos.core.providers.base import (
     LLMProvider,
-    Message,
-    UsageStats,
     LLMResponse,
-    ProviderAPIError
+    Message,
+    ProviderAPIError,
+    UsageStats,
 )
-from kosmos.core.utils.json_parser import parse_json_response, JSONParseError
-from kosmos.core.claude_cache import get_claude_cache, ClaudeCache
-from datetime import datetime
+from kosmos.core.utils.json_parser import JSONParseError, parse_json_response
+
 
 logger = logging.getLogger(__name__)
 
-from kosmos.config import _DEFAULT_CLAUDE_SONNET_MODEL, _DEFAULT_CLAUDE_HAIKU_MODEL
 
 class AnthropicProvider(LLMProvider):
     """
@@ -59,7 +63,7 @@ class AnthropicProvider(LLMProvider):
         ```
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize Anthropic provider.
 
@@ -77,49 +81,53 @@ class AnthropicProvider(LLMProvider):
         super().__init__(config)
 
         if not HAS_ANTHROPIC:
-            raise ImportError(
-                "anthropic package is required. Install with: pip install anthropic"
-            )
+            raise ImportError("anthropic package is required. Install with: pip install anthropic")
 
         # Extract configuration
-        self.api_key = config.get('api_key') or os.environ.get('ANTHROPIC_API_KEY')
+        self.api_key = config.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError(
                 "ANTHROPIC_API_KEY not provided in config or environment. "
                 "Set to your API key or '999999999999999999999999999999999999999999999999' for CLI mode."
             )
 
-        self.model = config.get('model', _DEFAULT_CLAUDE_SONNET_MODEL)
+        self.model = config.get("model", _DEFAULT_CLAUDE_SONNET_MODEL)
         self.default_model = self.model
-        self.max_tokens = config.get('max_tokens', 4096)
-        self.temperature = config.get('temperature', 0.7)
-        self.enable_cache = config.get('enable_cache', True)
-        self.enable_auto_model_selection = config.get('enable_auto_model_selection', False)
-        self.timeout = config.get('timeout', 120)
+        self.max_tokens = config.get("max_tokens", 4096)
+        self.temperature = config.get("temperature", 0.7)
+        self.enable_cache = config.get("enable_cache", True)
+        self.enable_auto_model_selection = config.get("enable_auto_model_selection", False)
+        self.timeout = config.get("timeout", 120)
 
         # Model variants for auto-selection
         self.haiku_model = _DEFAULT_CLAUDE_HAIKU_MODEL
         self.sonnet_model = _DEFAULT_CLAUDE_SONNET_MODEL
 
-        self.base_url = config.get('base_url') or os.environ.get('CLAUDE_BASE_URL') # NEW: get user-supplied endpoint if any
+        self.base_url = config.get("base_url") or os.environ.get(
+            "CLAUDE_BASE_URL"
+        )  # NEW: get user-supplied endpoint if any
 
         # Detect mode (CLI or API)
-        self.is_cli_mode = self.api_key.replace('9', '') == ''
+        self.is_cli_mode = self.api_key.replace("9", "") == ""
 
         # Initialize Anthropic client
         try:
             if self.base_url:
-                self.client = Anthropic(api_key=self.api_key, base_url=self.base_url)  # NEW: pass base_url if present
+                self.client = Anthropic(
+                    api_key=self.api_key, base_url=self.base_url
+                )  # NEW: pass base_url if present
                 logger.info(f"Anthropic provider initialized with custom base_url={self.base_url}")
             else:
                 self.client = Anthropic(api_key=self.api_key)
-                logger.info(f"Anthropic provider initialized in {'CLI' if self.is_cli_mode else 'API'} mode")
+                logger.info(
+                    f"Anthropic provider initialized in {'CLI' if self.is_cli_mode else 'API'} mode"
+                )
         except Exception as e:
             logger.error(f"Failed to initialize Anthropic client: {e}")
-            raise ProviderAPIError("anthropic", f"Failed to initialize: {e}", raw_error=e)
+            raise ProviderAPIError("anthropic", f"Failed to initialize: {e}", raw_error=e) from e
 
         # Initialize cache
-        self.cache: Optional[ClaudeCache] = None
+        self.cache: ClaudeCache | None = None
         if self.enable_cache:
             self.cache = get_claude_cache()
             logger.info("Claude response caching enabled")
@@ -134,11 +142,11 @@ class AnthropicProvider(LLMProvider):
     def generate(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        stop_sequences: Optional[List[str]] = None,
-        **kwargs
+        stop_sequences: list[str] | None = None,
+        **kwargs,
     ) -> LLMResponse:
         """
         Generate text from Claude.
@@ -158,14 +166,16 @@ class AnthropicProvider(LLMProvider):
             ProviderAPIError: If the API call fails
         """
         import time as time_module
+
         try:
-            bypass_cache = kwargs.get('bypass_cache', False)
-            model_override = kwargs.get('model_override', None)
+            bypass_cache = kwargs.get("bypass_cache", False)
+            model_override = kwargs.get("model_override", None)
 
             # Check if LLM call logging is enabled
             log_llm = False
             try:
                 from kosmos.config import get_config
+
                 config = get_config()
                 log_llm = config.logging.log_llm_calls
             except Exception:
@@ -181,9 +191,10 @@ class AnthropicProvider(LLMProvider):
             elif self.enable_auto_model_selection and not self.is_cli_mode:
                 # Auto-select based on complexity
                 from kosmos.core.llm import ModelComplexity
+
                 complexity_analysis = ModelComplexity.estimate_complexity(prompt, system)
 
-                if complexity_analysis['recommendation'] == 'haiku':
+                if complexity_analysis["recommendation"] == "haiku":
                     selected_model = self.haiku_model
                     self.haiku_requests += 1
                 else:
@@ -197,49 +208,46 @@ class AnthropicProvider(LLMProvider):
                 )
             else:
                 # Track model usage
-                if 'haiku' in selected_model.lower():
+                if "haiku" in selected_model.lower():
                     self.haiku_requests += 1
-                elif 'sonnet' in selected_model.lower():
+                elif "sonnet" in selected_model.lower():
                     self.sonnet_requests += 1
 
             # Check cache first
             if self.cache and not bypass_cache:
                 cache_key_params = {
-                    'system': system or "",
-                    'max_tokens': max_tokens,
-                    'temperature': temperature,
-                    'stop_sequences': stop_sequences or [],
+                    "system": system or "",
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "stop_sequences": stop_sequences or [],
                 }
 
                 cached_response = self.cache.get(
-                    prompt=prompt,
-                    model=selected_model,
-                    bypass=False,
-                    **cache_key_params
+                    prompt=prompt, model=selected_model, bypass=False, **cache_key_params
                 )
 
                 if cached_response is not None:
                     # Cache hit!
                     self.cache_hits += 1
-                    response_text = cached_response['response']
-                    logger.info(f"Cache hit: saved API call")
+                    response_text = cached_response["response"]
+                    logger.info("Cache hit: saved API call")
 
                     # Return as LLMResponse
                     usage = UsageStats(
-                        input_tokens=cached_response.get('metadata', {}).get('input_tokens', 0),
-                        output_tokens=cached_response.get('metadata', {}).get('output_tokens', 0),
-                        total_tokens=cached_response.get('metadata', {}).get('input_tokens', 0) +
-                                     cached_response.get('metadata', {}).get('output_tokens', 0),
+                        input_tokens=cached_response.get("metadata", {}).get("input_tokens", 0),
+                        output_tokens=cached_response.get("metadata", {}).get("output_tokens", 0),
+                        total_tokens=cached_response.get("metadata", {}).get("input_tokens", 0)
+                        + cached_response.get("metadata", {}).get("output_tokens", 0),
                         model=selected_model,
                         provider="anthropic",
-                        timestamp=datetime.now()
+                        timestamp=datetime.now(),
                     )
                     return LLMResponse(
                         content=response_text,
                         usage=usage,
                         model=selected_model,
                         finish_reason="stop",
-                        metadata={'cache_hit': True}
+                        metadata={"cache_hit": True},
                     )
                 else:
                     self.cache_misses += 1
@@ -256,7 +264,7 @@ class AnthropicProvider(LLMProvider):
                     len(prompt),
                     len(system or ""),
                     max_tokens,
-                    temperature
+                    temperature,
                 )
 
             start_time = time_module.time()
@@ -285,16 +293,22 @@ class AnthropicProvider(LLMProvider):
                     response.usage.input_tokens,
                     response.usage.output_tokens,
                     latency_ms,
-                    response.stop_reason if hasattr(response, 'stop_reason') else "unknown"
+                    response.stop_reason if hasattr(response, "stop_reason") else "unknown",
                 )
             usage_stats = UsageStats(
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
                 total_tokens=response.usage.input_tokens + response.usage.output_tokens,
-                cost_usd=self._calculate_cost(response.usage.input_tokens, response.usage.output_tokens, selected_model) if not self.is_cli_mode else None,
+                cost_usd=(
+                    self._calculate_cost(
+                        response.usage.input_tokens, response.usage.output_tokens, selected_model
+                    )
+                    if not self.is_cli_mode
+                    else None
+                ),
                 model=selected_model,
                 provider="anthropic",
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
             # Update stats
@@ -303,21 +317,21 @@ class AnthropicProvider(LLMProvider):
             # Cache the response
             if self.cache and not bypass_cache:
                 metadata = {
-                    'input_tokens': response.usage.input_tokens,
-                    'output_tokens': response.usage.output_tokens,
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
                 }
                 cache_key_params = {
-                    'system': system or "",
-                    'max_tokens': max_tokens,
-                    'temperature': temperature,
-                    'stop_sequences': stop_sequences or [],
+                    "system": system or "",
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "stop_sequences": stop_sequences or [],
                 }
                 self.cache.set(
                     prompt=prompt,
                     model=selected_model,
                     response=text,
                     metadata=metadata,
-                    **cache_key_params
+                    **cache_key_params,
                 )
 
             logger.debug(f"Generated {len(text)} characters from Claude")
@@ -326,23 +340,23 @@ class AnthropicProvider(LLMProvider):
                 content=text,
                 usage=usage_stats,
                 model=selected_model,
-                finish_reason=response.stop_reason if hasattr(response, 'stop_reason') else "stop",
+                finish_reason=response.stop_reason if hasattr(response, "stop_reason") else "stop",
                 raw_response=response,
-                metadata={'cache_hit': False}
+                metadata={"cache_hit": False},
             )
 
         except Exception as e:
             logger.error(f"Anthropic generation failed: {e}")
-            raise ProviderAPIError("anthropic", f"Generation failed: {e}", raw_error=e)
+            raise ProviderAPIError("anthropic", f"Generation failed: {e}", raw_error=e) from e
 
     async def generate_async(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        stop_sequences: Optional[List[str]] = None,
-        **kwargs
+        stop_sequences: list[str] | None = None,
+        **kwargs,
     ) -> LLMResponse:
         """
         Generate text asynchronously (delegated to sync for now).
@@ -363,11 +377,7 @@ class AnthropicProvider(LLMProvider):
         return self.generate(prompt, system, max_tokens, temperature, stop_sequences, **kwargs)
 
     def generate_with_messages(
-        self,
-        messages: List[Message],
-        max_tokens: int = 4096,
-        temperature: float = 0.7,
-        **kwargs
+        self, messages: list[Message], max_tokens: int = 4096, temperature: float = 0.7, **kwargs
     ) -> LLMResponse:
         """
         Generate text from conversation history.
@@ -391,10 +401,7 @@ class AnthropicProvider(LLMProvider):
                     # Anthropic handles system as separate parameter
                     system_prompt = msg.content
                 else:
-                    anthropic_messages.append({
-                        "role": msg.role,
-                        "content": msg.content
-                    })
+                    anthropic_messages.append({"role": msg.role, "content": msg.content})
 
             # Call API
             response = self.client.messages.create(
@@ -412,10 +419,16 @@ class AnthropicProvider(LLMProvider):
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
                 total_tokens=response.usage.input_tokens + response.usage.output_tokens,
-                cost_usd=self._calculate_cost(response.usage.input_tokens, response.usage.output_tokens, self.model) if not self.is_cli_mode else None,
+                cost_usd=(
+                    self._calculate_cost(
+                        response.usage.input_tokens, response.usage.output_tokens, self.model
+                    )
+                    if not self.is_cli_mode
+                    else None
+                ),
                 model=self.model,
                 provider="anthropic",
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
             self._update_usage_stats(usage_stats)
@@ -424,23 +437,25 @@ class AnthropicProvider(LLMProvider):
                 content=text,
                 usage=usage_stats,
                 model=self.model,
-                finish_reason=response.stop_reason if hasattr(response, 'stop_reason') else "stop",
-                raw_response=response
+                finish_reason=response.stop_reason if hasattr(response, "stop_reason") else "stop",
+                raw_response=response,
             )
 
         except Exception as e:
             logger.error(f"Anthropic multi-turn generation failed: {e}")
-            raise ProviderAPIError("anthropic", f"Multi-turn generation failed: {e}", raw_error=e)
+            raise ProviderAPIError(
+                "anthropic", f"Multi-turn generation failed: {e}", raw_error=e
+            ) from e
 
     def generate_structured(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        system: Optional[str] = None,
+        schema: dict[str, Any],
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        **kwargs
-    ) -> Dict[str, Any]:
+        **kwargs,
+    ) -> dict[str, Any]:
         """
         Generate structured JSON output.
 
@@ -460,7 +475,11 @@ class AnthropicProvider(LLMProvider):
         """
         try:
             # Add JSON instruction to system prompt
-            json_system = (system or "") + "\n\nYou must respond with valid JSON matching this schema:\n" + json.dumps(schema, indent=2)
+            json_system = (
+                (system or "")
+                + "\n\nYou must respond with valid JSON matching this schema:\n"
+                + json.dumps(schema, indent=2)
+            )
 
             # Generate response
             response = self.generate(
@@ -468,7 +487,7 @@ class AnthropicProvider(LLMProvider):
                 system=json_system,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                **kwargs
+                **kwargs,
             )
 
             response_text = response.content
@@ -485,16 +504,18 @@ class AnthropicProvider(LLMProvider):
                     "anthropic",
                     f"Invalid JSON response: {e.message}",
                     raw_error=e,
-                    recoverable=False
-                )
+                    recoverable=False,
+                ) from e
 
         except Exception as e:
             if isinstance(e, ProviderAPIError):
                 raise
             logger.error(f"Structured generation failed: {e}")
-            raise ProviderAPIError("anthropic", f"Structured generation failed: {e}", raw_error=e)
+            raise ProviderAPIError(
+                "anthropic", f"Structured generation failed: {e}", raw_error=e
+            ) from e
 
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """
         Get information about the current model.
 
@@ -558,7 +579,7 @@ class AnthropicProvider(LLMProvider):
 
         return input_cost + output_cost
 
-    def get_usage_stats(self) -> Dict[str, Any]:
+    def get_usage_stats(self) -> dict[str, Any]:
         """
         Get detailed usage statistics.
 
@@ -575,13 +596,15 @@ class AnthropicProvider(LLMProvider):
             else 0.0
         )
 
-        stats.update({
-            "cache_enabled": self.enable_cache,
-            "cache_hits": self.cache_hits,
-            "cache_misses": self.cache_misses,
-            "cache_hit_rate_percent": round(cache_hit_rate, 2),
-            "mode": "cli" if self.is_cli_mode else "api",
-        })
+        stats.update(
+            {
+                "cache_enabled": self.enable_cache,
+                "cache_hits": self.cache_hits,
+                "cache_misses": self.cache_misses,
+                "cache_hit_rate_percent": round(cache_hit_rate, 2),
+                "mode": "cli" if self.is_cli_mode else "api",
+            }
+        )
 
         # Model selection stats
         if self.enable_auto_model_selection:
@@ -592,8 +615,12 @@ class AnthropicProvider(LLMProvider):
                 "sonnet_requests": self.sonnet_requests,
                 "total_model_requests": total_model_requests,
                 "haiku_percent": round(
-                    (self.haiku_requests / total_model_requests * 100)
-                    if total_model_requests > 0 else 0, 2
+                    (
+                        (self.haiku_requests / total_model_requests * 100)
+                        if total_model_requests > 0
+                        else 0
+                    ),
+                    2,
                 ),
                 "model_overrides": self.model_overrides,
             }

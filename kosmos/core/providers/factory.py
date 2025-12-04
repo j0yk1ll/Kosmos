@@ -6,14 +6,15 @@ based on configuration.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
 
 from kosmos.core.providers.base import LLMProvider, ProviderAPIError
+
 
 logger = logging.getLogger(__name__)
 
 # Provider registry
-_PROVIDER_REGISTRY: Dict[str, type] = {}
+_PROVIDER_REGISTRY: dict[str, type] = {}
 
 
 def register_provider(name: str, provider_class: type):
@@ -31,7 +32,7 @@ def register_provider(name: str, provider_class: type):
     logger.debug(f"Registered provider: {name}")
 
 
-def get_provider(provider_name: str, config: Dict[str, Any]) -> LLMProvider:
+def get_provider(provider_name: str, config: dict[str, Any]) -> LLMProvider:
     """
     Get a provider instance by name.
 
@@ -61,8 +62,7 @@ def get_provider(provider_name: str, config: Dict[str, Any]) -> LLMProvider:
     if provider_name_lower not in _PROVIDER_REGISTRY:
         available = ", ".join(_PROVIDER_REGISTRY.keys())
         raise ProviderAPIError(
-            provider_name,
-            f"Unknown provider '{provider_name}'. Available providers: {available}"
+            provider_name, f"Unknown provider '{provider_name}'. Available providers: {available}"
         )
 
     provider_class = _PROVIDER_REGISTRY[provider_name_lower]
@@ -74,10 +74,8 @@ def get_provider(provider_name: str, config: Dict[str, Any]) -> LLMProvider:
     except Exception as e:
         logger.error(f"Failed to instantiate {provider_name} provider: {e}")
         raise ProviderAPIError(
-            provider_name,
-            f"Failed to initialize provider: {e}",
-            raw_error=e
-        )
+            provider_name, f"Failed to initialize provider: {e}", raw_error=e
+        ) from e
 
 
 def get_provider_from_config(kosmos_config) -> LLMProvider:
@@ -101,72 +99,77 @@ def get_provider_from_config(kosmos_config) -> LLMProvider:
     """
     # Determine provider from config
     # For now, default to Anthropic (backward compatibility)
-    provider_name = getattr(kosmos_config, 'llm_provider', 'anthropic')
+    provider_name = getattr(kosmos_config, "llm_provider", "anthropic")
 
     # Get provider-specific config
-    if provider_name.lower() == 'anthropic':
-        if hasattr(kosmos_config, 'claude') and kosmos_config.claude:
+    if provider_name.lower() == "anthropic":
+        if hasattr(kosmos_config, "claude") and kosmos_config.claude:
             # Backward compatibility: old config uses 'claude' field
             claude_config = kosmos_config.claude
             provider_config = {
-                'api_key': claude_config.api_key,
-                'model': claude_config.model,
-                'max_tokens': claude_config.max_tokens,
-                'temperature': claude_config.temperature,
-                'enable_cache': claude_config.enable_cache,
-                'enable_auto_model_selection': getattr(claude_config, 'enable_auto_model_selection', False)
+                "api_key": claude_config.api_key,
+                "model": claude_config.model,
+                "max_tokens": claude_config.max_tokens,
+                "temperature": claude_config.temperature,
+                "enable_cache": claude_config.enable_cache,
+                "enable_auto_model_selection": getattr(
+                    claude_config, "enable_auto_model_selection", False
+                ),
             }
-        elif hasattr(kosmos_config, 'anthropic'):
+        elif hasattr(kosmos_config, "anthropic"):
             # New config uses 'anthropic' field
             anthropic_config = kosmos_config.anthropic
             provider_config = {
-                'api_key': anthropic_config.api_key,
-                'model': anthropic_config.model,
-                'max_tokens': anthropic_config.max_tokens,
-                'temperature': anthropic_config.temperature,
-                'enable_cache': anthropic_config.enable_cache,
-                'base_url': getattr(anthropic_config, 'base_url', None),
-                'enable_auto_model_selection': getattr(anthropic_config, 'enable_auto_model_selection', False)
+                "api_key": anthropic_config.api_key,
+                "model": anthropic_config.model,
+                "max_tokens": anthropic_config.max_tokens,
+                "temperature": anthropic_config.temperature,
+                "enable_cache": anthropic_config.enable_cache,
+                "base_url": getattr(anthropic_config, "base_url", None),
+                "enable_auto_model_selection": getattr(
+                    anthropic_config, "enable_auto_model_selection", False
+                ),
             }
         else:
             raise ValueError("No Anthropic/Claude configuration found")
 
-    elif provider_name.lower() == 'openai':
-        if not hasattr(kosmos_config, 'openai'):
+    elif provider_name.lower() == "openai":
+        if not hasattr(kosmos_config, "openai"):
             raise ValueError("No OpenAI configuration found")
 
         openai_config = kosmos_config.openai
         provider_config = {
-            'api_key': openai_config.api_key,
-            'model': openai_config.model,
-            'max_tokens': getattr(openai_config, 'max_tokens', 4096),
-            'temperature': getattr(openai_config, 'temperature', 0.7),
-            'base_url': getattr(openai_config, 'base_url', None),
-            'organization': getattr(openai_config, 'organization', None),
+            "api_key": openai_config.api_key,
+            "model": openai_config.model,
+            "max_tokens": getattr(openai_config, "max_tokens", 4096),
+            "temperature": getattr(openai_config, "temperature", 0.7),
+            "base_url": getattr(openai_config, "base_url", None),
+            "organization": getattr(openai_config, "organization", None),
         }
 
-    elif provider_name.lower() == 'litellm':
+    elif provider_name.lower() == "litellm":
         # LiteLLM configuration - supports any model format
-        litellm_config = getattr(kosmos_config, 'litellm', None)
+        litellm_config = getattr(kosmos_config, "litellm", None)
         if litellm_config:
             provider_config = {
-                'model': litellm_config.model,
-                'api_key': getattr(litellm_config, 'api_key', None),
-                'api_base': getattr(litellm_config, 'api_base', None),
-                'max_tokens': getattr(litellm_config, 'max_tokens', 4096),
-                'temperature': getattr(litellm_config, 'temperature', 0.7),
-                'timeout': getattr(litellm_config, 'timeout', 120),
+                "model": litellm_config.model,
+                "api_key": getattr(litellm_config, "api_key", None),
+                "api_base": getattr(litellm_config, "api_base", None),
+                "max_tokens": getattr(litellm_config, "max_tokens", 4096),
+                "temperature": getattr(litellm_config, "temperature", 0.7),
+                "timeout": getattr(litellm_config, "timeout", 120),
             }
         else:
             # Try to get config from environment
             import os
+
             provider_config = {
-                'model': os.getenv('LITELLM_MODEL', 'gpt-3.5-turbo'),
-                'api_key': os.getenv('LITELLM_API_KEY'),
-                'api_base': os.getenv('LITELLM_API_BASE'),
-                'max_tokens': int(os.getenv('LITELLM_MAX_TOKENS', '4096')),
-                'temperature': float(os.getenv('LITELLM_TEMPERATURE', '0.7')),
-                'timeout': int(os.getenv('LITELLM_TIMEOUT', '120')),
+                "model": os.getenv("LITELLM_MODEL", "gpt-3.5-turbo"),
+                "api_key": os.getenv("LITELLM_API_KEY"),
+                "api_base": os.getenv("LITELLM_API_BASE"),
+                "max_tokens": int(os.getenv("LITELLM_MAX_TOKENS", "4096")),
+                "temperature": float(os.getenv("LITELLM_TEMPERATURE", "0.7")),
+                "timeout": int(os.getenv("LITELLM_TIMEOUT", "120")),
             }
 
     else:
@@ -190,6 +193,7 @@ def _register_builtin_providers():
     """Register built-in provider implementations."""
     try:
         from kosmos.core.providers.anthropic import AnthropicProvider
+
         register_provider("anthropic", AnthropicProvider)
         register_provider("claude", AnthropicProvider)  # Alias
     except ImportError:
@@ -197,12 +201,16 @@ def _register_builtin_providers():
 
     try:
         from kosmos.core.providers.openai import OpenAIProvider
+
         register_provider("openai", OpenAIProvider)
     except ImportError:
-        logger.debug("OpenAI provider not available (openai package not installed or not implemented yet)")
+        logger.debug(
+            "OpenAI provider not available (openai package not installed or not implemented yet)"
+        )
 
     try:
         from kosmos.core.providers.litellm_provider import LiteLLMProvider
+
         register_provider("litellm", LiteLLMProvider)
         # Register provider-specific aliases for convenience
         register_provider("ollama", LiteLLMProvider)

@@ -5,19 +5,16 @@ These tests validate system stability under extended operation, including
 12-hour runs, 20 iterations, 200 rollouts, and memory stability.
 """
 
-import pytest
-import asyncio
-import time
-import psutil
 import os
-from datetime import datetime, timedelta
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
-from typing import Dict, Any, List
+import time
+from unittest.mock import Mock, patch
+
+import psutil
+import pytest
 
 from kosmos.agents.research_director import ResearchDirectorAgent
-from kosmos.core.workflow import ResearchPlan
-from kosmos.monitoring.metrics import MetricsCollector
 from kosmos.core.metrics import get_metrics
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -57,14 +54,13 @@ class TestREQ_PERF_STAB_001_TwelveHourStability:
         max_memory = initial_memory
         memory_samples = []
 
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
-                    research_question="Test stability",
-                    config={"max_iterations": 1000}
+                    research_question="Test stability", config={"max_iterations": 1000}
                 )
 
                 iteration = 0
@@ -76,11 +72,13 @@ class TestREQ_PERF_STAB_001_TwelveHourStability:
                     # Sample memory every 10 minutes
                     if iteration % 600 == 0:
                         current_memory = process.memory_info().rss / 1024 / 1024
-                        memory_samples.append({
-                            'time': time.time() - start_time,
-                            'memory_mb': current_memory,
-                            'iteration': iteration
-                        })
+                        memory_samples.append(
+                            {
+                                "time": time.time() - start_time,
+                                "memory_mb": current_memory,
+                                "iteration": iteration,
+                            }
+                        )
                         max_memory = max(max_memory, current_memory)
 
                     time.sleep(1)  # Throttle
@@ -89,8 +87,9 @@ class TestREQ_PERF_STAB_001_TwelveHourStability:
                 final_memory = process.memory_info().rss / 1024 / 1024
                 memory_growth_percent = ((final_memory - initial_memory) / initial_memory) * 100
 
-                assert memory_growth_percent < 20, \
-                    f"Memory grew by {memory_growth_percent:.1f}% over 12 hours"
+                assert (
+                    memory_growth_percent < 20
+                ), f"Memory grew by {memory_growth_percent:.1f}% over 12 hours"
 
                 # Verify system remained responsive
                 assert iteration >= 43200, "System should complete at least 1 iteration/second"
@@ -111,14 +110,13 @@ class TestREQ_PERF_STAB_001_TwelveHourStability:
         initial_memory = process.memory_info().rss / 1024 / 1024
         memory_samples = []
 
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
-                    research_question="Test stability",
-                    config={"max_iterations": 10000}
+                    research_question="Test stability", config={"max_iterations": 10000}
                 )
 
                 # Run simulated cycles
@@ -141,30 +139,36 @@ class TestREQ_PERF_STAB_001_TwelveHourStability:
                 memory_growth = final_memory - initial_memory
 
                 # Allow up to 50MB growth during simulation
-                assert memory_growth < 50, \
-                    f"Memory grew by {memory_growth:.1f}MB during stability test"
+                assert (
+                    memory_growth < 50
+                ), f"Memory grew by {memory_growth:.1f}MB during stability test"
 
                 # Verify no memory leak pattern (monotonic growth)
                 if len(memory_samples) > 10:
                     # Check that memory doesn't continuously increase
-                    first_half_avg = sum(memory_samples[:len(memory_samples)//2]) / (len(memory_samples)//2)
-                    second_half_avg = sum(memory_samples[len(memory_samples)//2:]) / (len(memory_samples) - len(memory_samples)//2)
+                    first_half_avg = sum(memory_samples[: len(memory_samples) // 2]) / (
+                        len(memory_samples) // 2
+                    )
+                    second_half_avg = sum(memory_samples[len(memory_samples) // 2 :]) / (
+                        len(memory_samples) - len(memory_samples) // 2
+                    )
                     growth_rate = ((second_half_avg - first_half_avg) / first_half_avg) * 100
 
-                    assert growth_rate < 10, \
-                        f"Memory grew {growth_rate:.1f}% between first and second half (possible leak)"
+                    assert (
+                        growth_rate < 10
+                    ), f"Memory grew {growth_rate:.1f}% between first and second half (possible leak)"
 
     def test_stability_monitoring_metrics(self):
         """Verify stability metrics are collected and available."""
         metrics = get_metrics(reset=True)
 
         # Simulate some operations
-        for i in range(100):
+        for _i in range(100):
             metrics.record_api_call(
                 model="claude-3-5-sonnet",
                 input_tokens=1000,
                 output_tokens=500,
-                duration_seconds=1.2
+                duration_seconds=1.2,
             )
 
         stats = metrics.get_statistics()
@@ -186,16 +190,15 @@ class TestREQ_PERF_STAB_002_TwentyIterationStability:
     iterations without crashes or state corruption.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_twenty_iterations_complete(self, mock_wm, mock_llm):
         """Verify system completes 20 iterations successfully."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
         director = ResearchDirectorAgent(
-            research_question="Test 20 iterations",
-            config={"max_iterations": 20}
+            research_question="Test 20 iterations", config={"max_iterations": 20}
         )
 
         initial_memory = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
@@ -226,16 +229,15 @@ class TestREQ_PERF_STAB_002_TwentyIterationStability:
         memory_growth = final_memory - initial_memory
         assert memory_growth < 100, f"Memory grew by {memory_growth:.1f}MB"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_twenty_iterations_state_consistency(self, mock_wm, mock_llm):
         """Verify research plan state remains consistent across 20 iterations."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
         director = ResearchDirectorAgent(
-            research_question="Test state consistency",
-            config={"max_iterations": 20}
+            research_question="Test state consistency", config={"max_iterations": 20}
         )
 
         # Track state snapshots
@@ -256,62 +258,62 @@ class TestREQ_PERF_STAB_002_TwentyIterationStability:
 
             # Snapshot current state
             snapshot = {
-                'iteration': director.research_plan.iteration_count,
-                'hypothesis_count': len(director.research_plan.hypothesis_pool),
-                'tested_count': len(director.research_plan.tested_hypotheses),
-                'supported_count': len(director.research_plan.supported_hypotheses),
-                'rejected_count': len(director.research_plan.rejected_hypotheses),
+                "iteration": director.research_plan.iteration_count,
+                "hypothesis_count": len(director.research_plan.hypothesis_pool),
+                "tested_count": len(director.research_plan.tested_hypotheses),
+                "supported_count": len(director.research_plan.supported_hypotheses),
+                "rejected_count": len(director.research_plan.rejected_hypotheses),
             }
             state_snapshots.append(snapshot)
 
         # Verify state invariants
         for i, snapshot in enumerate(state_snapshots):
             # Iteration should match
-            assert snapshot['iteration'] == i + 1
+            assert snapshot["iteration"] == i + 1
 
             # Hypothesis counts should be non-decreasing
             if i > 0:
                 prev = state_snapshots[i - 1]
-                assert snapshot['hypothesis_count'] >= prev['hypothesis_count'], \
-                    "Hypothesis pool should only grow"
-                assert snapshot['tested_count'] >= prev['tested_count'], \
-                    "Tested count should only grow"
+                assert (
+                    snapshot["hypothesis_count"] >= prev["hypothesis_count"]
+                ), "Hypothesis pool should only grow"
+                assert (
+                    snapshot["tested_count"] >= prev["tested_count"]
+                ), "Tested count should only grow"
 
         # Final state should be consistent
         final = state_snapshots[-1]
-        assert final['iteration'] == 20
-        assert final['hypothesis_count'] > 0
-        assert final['tested_count'] <= final['hypothesis_count']
-        assert final['supported_count'] + final['rejected_count'] <= final['tested_count']
+        assert final["iteration"] == 20
+        assert final["hypothesis_count"] > 0
+        assert final["tested_count"] <= final["hypothesis_count"]
+        assert final["supported_count"] + final["rejected_count"] <= final["tested_count"]
 
     def test_twenty_iterations_metrics_tracking(self):
         """Verify metrics are tracked correctly across 20 iterations."""
         metrics = get_metrics(reset=True)
 
         # Simulate 20 iterations
-        for i in range(20):
+        for _i in range(20):
             metrics.track_research_iteration(domain="test")
 
             # Simulate hypothesis generation
-            for j in range(3):
+            for _j in range(3):
                 metrics.track_hypothesis_generated(domain="test", strategy="default")
 
             # Simulate experiments
             metrics.track_experiment_start(domain="test", experiment_type="data_analysis")
             time.sleep(0.01)  # Small delay
             metrics.track_experiment_complete(
-                domain="test",
-                experiment_type="data_analysis",
-                status="success",
-                duration=0.01
+                domain="test", experiment_type="data_analysis", status="success", duration=0.01
             )
 
         stats = metrics.get_statistics()
 
         # Verify counts
         # Note: These are Prometheus counters, actual values depend on implementation
-        assert stats["experiments"]["experiments_completed"] >= 20, \
-            "Should complete at least 20 experiments"
+        assert (
+            stats["experiments"]["experiments_completed"] >= 20
+        ), "Should complete at least 20 experiments"
 
 
 @pytest.mark.requirement("REQ-PERF-STAB-003")
@@ -329,16 +331,15 @@ class TestREQ_PERF_STAB_003_TwoHundredRolloutStability:
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024
 
-        metrics = get_metrics(reset=True)
+        get_metrics(reset=True)
 
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
-                    research_question="Test rollouts",
-                    config={"max_iterations": 1000}
+                    research_question="Test rollouts", config={"max_iterations": 1000}
                 )
 
                 rollout_durations = []
@@ -376,28 +377,27 @@ class TestREQ_PERF_STAB_003_TwoHundredRolloutStability:
                 last_20_avg = sum(rollout_durations[-20:]) / 20
                 slowdown_factor = last_20_avg / first_20_avg if first_20_avg > 0 else 1.0
 
-                assert slowdown_factor < 2.0, \
-                    f"Performance degraded {slowdown_factor:.1f}x over 200 rollouts"
+                assert (
+                    slowdown_factor < 2.0
+                ), f"Performance degraded {slowdown_factor:.1f}x over 200 rollouts"
 
                 # Verify memory stability
                 final_memory = process.memory_info().rss / 1024 / 1024
                 memory_growth = final_memory - initial_memory
-                assert memory_growth < 200, \
-                    f"Memory grew by {memory_growth:.1f}MB during 200 rollouts"
+                assert (
+                    memory_growth < 200
+                ), f"Memory grew by {memory_growth:.1f}MB during 200 rollouts"
 
     def test_rollout_batch_processing(self):
         """Verify batch processing of rollouts maintains stability."""
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
                     research_question="Test batch rollouts",
-                    config={
-                        "enable_concurrent_operations": True,
-                        "max_concurrent_experiments": 10
-                    }
+                    config={"enable_concurrent_operations": True, "max_concurrent_experiments": 10},
                 )
 
                 # Create 200 experiments
@@ -408,10 +408,10 @@ class TestREQ_PERF_STAB_003_TwoHundredRolloutStability:
                 # Process in batches
                 batch_size = 10
                 for i in range(0, 200, batch_size):
-                    batch = experiment_ids[i:i+batch_size]
+                    batch = experiment_ids[i : i + batch_size]
 
                     # Mock batch execution
-                    with patch.object(director, 'execute_experiments_batch') as mock_batch:
+                    with patch.object(director, "execute_experiments_batch") as mock_batch:
                         mock_batch.return_value = [
                             {"protocol_id": exp_id, "success": True, "result_id": f"res_{exp_id}"}
                             for exp_id in batch
@@ -441,8 +441,8 @@ class TestREQ_PERF_STAB_004_MemoryStability:
 
         initial_memory = process.memory_info().rss / 1024 / 1024
 
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
@@ -450,7 +450,7 @@ class TestREQ_PERF_STAB_004_MemoryStability:
                     # Create director for each iteration
                     director = ResearchDirectorAgent(
                         research_question=f"Test iteration {iteration}",
-                        config={"max_iterations": 1}
+                        config={"max_iterations": 1},
                     )
 
                     # Simulate work
@@ -469,8 +469,9 @@ class TestREQ_PERF_STAB_004_MemoryStability:
                 memory_growth = final_memory - initial_memory
 
                 # Allow up to 30MB growth for caches/overhead
-                assert memory_growth < 30, \
-                    f"Memory not properly cleaned up, grew by {memory_growth:.1f}MB"
+                assert (
+                    memory_growth < 30
+                ), f"Memory not properly cleaned up, grew by {memory_growth:.1f}MB"
 
     def test_no_circular_references(self):
         """Verify no circular references prevent garbage collection."""
@@ -479,14 +480,13 @@ class TestREQ_PERF_STAB_004_MemoryStability:
 
         gc.collect()
 
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
-                    research_question="Test circular refs",
-                    config={"max_iterations": 1}
+                    research_question="Test circular refs", config={"max_iterations": 1}
                 )
 
                 # Create weak reference
@@ -500,8 +500,9 @@ class TestREQ_PERF_STAB_004_MemoryStability:
                 gc.collect()
 
                 # Weak reference should be dead
-                assert weak_ref() is None, \
-                    "Object not garbage collected (possible circular reference)"
+                assert (
+                    weak_ref() is None
+                ), "Object not garbage collected (possible circular reference)"
 
     def test_large_data_structures_cleanup(self):
         """Verify large data structures are properly cleaned up."""
@@ -512,14 +513,13 @@ class TestREQ_PERF_STAB_004_MemoryStability:
 
         initial_memory = process.memory_info().rss / 1024 / 1024
 
-        with patch('kosmos.agents.research_director.get_client') as mock_llm:
-            with patch('kosmos.world_model.get_world_model') as mock_wm:
+        with patch("kosmos.agents.research_director.get_client") as mock_llm:
+            with patch("kosmos.world_model.get_world_model") as mock_wm:
                 mock_llm.return_value = Mock()
                 mock_wm.return_value = None
 
                 director = ResearchDirectorAgent(
-                    research_question="Test large data",
-                    config={"max_iterations": 100}
+                    research_question="Test large data", config={"max_iterations": 100}
                 )
 
                 # Add large amount of data
@@ -540,8 +540,9 @@ class TestREQ_PERF_STAB_004_MemoryStability:
                 final_memory = process.memory_info().rss / 1024 / 1024
                 memory_retained = final_memory - initial_memory
 
-                assert memory_retained < 20, \
-                    f"Large data structures not cleaned up, {memory_retained:.1f}MB retained"
+                assert (
+                    memory_retained < 20
+                ), f"Large data structures not cleaned up, {memory_retained:.1f}MB retained"
 
     def test_metrics_memory_overhead(self):
         """Verify metrics collection doesn't cause memory leaks."""
@@ -559,7 +560,7 @@ class TestREQ_PERF_STAB_004_MemoryStability:
                 model="claude-3-5-sonnet",
                 input_tokens=1000,
                 output_tokens=500,
-                duration_seconds=1.0
+                duration_seconds=1.0,
             )
             metrics.record_experiment_start(f"exp_{i}", "test")
             metrics.record_experiment_end(f"exp_{i}", 1.0, "success")
@@ -569,11 +570,10 @@ class TestREQ_PERF_STAB_004_MemoryStability:
         memory_growth = final_memory - initial_memory
 
         # Metrics should cap history, memory growth should be limited
-        assert memory_growth < 10, \
-            f"Metrics collection leaked {memory_growth:.1f}MB"
+        assert memory_growth < 10, f"Metrics collection leaked {memory_growth:.1f}MB"
 
         # Verify history is capped
-        stats = metrics.get_statistics()
+        metrics.get_statistics()
         # History should be limited to ~1000 entries
         assert len(metrics.api_call_history) <= 1000
         assert len(metrics.experiment_history) <= 1000

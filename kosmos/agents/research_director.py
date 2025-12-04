@@ -7,28 +7,23 @@ Research Question → Hypotheses → Experiments → Results → Analysis → Re
 Uses message-based async coordination with all specialized agents.
 """
 
-from typing import Dict, Any, Optional, List
-from datetime import datetime
-import logging
 import asyncio
 import concurrent.futures
+import logging
 import threading
 from contextlib import contextmanager
+from datetime import datetime
+from typing import Any
 
-from kosmos.agents.base import BaseAgent, AgentMessage, MessageType, AgentStatus
-from kosmos.utils.compat import model_to_dict
-from kosmos.core.workflow import (
-    ResearchWorkflow,
-    ResearchPlan,
-    WorkflowState,
-    NextAction
-)
+from kosmos.agents.base import AgentMessage, BaseAgent, MessageType
 from kosmos.core.llm import get_client
 from kosmos.core.stage_tracker import get_stage_tracker
-from kosmos.models.hypothesis import Hypothesis, HypothesisStatus
-from kosmos.world_model import get_world_model, Entity, Relationship
+from kosmos.core.workflow import NextAction, ResearchPlan, ResearchWorkflow, WorkflowState
 from kosmos.db import get_session
-from kosmos.db.operations import get_hypothesis, get_experiment, get_result
+from kosmos.db.operations import get_experiment, get_hypothesis, get_result
+from kosmos.utils.compat import model_to_dict
+from kosmos.world_model import Entity, Relationship, get_world_model
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +46,9 @@ class ResearchDirectorAgent(BaseAgent):
     def __init__(
         self,
         research_question: str,
-        domain: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None
+        domain: str | None = None,
+        agent_id: str | None = None,
+        config: dict[str, Any] | None = None,
     ):
         """
         Initialize Research Director.
@@ -64,11 +59,7 @@ class ResearchDirectorAgent(BaseAgent):
             agent_id: Optional agent ID
             config: Optional configuration (max_iterations, stopping_criteria, etc.)
         """
-        super().__init__(
-            agent_id=agent_id,
-            agent_type="ResearchDirector",
-            config=config or {}
-        )
+        super().__init__(agent_id=agent_id, agent_type="ResearchDirector", config=config or {})
 
         self.research_question = research_question
         self.domain = domain
@@ -76,24 +67,19 @@ class ResearchDirectorAgent(BaseAgent):
         # Configuration
         self.max_iterations = self.config.get("max_iterations", 10)
         self.mandatory_stopping_criteria = self.config.get(
-            "mandatory_stopping_criteria",
-            ["iteration_limit", "no_testable_hypotheses"]
+            "mandatory_stopping_criteria", ["iteration_limit", "no_testable_hypotheses"]
         )
         self.optional_stopping_criteria = self.config.get(
-            "optional_stopping_criteria",
-            ["novelty_decline", "diminishing_returns"]
+            "optional_stopping_criteria", ["novelty_decline", "diminishing_returns"]
         )
 
         # Initialize research plan and workflow
         self.research_plan = ResearchPlan(
-            research_question=research_question,
-            domain=domain,
-            max_iterations=self.max_iterations
+            research_question=research_question, domain=domain, max_iterations=self.max_iterations
         )
 
         self.workflow = ResearchWorkflow(
-            initial_state=WorkflowState.INITIALIZING,
-            research_plan=self.research_plan
+            initial_state=WorkflowState.INITIALIZING, research_plan=self.research_plan
         )
 
         # Claude client for research planning and decision-making
@@ -101,6 +87,7 @@ class ResearchDirectorAgent(BaseAgent):
 
         # Initialize database if not already initialized
         from kosmos.db import init_from_config
+
         try:
             init_from_config()
         except RuntimeError:
@@ -110,21 +97,21 @@ class ResearchDirectorAgent(BaseAgent):
             logger.warning(f"Database initialization failed: {e}")
 
         # Agent registry (will be populated during coordination)
-        self.agent_registry: Dict[str, str] = {}  # agent_type -> agent_id
+        self.agent_registry: dict[str, str] = {}  # agent_type -> agent_id
 
         # Message correlation tracking
-        self.pending_requests: Dict[str, Dict[str, Any]] = {}  # correlation_id -> request_info
+        self.pending_requests: dict[str, dict[str, Any]] = {}  # correlation_id -> request_info
 
         # Strategy effectiveness tracking
-        self.strategy_stats: Dict[str, Dict[str, Any]] = {
+        self.strategy_stats: dict[str, dict[str, Any]] = {
             "hypothesis_generation": {"attempts": 0, "successes": 0, "cost": 0.0},
             "experiment_design": {"attempts": 0, "successes": 0, "cost": 0.0},
             "hypothesis_refinement": {"attempts": 0, "successes": 0, "cost": 0.0},
-            "literature_review": {"attempts": 0, "successes": 0, "cost": 0.0}
+            "literature_review": {"attempts": 0, "successes": 0, "cost": 0.0},
         }
 
         # Research history
-        self.iteration_history: List[Dict[str, Any]] = []
+        self.iteration_history: list[dict[str, Any]] = []
 
         # Thread safety locks for concurrent operations
         self._research_plan_lock = threading.RLock()  # Reentrant lock for nested acquisitions
@@ -142,6 +129,7 @@ class ResearchDirectorAgent(BaseAgent):
         if self.enable_concurrent:
             try:
                 from kosmos.execution.parallel import ParallelExperimentExecutor
+
                 self.parallel_executor = ParallelExperimentExecutor(
                     max_workers=self.max_concurrent_experiments
                 )
@@ -149,21 +137,25 @@ class ResearchDirectorAgent(BaseAgent):
                     f"Parallel execution enabled with {self.max_concurrent_experiments} workers"
                 )
             except ImportError:
-                logger.warning("ParallelExperimentExecutor not available, using sequential execution")
+                logger.warning(
+                    "ParallelExperimentExecutor not available, using sequential execution"
+                )
                 self.enable_concurrent = False
 
         # Initialize AsyncClaudeClient for concurrent LLM calls
         self.async_llm_client = None
         if self.enable_concurrent:
             try:
-                from kosmos.core.async_llm import AsyncClaudeClient
                 import os
+
+                from kosmos.core.async_llm import AsyncClaudeClient
+
                 api_key = os.getenv("ANTHROPIC_API_KEY")
                 if api_key:
                     self.async_llm_client = AsyncClaudeClient(
                         api_key=api_key,
                         max_concurrent=self.config.get("max_concurrent_llm_calls", 5),
-                        max_requests_per_minute=self.config.get("llm_rate_limit_per_minute", 50)
+                        max_requests_per_minute=self.config.get("llm_rate_limit_per_minute", 50),
                     )
                     logger.info("Async LLM client initialized for concurrent operations")
                 else:
@@ -178,12 +170,16 @@ class ResearchDirectorAgent(BaseAgent):
             question_entity = Entity.from_research_question(
                 question_text=research_question,
                 domain=domain,
-                created_by=f"ResearchDirectorAgent:{self.agent_id}"
+                created_by=f"ResearchDirectorAgent:{self.agent_id}",
             )
             self.question_entity_id = self.wm.add_entity(question_entity)
-            logger.info(f"Research question persisted to knowledge graph: {self.question_entity_id}")
+            logger.info(
+                f"Research question persisted to knowledge graph: {self.question_entity_id}"
+            )
         except Exception as e:
-            logger.warning(f"Failed to initialize world model: {e}. Continuing without graph persistence.")
+            logger.warning(
+                f"Failed to initialize world model: {e}. Continuing without graph persistence."
+            )
             self.wm = None
             self.question_entity_id = None
 
@@ -201,8 +197,7 @@ class ResearchDirectorAgent(BaseAgent):
         logger.info(f"ResearchDirector {self.agent_id} starting research cycle")
         with self._workflow_lock:
             self.workflow.transition_to(
-                WorkflowState.GENERATING_HYPOTHESES,
-                action="Start research cycle"
+                WorkflowState.GENERATING_HYPOTHESES, action="Start research cycle"
             )
 
     def _on_stop(self):
@@ -251,7 +246,9 @@ class ResearchDirectorAgent(BaseAgent):
     # GRAPH PERSISTENCE HELPERS
     # ========================================================================
 
-    def _persist_hypothesis_to_graph(self, hypothesis_id: str, agent_name: str = "HypothesisGeneratorAgent"):
+    def _persist_hypothesis_to_graph(
+        self, hypothesis_id: str, agent_name: str = "HypothesisGeneratorAgent"
+    ):
         """
         Persist hypothesis to knowledge graph with SPAWNED_BY relationship.
 
@@ -281,7 +278,7 @@ class ResearchDirectorAgent(BaseAgent):
                     rel_type="SPAWNED_BY",
                     agent=agent_name,
                     generation=hypothesis.generation,
-                    iteration=self.research_plan.iteration_count
+                    iteration=self.research_plan.iteration_count,
                 )
                 self.wm.add_relationship(rel)
 
@@ -292,7 +289,7 @@ class ResearchDirectorAgent(BaseAgent):
                         target_id=hypothesis.parent_hypothesis_id,
                         rel_type="REFINED_FROM",
                         agent=agent_name,
-                        refinement_count=hypothesis.refinement_count
+                        refinement_count=hypothesis.refinement_count,
                     )
                     self.wm.add_relationship(parent_rel)
 
@@ -301,7 +298,9 @@ class ResearchDirectorAgent(BaseAgent):
         except Exception as e:
             logger.warning(f"Failed to persist hypothesis {hypothesis_id} to graph: {e}")
 
-    def _persist_protocol_to_graph(self, protocol_id: str, hypothesis_id: str, agent_name: str = "ExperimentDesignerAgent"):
+    def _persist_protocol_to_graph(
+        self, protocol_id: str, hypothesis_id: str, agent_name: str = "ExperimentDesignerAgent"
+    ):
         """
         Persist experiment protocol to knowledge graph with TESTS relationship.
 
@@ -331,7 +330,7 @@ class ResearchDirectorAgent(BaseAgent):
                     target_id=hypothesis_id,
                     rel_type="TESTS",
                     agent=agent_name,
-                    iteration=self.research_plan.iteration_count
+                    iteration=self.research_plan.iteration_count,
                 )
                 self.wm.add_relationship(rel)
 
@@ -340,7 +339,9 @@ class ResearchDirectorAgent(BaseAgent):
         except Exception as e:
             logger.warning(f"Failed to persist protocol {protocol_id} to graph: {e}")
 
-    def _persist_result_to_graph(self, result_id: str, protocol_id: str, hypothesis_id: str, agent_name: str = "Executor"):
+    def _persist_result_to_graph(
+        self, result_id: str, protocol_id: str, hypothesis_id: str, agent_name: str = "Executor"
+    ):
         """
         Persist experiment result to knowledge graph with PRODUCED_BY relationship.
 
@@ -371,16 +372,13 @@ class ResearchDirectorAgent(BaseAgent):
                     target_id=protocol_id,
                     rel_type="PRODUCED_BY",
                     agent=agent_name,
-                    iteration=self.research_plan.iteration_count
+                    iteration=self.research_plan.iteration_count,
                 )
                 self.wm.add_relationship(rel)
 
                 # Create TESTS relationship to hypothesis
                 tests_rel = Relationship.with_provenance(
-                    source_id=entity_id,
-                    target_id=hypothesis_id,
-                    rel_type="TESTS",
-                    agent=agent_name
+                    source_id=entity_id, target_id=hypothesis_id, rel_type="TESTS", agent=agent_name
                 )
                 self.wm.add_relationship(tests_rel)
 
@@ -389,7 +387,15 @@ class ResearchDirectorAgent(BaseAgent):
         except Exception as e:
             logger.warning(f"Failed to persist result {result_id} to graph: {e}")
 
-    def _add_support_relationship(self, result_id: str, hypothesis_id: str, supports: bool, confidence: float, p_value: float = None, effect_size: float = None):
+    def _add_support_relationship(
+        self,
+        result_id: str,
+        hypothesis_id: str,
+        supports: bool,
+        confidence: float,
+        p_value: float = None,
+        effect_size: float = None,
+    ):
         """
         Add SUPPORTS or REFUTES relationship based on result analysis.
 
@@ -418,11 +424,13 @@ class ResearchDirectorAgent(BaseAgent):
                 rel_type=rel_type,
                 agent="DataAnalystAgent",
                 confidence=confidence,
-                **metadata
+                **metadata,
             )
             self.wm.add_relationship(rel)
 
-            logger.debug(f"Added {rel_type} relationship: result {result_id} -> hypothesis {hypothesis_id}")
+            logger.debug(
+                f"Added {rel_type} relationship: result {result_id} -> hypothesis {hypothesis_id}"
+            )
 
         except Exception as e:
             logger.warning(f"Failed to add {rel_type} relationship: {e}")
@@ -525,7 +533,9 @@ class ResearchDirectorAgent(BaseAgent):
 
         # Persist protocol to knowledge graph
         if protocol_id and hypothesis_id:
-            self._persist_protocol_to_graph(protocol_id, hypothesis_id, agent_name="ExperimentDesignerAgent")
+            self._persist_protocol_to_graph(
+                protocol_id, hypothesis_id, agent_name="ExperimentDesignerAgent"
+            )
 
         # Update strategy stats (thread-safe)
         with self._strategy_stats_context():
@@ -578,13 +588,14 @@ class ResearchDirectorAgent(BaseAgent):
                     logger.warning(f"Failed to fetch hypothesis_id from protocol: {e}")
 
             if hypothesis_id:
-                self._persist_result_to_graph(result_id, protocol_id, hypothesis_id, agent_name="Executor")
+                self._persist_result_to_graph(
+                    result_id, protocol_id, hypothesis_id, agent_name="Executor"
+                )
 
         # Transition to analyzing state (thread-safe)
         with self._workflow_context():
             self.workflow.transition_to(
-                WorkflowState.ANALYZING,
-                action=f"Analyze result {result_id}"
+                WorkflowState.ANALYZING, action=f"Analyze result {result_id}"
             )
 
         # Send to DataAnalystAgent for interpretation
@@ -637,14 +648,13 @@ class ResearchDirectorAgent(BaseAgent):
                 supports=hypothesis_supported,
                 confidence=confidence,
                 p_value=p_value,
-                effect_size=effect_size
+                effect_size=effect_size,
             )
 
         # Transition to refining state (thread-safe)
         with self._workflow_context():
             self.workflow.transition_to(
-                WorkflowState.REFINING,
-                action=f"Refine based on result {result_id}"
+                WorkflowState.REFINING, action=f"Refine based on result {result_id}"
             )
 
         # Decide next action (may refine hypothesis, generate new ones, or converge)
@@ -670,7 +680,9 @@ class ResearchDirectorAgent(BaseAgent):
         refined_ids = content.get("refined_hypothesis_ids", [])
         retired_ids = content.get("retired_hypothesis_ids", [])
 
-        logger.info(f"Hypothesis refinement: {len(refined_ids)} refined, {len(retired_ids)} retired")
+        logger.info(
+            f"Hypothesis refinement: {len(refined_ids)} refined, {len(retired_ids)} retired"
+        )
 
         # Add refined hypotheses to pool (thread-safe)
         with self._research_plan_context():
@@ -717,9 +729,9 @@ class ResearchDirectorAgent(BaseAgent):
             if self.wm and self.question_entity_id:
                 try:
                     from kosmos.world_model.models import Annotation
+
                     convergence_annotation = Annotation(
-                        text=f"Research converged: {reason}",
-                        created_by="ConvergenceDetector"
+                        text=f"Research converged: {reason}", created_by="ConvergenceDetector"
                     )
                     self.wm.add_annotation(self.question_entity_id, convergence_annotation)
                     logger.debug("Added convergence annotation to research question")
@@ -729,8 +741,7 @@ class ResearchDirectorAgent(BaseAgent):
             # Transition to converged state (thread-safe)
             with self._workflow_context():
                 self.workflow.transition_to(
-                    WorkflowState.CONVERGED,
-                    action=f"Research converged: {reason}"
+                    WorkflowState.CONVERGED, action=f"Research converged: {reason}"
                 )
 
             # Stop the director
@@ -743,9 +754,7 @@ class ResearchDirectorAgent(BaseAgent):
     # ========================================================================
 
     def _send_to_hypothesis_generator(
-        self,
-        action: str,
-        context: Optional[Dict[str, Any]] = None
+        self, action: str, context: dict[str, Any] | None = None
     ) -> AgentMessage:
         """
         Send request to HypothesisGeneratorAgent.
@@ -761,79 +770,71 @@ class ResearchDirectorAgent(BaseAgent):
             "action": action,
             "research_question": self.research_question,
             "domain": self.domain,
-            "context": context or {}
+            "context": context or {},
         }
 
         target_agent = self.agent_registry.get("HypothesisGeneratorAgent", "hypothesis_generator")
 
         message = self.send_message(
-            to_agent=target_agent,
-            content=content,
-            message_type=MessageType.REQUEST
+            to_agent=target_agent, content=content, message_type=MessageType.REQUEST
         )
 
         self.pending_requests[message.id] = {
             "agent": "HypothesisGeneratorAgent",
             "action": action,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow(),
         }
 
         logger.debug(f"Sent {action} request to HypothesisGeneratorAgent")
         return message
 
     def _send_to_experiment_designer(
-        self,
-        hypothesis_id: str,
-        context: Optional[Dict[str, Any]] = None
+        self, hypothesis_id: str, context: dict[str, Any] | None = None
     ) -> AgentMessage:
         """Send request to ExperimentDesignerAgent to design protocol."""
         content = {
             "action": "design_experiment",
             "hypothesis_id": hypothesis_id,
-            "context": context or {}
+            "context": context or {},
         }
 
         target_agent = self.agent_registry.get("ExperimentDesignerAgent", "experiment_designer")
 
         message = self.send_message(
-            to_agent=target_agent,
-            content=content,
-            message_type=MessageType.REQUEST
+            to_agent=target_agent, content=content, message_type=MessageType.REQUEST
         )
 
         self.pending_requests[message.id] = {
             "agent": "ExperimentDesignerAgent",
             "hypothesis_id": hypothesis_id,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow(),
         }
 
-        logger.debug(f"Sent design request to ExperimentDesignerAgent for hypothesis {hypothesis_id}")
+        logger.debug(
+            f"Sent design request to ExperimentDesignerAgent for hypothesis {hypothesis_id}"
+        )
         return message
 
     def _send_to_executor(
-        self,
-        protocol_id: str,
-        context: Optional[Dict[str, Any]] = None
+        self, protocol_id: str, context: dict[str, Any] | None = None
     ) -> AgentMessage:
         """Send request to Executor to run experiment."""
         content = {
             "action": "execute_experiment",
             "protocol_id": protocol_id,
-            "context": context or {}
+            "context": context or {},
         }
 
         target_agent = self.agent_registry.get("Executor", "executor")
 
         message = self.send_message(
-            to_agent=target_agent,
-            content=content,
-            message_type=MessageType.REQUEST
+            to_agent=target_agent, content=content, message_type=MessageType.REQUEST
         )
 
         self.pending_requests[message.id] = {
             "agent": "Executor",
             "protocol_id": protocol_id,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow(),
         }
 
         logger.debug(f"Sent execution request to Executor for protocol {protocol_id}")
@@ -842,29 +843,27 @@ class ResearchDirectorAgent(BaseAgent):
     def _send_to_data_analyst(
         self,
         result_id: str,
-        hypothesis_id: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None
+        hypothesis_id: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> AgentMessage:
         """Send request to DataAnalystAgent to interpret results."""
         content = {
             "action": "interpret_results",
             "result_id": result_id,
             "hypothesis_id": hypothesis_id,
-            "context": context or {}
+            "context": context or {},
         }
 
         target_agent = self.agent_registry.get("DataAnalystAgent", "data_analyst")
 
         message = self.send_message(
-            to_agent=target_agent,
-            content=content,
-            message_type=MessageType.REQUEST
+            to_agent=target_agent, content=content, message_type=MessageType.REQUEST
         )
 
         self.pending_requests[message.id] = {
             "agent": "DataAnalystAgent",
             "result_id": result_id,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow(),
         }
 
         logger.debug(f"Sent interpretation request to DataAnalystAgent for result {result_id}")
@@ -873,39 +872,34 @@ class ResearchDirectorAgent(BaseAgent):
     def _send_to_hypothesis_refiner(
         self,
         hypothesis_id: str,
-        result_id: Optional[str] = None,
+        result_id: str | None = None,
         action: str = "evaluate",
-        context: Optional[Dict[str, Any]] = None
+        context: dict[str, Any] | None = None,
     ) -> AgentMessage:
         """Send request to HypothesisRefiner."""
         content = {
             "action": action,
             "hypothesis_id": hypothesis_id,
             "result_id": result_id,
-            "context": context or {}
+            "context": context or {},
         }
 
         target_agent = self.agent_registry.get("HypothesisRefiner", "hypothesis_refiner")
 
         message = self.send_message(
-            to_agent=target_agent,
-            content=content,
-            message_type=MessageType.REQUEST
+            to_agent=target_agent, content=content, message_type=MessageType.REQUEST
         )
 
         self.pending_requests[message.id] = {
             "agent": "HypothesisRefiner",
             "hypothesis_id": hypothesis_id,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow(),
         }
 
         logger.debug(f"Sent {action} request to HypothesisRefiner for hypothesis {hypothesis_id}")
         return message
 
-    def _send_to_convergence_detector(
-        self,
-        context: Optional[Dict[str, Any]] = None
-    ) -> AgentMessage:
+    def _send_to_convergence_detector(self, context: dict[str, Any] | None = None) -> AgentMessage:
         """Send request to ConvergenceDetector to check if research is complete."""
         # Use model_dump() for Pydantic v2, fall back to dict() for v1
         try:
@@ -916,20 +910,18 @@ class ResearchDirectorAgent(BaseAgent):
         content = {
             "action": "check_convergence",
             "research_plan": research_plan_dict,
-            "context": context or {}
+            "context": context or {},
         }
 
         target_agent = self.agent_registry.get("ConvergenceDetector", "convergence_detector")
 
         message = self.send_message(
-            to_agent=target_agent,
-            content=content,
-            message_type=MessageType.REQUEST
+            to_agent=target_agent, content=content, message_type=MessageType.REQUEST
         )
 
         self.pending_requests[message.id] = {
             "agent": "ConvergenceDetector",
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow(),
         }
 
         logger.debug("Sent convergence check request to ConvergenceDetector")
@@ -939,7 +931,7 @@ class ResearchDirectorAgent(BaseAgent):
     # CONCURRENT OPERATIONS
     # ========================================================================
 
-    def execute_experiments_batch(self, protocol_ids: List[str]) -> List[Dict[str, Any]]:
+    def execute_experiments_batch(self, protocol_ids: list[str]) -> list[dict[str, Any]]:
         """
         Execute multiple experiments in parallel using ParallelExperimentExecutor.
 
@@ -982,7 +974,9 @@ class ResearchDirectorAgent(BaseAgent):
 
                     logger.info(f"Experiment {protocol_id} completed successfully")
                 else:
-                    logger.error(f"Experiment {result.get('protocol_id')} failed: {result.get('error')}")
+                    logger.error(
+                        f"Experiment {result.get('protocol_id')} failed: {result.get('error')}"
+                    )
 
             return batch_results
 
@@ -990,7 +984,9 @@ class ResearchDirectorAgent(BaseAgent):
             logger.error(f"Batch experiment execution failed: {e}")
             return [{"protocol_id": pid, "success": False, "error": str(e)} for pid in protocol_ids]
 
-    async def evaluate_hypotheses_concurrently(self, hypothesis_ids: List[str]) -> List[Dict[str, Any]]:
+    async def evaluate_hypotheses_concurrently(
+        self, hypothesis_ids: list[str]
+    ) -> list[dict[str, Any]]:
         """
         Evaluate multiple hypotheses concurrently using AsyncClaudeClient.
 
@@ -1016,7 +1012,7 @@ class ResearchDirectorAgent(BaseAgent):
 
             # Create batch requests for hypothesis evaluation
             requests = []
-            for i, hyp_id in enumerate(hypothesis_ids):
+            for _i, hyp_id in enumerate(hypothesis_ids):
                 # TODO: Load actual hypothesis text from database
                 prompt = f"""Evaluate this hypothesis for testability and scientific merit:
 
@@ -1033,12 +1029,14 @@ Provide brief JSON response:
 {{"testability": X, "novelty": X, "impact": X, "recommendation": "proceed/refine/reject", "reasoning": "brief explanation"}}
 """
 
-                requests.append(BatchRequest(
-                    id=hyp_id,
-                    prompt=prompt,
-                    system="You are a research evaluator. Provide concise, objective assessments.",
-                    temperature=0.3  # Lower temperature for more consistent evaluations
-                ))
+                requests.append(
+                    BatchRequest(
+                        id=hyp_id,
+                        prompt=prompt,
+                        system="You are a research evaluator. Provide concise, objective assessments.",
+                        temperature=0.3,  # Lower temperature for more consistent evaluations
+                    )
+                )
 
             # Execute concurrent evaluations
             responses = await self.async_llm_client.batch_generate(requests)
@@ -1049,23 +1047,24 @@ Provide brief JSON response:
                 if resp.success:
                     try:
                         import json
+
                         # Parse JSON response
                         eval_data = json.loads(resp.response)
                         eval_data["hypothesis_id"] = resp.id
                         evaluations.append(eval_data)
                     except json.JSONDecodeError:
                         logger.warning(f"Failed to parse evaluation for {resp.id}")
-                        evaluations.append({
-                            "hypothesis_id": resp.id,
-                            "error": "Parse error",
-                            "recommendation": "refine"
-                        })
+                        evaluations.append(
+                            {
+                                "hypothesis_id": resp.id,
+                                "error": "Parse error",
+                                "recommendation": "refine",
+                            }
+                        )
                 else:
-                    evaluations.append({
-                        "hypothesis_id": resp.id,
-                        "error": resp.error,
-                        "recommendation": "retry"
-                    })
+                    evaluations.append(
+                        {"hypothesis_id": resp.id, "error": resp.error, "recommendation": "retry"}
+                    )
 
             logger.info(f"Completed {len(evaluations)} hypothesis evaluations")
             return evaluations
@@ -1074,7 +1073,7 @@ Provide brief JSON response:
             logger.error(f"Concurrent hypothesis evaluation failed: {e}")
             return []
 
-    async def analyze_results_concurrently(self, result_ids: List[str]) -> List[Dict[str, Any]]:
+    async def analyze_results_concurrently(self, result_ids: list[str]) -> list[dict[str, Any]]:
         """
         Analyze multiple experiment results concurrently using AsyncClaudeClient.
 
@@ -1117,12 +1116,14 @@ Provide brief JSON response:
 {{"significance": "high/medium/low", "hypothesis_supported": true/false/inconclusive, "key_finding": "summary", "next_steps": "recommendation"}}
 """
 
-                requests.append(BatchRequest(
-                    id=result_id,
-                    prompt=prompt,
-                    system="You are a data analyst. Provide objective, evidence-based interpretations.",
-                    temperature=0.3
-                ))
+                requests.append(
+                    BatchRequest(
+                        id=result_id,
+                        prompt=prompt,
+                        system="You are a data analyst. Provide objective, evidence-based interpretations.",
+                        temperature=0.3,
+                    )
+                )
 
             # Execute concurrent analyses
             responses = await self.async_llm_client.batch_generate(requests)
@@ -1133,20 +1134,15 @@ Provide brief JSON response:
                 if resp.success:
                     try:
                         import json
+
                         analysis_data = json.loads(resp.response)
                         analysis_data["result_id"] = resp.id
                         analyses.append(analysis_data)
                     except json.JSONDecodeError:
                         logger.warning(f"Failed to parse analysis for {resp.id}")
-                        analyses.append({
-                            "result_id": resp.id,
-                            "error": "Parse error"
-                        })
+                        analyses.append({"result_id": resp.id, "error": "Parse error"})
                 else:
-                    analyses.append({
-                        "result_id": resp.id,
-                        "error": resp.error
-                    })
+                    analyses.append({"result_id": resp.id, "error": resp.error})
 
             logger.info(f"Completed {len(analyses)} result analyses")
             return analyses
@@ -1225,7 +1221,7 @@ Provide a structured, actionable plan in 2-3 paragraphs.
             self.research_plan.max_iterations,
             len(self.research_plan.hypothesis_pool),
             len(self.research_plan.get_untested_hypotheses()),
-            len(self.research_plan.experiment_queue)
+            len(self.research_plan.experiment_queue),
         )
 
         # Check convergence first
@@ -1308,7 +1304,9 @@ Provide a structured, actionable plan in 2-3 paragraphs.
 
                     try:
                         # Run async evaluation with timeout
-                        logger.info(f"Starting concurrent evaluation of {len(hypothesis_batch)} hypotheses")
+                        logger.info(
+                            f"Starting concurrent evaluation of {len(hypothesis_batch)} hypotheses"
+                        )
                         timeout_seconds = 300
                         evaluations = None
                         try:
@@ -1319,14 +1317,18 @@ Provide a structured, actionable plan in 2-3 paragraphs.
                                 self.evaluate_hypotheses_concurrently(hypothesis_batch), loop
                             )
                             evaluations = future.result(timeout=timeout_seconds)
-                            logger.info(f"Concurrent hypothesis evaluation completed")
+                            logger.info("Concurrent hypothesis evaluation completed")
                         except RuntimeError:
                             # No running loop - this can cause issues with nested event loops
                             # Fall back to sequential execution for safety
-                            logger.warning("No running event loop, falling back to sequential hypothesis evaluation")
+                            logger.warning(
+                                "No running event loop, falling back to sequential hypothesis evaluation"
+                            )
                             evaluations = None
                         except concurrent.futures.TimeoutError:
-                            logger.warning(f"Hypothesis evaluation timed out after {timeout_seconds}s, falling back to sequential")
+                            logger.warning(
+                                f"Hypothesis evaluation timed out after {timeout_seconds}s, falling back to sequential"
+                            )
                             evaluations = None
 
                         if evaluations:
@@ -1396,14 +1398,18 @@ Provide a structured, actionable plan in 2-3 paragraphs.
                                 self.analyze_results_concurrently(result_batch), loop
                             )
                             analyses = future.result(timeout=timeout_seconds)
-                            logger.info(f"Concurrent result analysis completed")
+                            logger.info("Concurrent result analysis completed")
                         except RuntimeError:
                             # No running loop - this can cause issues with nested event loops
                             # Fall back to sequential execution for safety
-                            logger.warning("No running event loop, falling back to sequential result analysis")
+                            logger.warning(
+                                "No running event loop, falling back to sequential result analysis"
+                            )
                             analyses = None
                         except concurrent.futures.TimeoutError:
-                            logger.warning(f"Result analysis timed out after {timeout_seconds}s, falling back to sequential")
+                            logger.warning(
+                                f"Result analysis timed out after {timeout_seconds}s, falling back to sequential"
+                            )
                             analyses = None
 
                         if analyses:
@@ -1436,10 +1442,7 @@ Provide a structured, actionable plan in 2-3 paragraphs.
 
             if tested:
                 hypothesis_id = tested[-1]
-                self._send_to_hypothesis_refiner(
-                    hypothesis_id=hypothesis_id,
-                    action="evaluate"
-                )
+                self._send_to_hypothesis_refiner(hypothesis_id=hypothesis_id, action="evaluate")
 
             # Increment iteration after completing refinement phase
             # This marks the completion of one full research cycle
@@ -1555,7 +1558,7 @@ Provide a structured, actionable plan in 2-3 paragraphs.
         self.agent_registry[agent_type] = agent_id
         logger.info(f"Registered {agent_type} with ID {agent_id}")
 
-    def get_agent_id(self, agent_type: str) -> Optional[str]:
+    def get_agent_id(self, agent_type: str) -> str | None:
         """
         Get agent ID for a given type.
 
@@ -1571,7 +1574,7 @@ Provide a structured, actionable plan in 2-3 paragraphs.
     # EXECUTE (BaseAgent interface)
     # ========================================================================
 
-    def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         """
         Execute research task.
 
@@ -1597,7 +1600,7 @@ Provide a structured, actionable plan in 2-3 paragraphs.
             return {
                 "status": "research_started",
                 "research_plan": plan,
-                "next_action": next_action.value
+                "next_action": next_action.value,
             }
 
         elif action == "step":
@@ -1608,7 +1611,7 @@ Provide a structured, actionable plan in 2-3 paragraphs.
             return {
                 "status": "step_executed",
                 "next_action": next_action.value,
-                "workflow_state": self.workflow.current_state.value
+                "workflow_state": self.workflow.current_state.value,
             }
 
         else:
@@ -1618,7 +1621,7 @@ Provide a structured, actionable plan in 2-3 paragraphs.
     # STATUS & REPORTING
     # ========================================================================
 
-    def get_research_status(self) -> Dict[str, Any]:
+    def get_research_status(self) -> dict[str, Any]:
         """
         Get comprehensive research status.
 
@@ -1640,5 +1643,5 @@ Provide a structured, actionable plan in 2-3 paragraphs.
             "experiments_completed": len(self.research_plan.completed_experiments),
             "results_count": len(self.research_plan.results),
             "strategy_stats": self.strategy_stats,
-            "agent_status": self.get_status()
+            "agent_status": self.get_status(),
         }

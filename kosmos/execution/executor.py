@@ -1,25 +1,26 @@
 """
 Code execution engine.
-from kosmos.utils.compat import model_to_dict
 
 Executes generated Python code safely with output capture, error handling, and retry logic.
 Supports both direct execution and Docker-based sandboxed execution.
 """
 
-import sys
 import io
-import traceback
-from contextlib import redirect_stdout, redirect_stderr
-from typing import Dict, Any, Optional
 import logging
 import time
-from datetime import datetime
+import traceback
+from contextlib import redirect_stderr, redirect_stdout
+from typing import Any
+
+from kosmos.utils.compat import model_to_dict
+
 
 logger = logging.getLogger(__name__)
 
 # Optional sandbox import
 try:
-    from kosmos.execution.sandbox import DockerSandbox, SandboxExecutionResult
+    from kosmos.execution.sandbox import DockerSandbox
+
     SANDBOX_AVAILABLE = True
 except ImportError:
     SANDBOX_AVAILABLE = False
@@ -35,10 +36,10 @@ class ExecutionResult:
         return_value: Any = None,
         stdout: str = "",
         stderr: str = "",
-        error: Optional[str] = None,
-        error_type: Optional[str] = None,
+        error: str | None = None,
+        error_type: str | None = None,
         execution_time: float = 0.0,
-        profile_result: Optional[Any] = None  # ProfileResult from kosmos.core.profiling
+        profile_result: Any | None = None,  # ProfileResult from kosmos.core.profiling
     ):
         self.success = success
         self.return_value = return_value
@@ -49,24 +50,24 @@ class ExecutionResult:
         self.execution_time = execution_time
         self.profile_result = profile_result
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         result = {
-            'success': self.success,
-            'return_value': self.return_value,
-            'stdout': self.stdout,
-            'stderr': self.stderr,
-            'error': self.error,
-            'error_type': self.error_type,
-            'execution_time': self.execution_time
+            "success": self.success,
+            "return_value": self.return_value,
+            "stdout": self.stdout,
+            "stderr": self.stderr,
+            "error": self.error,
+            "error_type": self.error_type,
+            "execution_time": self.execution_time,
         }
 
         # Include profile data if available
         if self.profile_result:
             try:
-                result['profile_data'] = model_to_dict(self.profile_result)
+                result["profile_data"] = model_to_dict(self.profile_result)
             except Exception:
-                result['profile_data'] = None
+                result["profile_data"] = None
 
         return result
 
@@ -87,11 +88,11 @@ class CodeExecutor:
         self,
         max_retries: int = 3,
         retry_delay: float = 1.0,
-        allowed_globals: Optional[Dict[str, Any]] = None,
+        allowed_globals: dict[str, Any] | None = None,
         use_sandbox: bool = False,
-        sandbox_config: Optional[Dict[str, Any]] = None,
+        sandbox_config: dict[str, Any] | None = None,
         enable_profiling: bool = False,
-        profiling_mode: str = "light"
+        profiling_mode: str = "light",
     ):
         """
         Initialize code executor.
@@ -117,16 +118,15 @@ class CodeExecutor:
         self.sandbox = None
         if self.use_sandbox:
             if not SANDBOX_AVAILABLE:
-                raise RuntimeError("Docker sandbox requested but not available. Install docker package.")
+                raise RuntimeError(
+                    "Docker sandbox requested but not available. Install docker package."
+                )
 
             self.sandbox = DockerSandbox(**self.sandbox_config)
             logger.info("Docker sandbox initialized for code execution")
 
     def execute(
-        self,
-        code: str,
-        local_vars: Optional[Dict[str, Any]] = None,
-        retry_on_error: bool = False
+        self, code: str, local_vars: dict[str, Any] | None = None, retry_on_error: bool = False
     ) -> ExecutionResult:
         """
         Execute Python code and capture results.
@@ -166,24 +166,16 @@ class CodeExecutor:
                 if retry_on_error and attempt < self.max_retries:
                     time.sleep(self.retry_delay)
                 else:
-                    return ExecutionResult(
-                        success=False,
-                        error=str(e),
-                        error_type=type(e).__name__
-                    )
+                    return ExecutionResult(success=False, error=str(e), error_type=type(e).__name__)
 
         # All retries failed
         return ExecutionResult(
             success=False,
             error=f"Failed after {self.max_retries} attempts. Last error: {last_error}",
-            error_type="MaxRetriesExceeded"
+            error_type="MaxRetriesExceeded",
         )
 
-    def _execute_once(
-        self,
-        code: str,
-        local_vars: Optional[Dict[str, Any]] = None
-    ) -> ExecutionResult:
+    def _execute_once(self, code: str, local_vars: dict[str, Any] | None = None) -> ExecutionResult:
         """Execute code once with output capture and optional profiling."""
 
         # Route to sandbox if enabled
@@ -196,6 +188,7 @@ class CodeExecutor:
         if self.enable_profiling:
             try:
                 from kosmos.core.profiling import ExecutionProfiler, ProfilingMode
+
                 mode = ProfilingMode(self.profiling_mode)
                 profiler = ExecutionProfiler(mode=mode)
             except Exception as e:
@@ -229,7 +222,7 @@ class CodeExecutor:
             execution_time = time.time() - start_time
 
             # Extract return value (look for 'results' variable)
-            return_value = exec_locals.get('results', exec_locals.get('result'))
+            return_value = exec_locals.get("results", exec_locals.get("result"))
 
             return ExecutionResult(
                 success=True,
@@ -237,7 +230,7 @@ class CodeExecutor:
                 stdout=stdout_capture.getvalue(),
                 stderr=stderr_capture.getvalue(),
                 execution_time=execution_time,
-                profile_result=profile_result
+                profile_result=profile_result,
             )
 
         except Exception as e:
@@ -263,23 +256,22 @@ class CodeExecutor:
                 error=str(e),
                 error_type=type(e).__name__,
                 execution_time=execution_time,
-                profile_result=profile_result
+                profile_result=profile_result,
             )
 
     def _execute_in_sandbox(
-        self,
-        code: str,
-        local_vars: Optional[Dict[str, Any]] = None
+        self, code: str, local_vars: dict[str, Any] | None = None
     ) -> ExecutionResult:
         """Execute code in Docker sandbox."""
         logger.info("Executing code in Docker sandbox")
 
         # Prepare data files if data_path provided
         data_files = {}
-        if local_vars and 'data_path' in local_vars:
-            data_path = local_vars['data_path']
+        if local_vars and "data_path" in local_vars:
+            data_path = local_vars["data_path"]
             # Extract filename from path
             import os
+
             filename = os.path.basename(data_path)
             data_files[filename] = data_path
 
@@ -297,24 +289,21 @@ class CodeExecutor:
             stderr=sandbox_result.stderr,
             error=sandbox_result.error,
             error_type=sandbox_result.error_type,
-            execution_time=sandbox_result.execution_time
+            execution_time=sandbox_result.execution_time,
         )
 
-    def _prepare_globals(self) -> Dict[str, Any]:
+    def _prepare_globals(self) -> dict[str, Any]:
         """Prepare global namespace for code execution."""
         # Start with allowed globals
         exec_globals = self.allowed_globals.copy()
 
         # Add standard builtins
-        exec_globals['__builtins__'] = __builtins__
+        exec_globals["__builtins__"] = __builtins__
 
         return exec_globals
 
     def execute_with_data(
-        self,
-        code: str,
-        data_path: str,
-        retry_on_error: bool = False
+        self, code: str, data_path: str, retry_on_error: bool = False
     ) -> ExecutionResult:
         """
         Execute code with data file path provided.
@@ -328,7 +317,7 @@ class CodeExecutor:
             ExecutionResult
         """
         # Inject data path into code
-        local_vars = {'data_path': data_path}
+        local_vars = {"data_path": data_path}
 
         return self.execute(code, local_vars, retry_on_error)
 
@@ -345,25 +334,35 @@ class CodeValidator:
 
     # Dangerous modules that should not be imported
     DANGEROUS_MODULES = [
-        'os', 'subprocess', 'sys', 'shutil', 'importlib',
-        'socket', 'urllib', 'requests', 'http',
-        '__import__', 'eval', 'exec', 'compile'
+        "os",
+        "subprocess",
+        "sys",
+        "shutil",
+        "importlib",
+        "socket",
+        "urllib",
+        "requests",
+        "http",
+        "__import__",
+        "eval",
+        "exec",
+        "compile",
     ]
 
     # Dangerous functions/operations
     DANGEROUS_PATTERNS = [
-        'open(',  # File operations (except specific allowed cases)
-        'eval(',
-        'exec(',
-        'compile(',
-        '__import__',
-        'globals(',
-        'locals(',
-        'vars(',
+        "open(",  # File operations (except specific allowed cases)
+        "eval(",
+        "exec(",
+        "compile(",
+        "__import__",
+        "globals(",
+        "locals(",
+        "vars(",
     ]
 
     @staticmethod
-    def validate(code: str, allow_file_read: bool = True) -> Dict[str, Any]:
+    def validate(code: str, allow_file_read: bool = True) -> dict[str, Any]:
         """
         Validate code for safety.
 
@@ -383,10 +382,11 @@ class CodeValidator:
         # Check syntax
         try:
             import ast
+
             ast.parse(code)
         except SyntaxError as e:
             errors.append(f"Syntax error: {e}")
-            return {'valid': False, 'errors': errors, 'warnings': warnings}
+            return {"valid": False, "errors": errors, "warnings": warnings}
 
         # Check for dangerous imports
         for module in CodeValidator.DANGEROUS_MODULES:
@@ -397,31 +397,29 @@ class CodeValidator:
         for pattern in CodeValidator.DANGEROUS_PATTERNS:
             if pattern in code:
                 # Special case: allow open() for reading if permitted
-                if pattern == 'open(' and allow_file_read:
+                if pattern == "open(" and allow_file_read:
                     # Check if it's read-only (contains "'r'" or no mode specified)
                     if "'w'" in code or "'a'" in code or "'x'" in code or "mode='w'" in code:
-                        errors.append(f"Dangerous operation detected: write mode file operations")
+                        errors.append("Dangerous operation detected: write mode file operations")
                     else:
                         warnings.append(f"File read operation detected: {pattern}")
                 else:
                     errors.append(f"Dangerous operation detected: {pattern}")
 
         # Check for network operations
-        network_keywords = ['socket', 'http', 'urllib', 'requests', 'api']
+        network_keywords = ["socket", "http", "urllib", "requests", "api"]
         for keyword in network_keywords:
             if keyword in code.lower():
                 warnings.append(f"Potential network operation detected: {keyword}")
 
         is_valid = len(errors) == 0
 
-        logger.info(f"Code validation: {'PASSED' if is_valid else 'FAILED'}, "
-                   f"{len(errors)} errors, {len(warnings)} warnings")
+        logger.info(
+            f"Code validation: {'PASSED' if is_valid else 'FAILED'}, "
+            f"{len(errors)} errors, {len(warnings)} warnings"
+        )
 
-        return {
-            'valid': is_valid,
-            'errors': errors,
-            'warnings': warnings
-        }
+        return {"valid": is_valid, "errors": errors, "warnings": warnings}
 
 
 class RetryStrategy:
@@ -451,11 +449,7 @@ class RetryStrategy:
             return False
 
         # Don't retry on certain errors
-        non_retryable_errors = [
-            'SyntaxError',
-            'ImportError',
-            'ModuleNotFoundError'
-        ]
+        non_retryable_errors = ["SyntaxError", "ImportError", "ModuleNotFoundError"]
 
         return error_type not in non_retryable_errors
 
@@ -463,12 +457,7 @@ class RetryStrategy:
         """Get delay for retry attempt (exponential backoff)."""
         return self.base_delay * (2 ** (attempt - 1))
 
-    def modify_code_for_retry(
-        self,
-        original_code: str,
-        error: str,
-        attempt: int
-    ) -> Optional[str]:
+    def modify_code_for_retry(self, original_code: str, error: str, attempt: int) -> str | None:
         """
         Modify code based on error for retry.
 
@@ -484,7 +473,7 @@ class RetryStrategy:
         modified_code = original_code
 
         # Add error handling for common issues
-        if 'KeyError' in error:
+        if "KeyError" in error:
             # Wrap in try-except
             modified_code = f"""try:
 {original_code}
@@ -493,7 +482,7 @@ except KeyError as e:
     results = {{'error': 'KeyError', 'details': str(e)}}
 """
 
-        elif 'FileNotFoundError' in error:
+        elif "FileNotFoundError" in error:
             # Add existence check
             modified_code = f"""import os
 if not os.path.exists('data.csv'):
@@ -513,12 +502,12 @@ else:
 
 def execute_protocol_code(
     code: str,
-    data_path: Optional[str] = None,
+    data_path: str | None = None,
     max_retries: int = 2,
     validate_safety: bool = True,
     use_sandbox: bool = False,
-    sandbox_config: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+    sandbox_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Convenience function to execute protocol code with full pipeline.
 
@@ -536,19 +525,17 @@ def execute_protocol_code(
     # Validate code if requested
     if validate_safety:
         validation = CodeValidator.validate(code, allow_file_read=True)
-        if not validation['valid']:
+        if not validation["valid"]:
             return {
-                'success': False,
-                'error': 'Code validation failed',
-                'validation_errors': validation['errors'],
-                'validation_warnings': validation['warnings']
+                "success": False,
+                "error": "Code validation failed",
+                "validation_errors": validation["errors"],
+                "validation_warnings": validation["warnings"],
             }
 
     # Execute code
     executor = CodeExecutor(
-        max_retries=max_retries,
-        use_sandbox=use_sandbox,
-        sandbox_config=sandbox_config or {}
+        max_retries=max_retries, use_sandbox=use_sandbox, sandbox_config=sandbox_config or {}
     )
 
     if data_path:
@@ -559,6 +546,6 @@ def execute_protocol_code(
     # Convert to dict and add validation info
     result_dict = result.to_dict()
     if validate_safety:
-        result_dict['validation_warnings'] = validation.get('warnings', [])
+        result_dict["validation_warnings"] = validation.get("warnings", [])
 
     return result_dict

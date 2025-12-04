@@ -1,4 +1,4 @@
-.PHONY: help install setup-neo4j setup-env start stop restart status verify clean test lint format docs docs-serve docs-clean docs-live docs-linkcheck docs-coverage install-all install-dev install-docs install-test
+.PHONY: help setup-env setup-neo4j start stop restart status verify clean test lint format docs docs-serve docs-clean docs-live docs-linkcheck docs-coverage hooks-install hooks-check hooks-fix hooks-fix-unsafe
 
 # Default target
 help:
@@ -7,68 +7,57 @@ help:
 	@echo "╚════════════════════════════════════════════════════════════╝"
 	@echo ""
 	@echo "Setup Commands:"
-	@echo "  make install        - Complete environment setup (Python, deps, config)"
-	@echo "  make setup-neo4j    - Setup and start Neo4j container"
-	@echo "  make setup-env      - Setup Python environment only"
+	@echo "  make setup-env        - Complete environment setup (Python, deps, config)"
+	@echo "  make setup-neo4j      - Setup and start Neo4j container"
 	@echo ""
 	@echo "Service Management:"
-	@echo "  make start          - Start all services (dev profile)"
-	@echo "  make start-prod     - Start all services (production profile)"
-	@echo "  make stop           - Stop all services"
-	@echo "  make restart        - Restart all services"
-	@echo "  make status         - Show status of all containers"
+	@echo "  make start            - Start all services (dev profile)"
+	@echo "  make start-prod       - Start all services (production profile)"
+	@echo "  make stop             - Stop all services"
+	@echo "  make restart          - Restart all services"
+	@echo "  make status           - Show status of all containers"
 	@echo ""
 	@echo "Development:"
-	@echo "  make verify         - Run deployment verification checks"
-	@echo "  make test           - Run test suite"
-	@echo "  make test-unit      - Run unit tests only"
-	@echo "  make test-int       - Run integration tests (requires services)"
-	@echo "  make lint           - Run code linters"
-	@echo "  make format         - Format code with black/isort"
+	@echo "  make verify           - Run deployment verification checks"
+	@echo "  make test             - Run full test suite"
+	@echo "  make test-unit        - Run unit tests only"
+	@echo "  make test-int         - Run integration tests only (requires services)"
+	@echo "  make lint             - Run code linters"
+	@echo "  make format           - Format code"
+	@echo ""
+	@echo "Git Hooks:"
+	@echo "  make hooks-install    - Install git pre-commit and pre-push hooks"
+	@echo "  make hooks-check      - Run pre-commit in check-only mode (no auto-fixes)"
+	@echo "  make hooks-fix        - Run pre-commit with safe fixes"
+	@echo "  make hooks-fix-unsafe - Run pre-commit with unsafe fixes (may change semantics)"
 	@echo ""
 	@echo "Maintenance:"
-	@echo "  make clean          - Remove caches and temporary files"
-	@echo "  make clean-all      - Remove caches, temp files, and .venv"
-	@echo "  make logs           - View logs from all services"
-	@echo "  make logs-neo4j     - View Neo4j logs only"
+	@echo "  make clean            - Remove caches and temporary files"
+	@echo "  make clean-all        - Remove caches, temp files, and .venv"
+	@echo "  make logs             - View logs from all services"
+	@echo "  make logs-neo4j       - View Neo4j logs only"
 	@echo ""
 	@echo "Database:"
-	@echo "  make db-migrate     - Run database migrations"
-	@echo "  make db-reset       - Reset database (DESTRUCTIVE)"
+	@echo "  make db-migrate       - Run database migrations"
+	@echo "  make db-reset         - Reset database (WARNING: destructive operation)"
 	@echo ""
 	@echo "Quick Start:"
-	@echo "  1. make install         # Setup environment"
-	@echo "  2. make start           # Start services"
-	@echo "  3. make verify          # Verify everything works"
+	@echo "  1. make setup-env     - Setup environment"
+	@echo "  2. make start         - Start services"
+	@echo "  3. make verify        - Verify everything works"
 	@echo ""
 
 #==============================================================================
 # Setup Targets
 #==============================================================================
 
-install:
+setup-env:
 	@echo "📦 Setting up Kosmos development environment..."
 	@./scripts/setup_environment.sh $(EXTRAS)
-
-install-all:
-	@$(MAKE) install EXTRAS=all
-
-install-dev:
-	@$(MAKE) install EXTRAS=dev
-
-install-docs:
-	@$(MAKE) install EXTRAS=docs
-
-install-test:
-	@$(MAKE) install EXTRAS=test
 
 setup-neo4j:
 	@echo "🔷 Setting up Neo4j..."
 	@./scripts/setup_neo4j.sh
-
-setup-env:
-	@echo "🐍 Setting up Python environment..."
-	@./scripts/setup_environment.sh
 
 #==============================================================================
 # Service Management
@@ -144,6 +133,81 @@ format:
 	@echo "Running isort..."
 	@isort kosmos/ tests/
 	@echo "✓ Code formatted"
+
+# Install and run git hooks (pre-commit)
+hooks-install:
+	@echo "🔗 Installing pre-commit hooks..."
+	@if [ -x .venv/bin/pre-commit ]; then \
+		.venv/bin/pre-commit install --install-hooks --hook-type pre-commit --hook-type pre-push; \
+	elif command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit install --install-hooks --hook-type pre-commit --hook-type pre-push; \
+	else \
+		echo "pre-commit not found. Install with: python -m pip install pre-commit"; exit 1; \
+	fi
+
+# Run checks without applying fixes. Uses tools in check mode to avoid any
+# automatic modification of files.
+# Note: Excludes kosmos-claude-scientific-skills/ as it's a separate project
+hooks-check:
+	@echo "▶ Running linters in check-only mode (no automatic fixes)"
+	@echo "Running ruff (check, includes import sorting)..."
+	@if [ -x .venv/bin/ruff ]; then \
+		.venv/bin/ruff check kosmos/ tests/ examples/ || exit $$?; \
+	elif command -v ruff >/dev/null 2>&1; then \
+		ruff check kosmos/ tests/ examples/ || exit $$?; \
+	else \
+		echo "ruff not found. Install with: python -m pip install ruff"; exit 1; \
+	fi
+	@echo "Running black (check)..."
+	@if [ -x .venv/bin/black ]; then \
+		.venv/bin/black --check kosmos/ tests/ examples/ || exit $$?; \
+	elif command -v black >/dev/null 2>&1; then \
+		black --check kosmos/ tests/ examples/ || exit $$?; \
+	else \
+		echo "black not found. Install with: python -m pip install black"; exit 1; \
+	fi
+	@echo "✓ All checks passed"
+
+# Run pre-commit to apply configured fixes (safe fixes per hook config).
+hooks-fix:
+	@echo "▶ Running pre-commit hooks and applying configured fixes..."
+	@if [ -x .venv/bin/pre-commit ]; then \
+		.venv/bin/pre-commit run --all-files || true; \
+	elif command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit run --all-files || true; \
+	else \
+		echo "pre-commit not found. Install with: python -m pip install pre-commit"; exit 1; \
+	fi
+	@echo "If files were modified by hooks, review with 'git status' and commit the changes."
+
+# Run ruff with unsafe fixes (may change semantics). Use with care.
+# Runs ruff with --fix and --unsafe-fixes, then formats with black.
+hooks-fix-unsafe:
+	@echo "▶ Running ruff check --fix --unsafe-fixes (may be unsafe - review changes)"
+	@if [ -x .venv/bin/ruff ]; then \
+		.venv/bin/ruff check --fix --unsafe-fixes kosmos/ tests/ || true; \
+	elif command -v ruff >/dev/null 2>&1; then \
+		ruff check --fix --unsafe-fixes kosmos/ tests/ || true; \
+	else \
+		echo "ruff not found in venv or PATH. Install with: python -m pip install ruff"; exit 1; \
+	fi
+	@echo "▶ Running black to format after ruff fixes"
+	@if [ -x .venv/bin/black ]; then \
+		.venv/bin/black kosmos/ tests/ || true; \
+	elif command -v black >/dev/null 2>&1; then \
+		black kosmos/ tests/ || true; \
+	else \
+		echo "black not found; skipping."; \
+	fi
+	@echo "▶ Running ruff check --fix one more time to fix any new issues"
+	@if [ -x .venv/bin/ruff ]; then \
+		.venv/bin/ruff check --fix kosmos/ tests/ || true; \
+	elif command -v ruff >/dev/null 2>&1; then \
+		ruff check --fix kosmos/ tests/ || true; \
+	else \
+		echo "ruff not found; skipping final pass."; \
+	fi
+	@echo "Done. Review changes with 'git status' and commit the modifications if acceptable."
 
 #==============================================================================
 # Logs

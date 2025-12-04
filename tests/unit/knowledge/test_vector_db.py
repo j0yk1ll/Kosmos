@@ -2,9 +2,10 @@
 Tests for kosmos.knowledge.vector_db module.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
+
 import numpy as np
+import pytest
 
 from kosmos.knowledge.vector_db import PaperVectorDB
 from kosmos.literature.base_client import PaperMetadata, PaperSource
@@ -13,8 +14,8 @@ from kosmos.literature.base_client import PaperMetadata, PaperSource
 @pytest.fixture
 def vector_db():
     """Create PaperVectorDB instance with mocked ChromaDB."""
-    with patch('kosmos.knowledge.vector_db.chromadb'):
-        with patch('kosmos.knowledge.vector_db.get_embedder') as mock_embedder:
+    with patch("kosmos.knowledge.vector_db.chromadb"):
+        with patch("kosmos.knowledge.vector_db.get_embedder") as mock_embedder:
             mock_embedder.return_value = Mock()
             mock_embedder.return_value.embed_papers.return_value = np.array([[0.1] * 768])
             mock_embedder.return_value.embed_query.return_value = np.array([0.1] * 768)
@@ -28,16 +29,16 @@ def vector_db():
 class TestPaperVectorDBInit:
     """Test paper vector database initialization."""
 
-    @patch('kosmos.knowledge.vector_db.chromadb')
-    @patch('kosmos.knowledge.vector_db.get_embedder')
+    @patch("kosmos.knowledge.vector_db.chromadb")
+    @patch("kosmos.knowledge.vector_db.get_embedder")
     def test_init_default(self, mock_embedder, mock_chromadb):
         """Test default initialization."""
         mock_embedder.return_value = Mock()
         db = PaperVectorDB(persist_directory="/tmp/test")
         assert db.collection_name == "papers"
 
-    @patch('kosmos.knowledge.vector_db.chromadb')
-    @patch('kosmos.knowledge.vector_db.get_embedder')
+    @patch("kosmos.knowledge.vector_db.chromadb")
+    @patch("kosmos.knowledge.vector_db.get_embedder")
     def test_init_custom_collection(self, mock_embedder, mock_chromadb):
         """Test initialization with custom collection name."""
         mock_embedder.return_value = Mock()
@@ -51,7 +52,7 @@ class TestPaperVectorDBAdd:
 
     def test_add_paper(self, vector_db, sample_paper_metadata):
         """Test adding a single paper."""
-        with patch.object(vector_db, 'embedder') as mock_emb:
+        with patch.object(vector_db, "embedder") as mock_emb:
             mock_emb.embed_papers.return_value = np.array([[0.1] * 768])
 
             vector_db.add_paper(sample_paper_metadata)
@@ -60,10 +61,8 @@ class TestPaperVectorDBAdd:
 
     def test_add_papers_batch(self, vector_db, sample_papers_list):
         """Test adding multiple papers in batch."""
-        with patch.object(vector_db, 'embedder') as mock_emb:
-            mock_emb.embed_papers.return_value = np.array([
-                [0.1] * 768 for _ in sample_papers_list
-            ])
+        with patch.object(vector_db, "embedder") as mock_emb:
+            mock_emb.embed_papers.return_value = np.array([[0.1] * 768 for _ in sample_papers_list])
 
             vector_db.add_papers(sample_papers_list)
 
@@ -77,10 +76,10 @@ class TestPaperVectorDBAdd:
             title="Test",
             authors=[],
             abstract="",
-            year=2023
+            year=2023,
         )
 
-        with patch.object(vector_db, 'embedder') as mock_emb:
+        with patch.object(vector_db, "embedder") as mock_emb:
             mock_emb.embed_papers.return_value = np.array([[0.1] * 768])
 
             vector_db.add_paper(paper)
@@ -97,15 +96,17 @@ class TestPaperVectorDBSearch:
         mock_results = {
             "ids": [["id1", "id2"]],
             "distances": [[0.1, 0.2]],
-            "metadatas": [[
-                {"title": "Paper 1", "paper_id": "id1"},
-                {"title": "Paper 2", "paper_id": "id2"},
-            ]],
+            "metadatas": [
+                [
+                    {"title": "Paper 1", "paper_id": "id1"},
+                    {"title": "Paper 2", "paper_id": "id2"},
+                ]
+            ],
             "documents": [["doc1", "doc2"]],
         }
         vector_db.collection.query.return_value = mock_results
 
-        with patch.object(vector_db, 'embedder') as mock_emb:
+        with patch.object(vector_db, "embedder") as mock_emb:
             mock_emb.embed_query.return_value = np.array([0.1] * 768)
 
             results = vector_db.search("test query", top_k=2)
@@ -123,7 +124,7 @@ class TestPaperVectorDBSearch:
         }
         vector_db.collection.query.return_value = mock_results
 
-        with patch.object(vector_db, 'embedder') as mock_emb:
+        with patch.object(vector_db, "embedder") as mock_emb:
             mock_emb.embed_paper.return_value = np.array([0.1] * 768)
 
             results = vector_db.search_by_paper(sample_paper_metadata, top_k=5)
@@ -140,7 +141,7 @@ class TestPaperVectorDBSearch:
             "documents": [[]],
         }
 
-        with patch.object(vector_db, 'embedder') as mock_emb:
+        with patch.object(vector_db, "embedder") as mock_emb:
             mock_emb.embed_query.return_value = np.array([0.1] * 768)
 
             results = vector_db.search("nonexistent query")

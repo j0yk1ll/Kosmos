@@ -4,18 +4,18 @@ Visual regression tests for publication visualizations.
 Tests that visualizations maintain consistent formatting and quality.
 """
 
-import pytest
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-import tempfile
-import hashlib
 import os
+import tempfile
 
-from kosmos.analysis.visualization import PublicationVisualizer, COLORS
+import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+
+from kosmos.analysis.visualization import COLORS, PublicationVisualizer
 
 
 # Fixtures
+
 
 @pytest.fixture
 def visualizer():
@@ -35,14 +35,15 @@ def deterministic_data():
     """Create deterministic data for consistent visual output."""
     np.random.seed(42)
     return {
-        'x': np.linspace(0, 10, 50),
-        'y': 2 * np.linspace(0, 10, 50) + np.random.randn(50) * 0.5,
-        'log2fc': np.random.randn(100),
-        'p_values': 10 ** (-np.random.rand(100) * 5)
+        "x": np.linspace(0, 10, 50),
+        "y": 2 * np.linspace(0, 10, 50) + np.random.randn(50) * 0.5,
+        "log2fc": np.random.randn(100),
+        "p_values": 10 ** (-np.random.rand(100) * 5),
     }
 
 
 # Visual Consistency Tests
+
 
 class TestVisualConsistency:
     """Tests for consistent visual output."""
@@ -54,21 +55,21 @@ class TestVisualConsistency:
 
         # Generate same plot twice
         visualizer.scatter_with_regression(
-            x=deterministic_data['x'],
-            y=deterministic_data['y'],
+            x=deterministic_data["x"],
+            y=deterministic_data["y"],
             x_label="X",
             y_label="Y",
             title="Consistency Test",
-            output_path=output_path1
+            output_path=output_path1,
         )
 
         visualizer.scatter_with_regression(
-            x=deterministic_data['x'],
-            y=deterministic_data['y'],
+            x=deterministic_data["x"],
+            y=deterministic_data["y"],
             x_label="X",
             y_label="Y",
             title="Consistency Test",
-            output_path=output_path2
+            output_path=output_path2,
         )
 
         # Files should be identical (or very similar due to matplotlib rendering)
@@ -90,9 +91,9 @@ class TestVisualConsistency:
         # Generate same plot twice
         for output_path in [output_path1, output_path2]:
             visualizer.volcano_plot(
-                log2fc=deterministic_data['log2fc'],
-                p_values=deterministic_data['p_values'],
-                output_path=output_path
+                log2fc=deterministic_data["log2fc"],
+                p_values=deterministic_data["p_values"],
+                output_path=output_path,
             )
 
         assert os.path.exists(output_path1)
@@ -106,6 +107,7 @@ class TestVisualConsistency:
 
 # Formatting Preservation Tests
 
+
 class TestFormattingPreservation:
     """Tests that formatting standards are preserved across plots."""
 
@@ -115,24 +117,27 @@ class TestFormattingPreservation:
         # For now, we verify plots generate without error
         np.random.seed(42)
 
-        data_dict = {
-            'Group A': np.random.randn(30),
-            'Group B': np.random.randn(30)
-        }
+        data_dict = {"Group A": np.random.randn(30), "Group B": np.random.randn(30)}
 
         plots = [
-            ('box', lambda: visualizer.box_plot_with_points(
-                data=data_dict,
-                output_path=os.path.join(temp_output_dir, "box.png")
-            )),
-            ('violin', lambda: visualizer.violin_plot(
-                data=data_dict,
-                output_path=os.path.join(temp_output_dir, "violin.png")
-            )),
-            ('qq', lambda: visualizer.qq_plot(
-                data=np.random.randn(100),
-                output_path=os.path.join(temp_output_dir, "qq.png")
-            ))
+            (
+                "box",
+                lambda: visualizer.box_plot_with_points(
+                    data=data_dict, output_path=os.path.join(temp_output_dir, "box.png")
+                ),
+            ),
+            (
+                "violin",
+                lambda: visualizer.violin_plot(
+                    data=data_dict, output_path=os.path.join(temp_output_dir, "violin.png")
+                ),
+            ),
+            (
+                "qq",
+                lambda: visualizer.qq_plot(
+                    data=np.random.randn(100), output_path=os.path.join(temp_output_dir, "qq.png")
+                ),
+            ),
         ]
 
         for name, plot_func in plots:
@@ -145,12 +150,12 @@ class TestFormattingPreservation:
         # Standard plots use DPI 300
         standard_path = os.path.join(temp_output_dir, "standard_dpi.png")
         visualizer.scatter_with_regression(
-            x=deterministic_data['x'],
-            y=deterministic_data['y'],
+            x=deterministic_data["x"],
+            y=deterministic_data["y"],
             x_label="X",
             y_label="Y",
             title="Standard DPI",
-            output_path=standard_path
+            output_path=standard_path,
         )
 
         # Panel plots use DPI 600
@@ -161,7 +166,7 @@ class TestFormattingPreservation:
             x_label="X",
             y_label="Y",
             title="Panel DPI",
-            output_path=panel_path
+            output_path=panel_path,
         )
 
         # Panel plots should be larger files due to DPI 600
@@ -175,17 +180,18 @@ class TestFormattingPreservation:
 
 # Color Scheme Tests
 
+
 class TestColorScheme:
     """Tests that color scheme is consistent."""
 
     def test_color_constants_match_expected(self):
         """Test color constants match expected palette."""
-        assert COLORS['red'] == '#d7191c'
-        assert COLORS['blue'] == '#0072B2'
-        assert COLORS['blue_dark'] == '#2c7bb6'
-        assert COLORS['neutral'] == '#abd9e9'
-        assert COLORS['gray'] == '#808080'
-        assert COLORS['black'] == '#000000'
+        assert COLORS["red"] == "#d7191c"
+        assert COLORS["blue"] == "#0072B2"
+        assert COLORS["blue_dark"] == "#2c7bb6"
+        assert COLORS["neutral"] == "#abd9e9"
+        assert COLORS["gray"] == "#808080"
+        assert COLORS["black"] == "#000000"
 
     def test_plots_use_defined_colors(self, visualizer, temp_output_dir, deterministic_data):
         """Test plots use colors from COLORS dictionary."""
@@ -193,18 +199,18 @@ class TestColorScheme:
         # Actual color usage would require image analysis
 
         visualizer.volcano_plot(
-            log2fc=deterministic_data['log2fc'],
-            p_values=deterministic_data['p_values'],
-            output_path=os.path.join(temp_output_dir, "volcano_colors.png")
+            log2fc=deterministic_data["log2fc"],
+            p_values=deterministic_data["p_values"],
+            output_path=os.path.join(temp_output_dir, "volcano_colors.png"),
         )
 
         visualizer.scatter_with_regression(
-            x=deterministic_data['x'],
-            y=deterministic_data['y'],
+            x=deterministic_data["x"],
+            y=deterministic_data["y"],
             x_label="X",
             y_label="Y",
             title="Scatter Colors",
-            output_path=os.path.join(temp_output_dir, "scatter_colors.png")
+            output_path=os.path.join(temp_output_dir, "scatter_colors.png"),
         )
 
         # Both should generate successfully
@@ -214,35 +220,37 @@ class TestColorScheme:
 
 # Matplotlib rcParams Tests
 
+
 class TestMatplotlibConfig:
     """Tests that matplotlib configuration is correct."""
 
     def test_rcparams_set_on_init(self, visualizer):
         """Test rcParams are set when visualizer initializes."""
         # These should be set by __init__
-        assert plt.rcParams['font.family'] == ['Arial']
-        assert plt.rcParams['pdf.fonttype'] == 42
-        assert plt.rcParams['ps.fonttype'] == 42
+        assert plt.rcParams["font.family"] == ["Arial"]
+        assert plt.rcParams["pdf.fonttype"] == 42
+        assert plt.rcParams["ps.fonttype"] == 42
 
     def test_rcparams_persist_across_plots(self, visualizer, temp_output_dir, deterministic_data):
         """Test rcParams persist across multiple plot generations."""
         # Generate multiple plots
         for i in range(3):
             visualizer.scatter_with_regression(
-                x=deterministic_data['x'],
-                y=deterministic_data['y'],
+                x=deterministic_data["x"],
+                y=deterministic_data["y"],
                 x_label="X",
                 y_label="Y",
                 title=f"Plot {i}",
-                output_path=os.path.join(temp_output_dir, f"plot_{i}.png")
+                output_path=os.path.join(temp_output_dir, f"plot_{i}.png"),
             )
 
             # Check rcParams still set
-            assert plt.rcParams['font.family'] == ['Arial']
-            assert plt.rcParams['pdf.fonttype'] == 42
+            assert plt.rcParams["font.family"] == ["Arial"]
+            assert plt.rcParams["pdf.fonttype"] == 42
 
 
 # File Output Tests
+
 
 class TestFileOutput:
     """Tests for file output quality and format."""
@@ -252,41 +260,44 @@ class TestFileOutput:
         np.random.seed(42)
 
         plots_to_test = {
-            'volcano': lambda: visualizer.volcano_plot(
+            "volcano": lambda: visualizer.volcano_plot(
                 np.random.randn(50),
                 10 ** (-np.random.rand(50) * 5),
-                output_path=os.path.join(temp_output_dir, "volcano.png")
+                output_path=os.path.join(temp_output_dir, "volcano.png"),
             ),
-            'heatmap': lambda: visualizer.custom_heatmap(
+            "heatmap": lambda: visualizer.custom_heatmap(
                 np.random.randn(5, 5),
-                [f'R{i}' for i in range(5)],
-                [f'C{i}' for i in range(5)],
-                output_path=os.path.join(temp_output_dir, "heatmap.png")
+                [f"R{i}" for i in range(5)],
+                [f"C{i}" for i in range(5)],
+                output_path=os.path.join(temp_output_dir, "heatmap.png"),
             ),
-            'scatter': lambda: visualizer.scatter_with_regression(
+            "scatter": lambda: visualizer.scatter_with_regression(
                 np.random.randn(50),
                 np.random.randn(50),
-                "X", "Y", "Scatter",
-                output_path=os.path.join(temp_output_dir, "scatter.png")
+                "X",
+                "Y",
+                "Scatter",
+                output_path=os.path.join(temp_output_dir, "scatter.png"),
             ),
-            'loglog': lambda: visualizer.log_log_plot(
+            "loglog": lambda: visualizer.log_log_plot(
                 10 ** np.linspace(0, 3, 50),
                 10 ** np.linspace(0, 3, 50) * 2,
-                "X", "Y", "Log-Log",
-                output_path=os.path.join(temp_output_dir, "loglog.png")
+                "X",
+                "Y",
+                "Log-Log",
+                output_path=os.path.join(temp_output_dir, "loglog.png"),
             ),
-            'box': lambda: visualizer.box_plot_with_points(
-                {'A': np.random.randn(30), 'B': np.random.randn(30)},
-                output_path=os.path.join(temp_output_dir, "box.png")
+            "box": lambda: visualizer.box_plot_with_points(
+                {"A": np.random.randn(30), "B": np.random.randn(30)},
+                output_path=os.path.join(temp_output_dir, "box.png"),
             ),
-            'violin': lambda: visualizer.violin_plot(
-                {'A': np.random.randn(30), 'B': np.random.randn(30)},
-                output_path=os.path.join(temp_output_dir, "violin.png")
+            "violin": lambda: visualizer.violin_plot(
+                {"A": np.random.randn(30), "B": np.random.randn(30)},
+                output_path=os.path.join(temp_output_dir, "violin.png"),
             ),
-            'qq': lambda: visualizer.qq_plot(
-                np.random.randn(100),
-                output_path=os.path.join(temp_output_dir, "qq.png")
-            )
+            "qq": lambda: visualizer.qq_plot(
+                np.random.randn(100), output_path=os.path.join(temp_output_dir, "qq.png")
+            ),
         }
 
         for name, plot_func in plots_to_test.items():
@@ -300,21 +311,21 @@ class TestFileOutput:
         output_path = os.path.join(temp_output_dir, "format_test.png")
 
         visualizer.scatter_with_regression(
-            x=deterministic_data['x'],
-            y=deterministic_data['y'],
+            x=deterministic_data["x"],
+            y=deterministic_data["y"],
             x_label="X",
             y_label="Y",
             title="Format Test",
-            output_path=output_path
+            output_path=output_path,
         )
 
         # Check file exists and has PNG signature
         assert os.path.exists(output_path)
 
-        with open(output_path, 'rb') as f:
+        with open(output_path, "rb") as f:
             header = f.read(8)
             # PNG signature: 89 50 4E 47 0D 0A 1A 0A
-            assert header[:4] == b'\x89PNG'
+            assert header[:4] == b"\x89PNG"
 
 
 if __name__ == "__main__":

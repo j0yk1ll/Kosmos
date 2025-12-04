@@ -5,14 +5,14 @@ These tests validate task dispatch, agent coordination, message passing,
 and action execution for the Research Director orchestrator.
 """
 
-import pytest
-from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock, call
-from typing import Dict, Any
+from unittest.mock import Mock, patch
 
-from kosmos.core.workflow import WorkflowState, NextAction
-from kosmos.agents.research_director import ResearchDirectorAgent
+import pytest
+
 from kosmos.agents.base import AgentMessage, MessageType
+from kosmos.agents.research_director import ResearchDirectorAgent
+from kosmos.core.workflow import NextAction, WorkflowState
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -29,8 +29,8 @@ class TestREQ_ORCH_TASK_001_DecisionMaking:
     to determine the next action based on workflow state and research plan.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_decide_next_action_exists(self, mock_wm, mock_llm):
         """Verify decide_next_action method exists and is callable."""
         mock_llm.return_value = Mock()
@@ -38,11 +38,11 @@ class TestREQ_ORCH_TASK_001_DecisionMaking:
 
         director = ResearchDirectorAgent(research_question="Test")
 
-        assert hasattr(director, 'decide_next_action')
+        assert hasattr(director, "decide_next_action")
         assert callable(director.decide_next_action)
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_decide_generate_hypothesis_when_no_hypotheses(self, mock_wm, mock_llm):
         """Verify decision to generate hypotheses when pool is empty."""
         mock_llm.return_value = Mock()
@@ -55,8 +55,8 @@ class TestREQ_ORCH_TASK_001_DecisionMaking:
 
         assert action == NextAction.GENERATE_HYPOTHESIS
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_decide_design_experiment_when_untested_hypotheses(self, mock_wm, mock_llm):
         """Verify decision to design experiments when hypotheses are untested."""
         mock_llm.return_value = Mock()
@@ -72,8 +72,8 @@ class TestREQ_ORCH_TASK_001_DecisionMaking:
 
         assert action == NextAction.DESIGN_EXPERIMENT
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_decide_execute_when_experiments_queued(self, mock_wm, mock_llm):
         """Verify decision to execute experiments when queue is not empty."""
         mock_llm.return_value = Mock()
@@ -89,8 +89,8 @@ class TestREQ_ORCH_TASK_001_DecisionMaking:
 
         assert action == NextAction.EXECUTE_EXPERIMENT
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_decide_analyze_when_in_analyzing_state(self, mock_wm, mock_llm):
         """Verify decision to analyze results when in ANALYZING state."""
         mock_llm.return_value = Mock()
@@ -106,8 +106,8 @@ class TestREQ_ORCH_TASK_001_DecisionMaking:
 
         assert action == NextAction.ANALYZE_RESULT
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_decide_refine_when_in_refining_state(self, mock_wm, mock_llm):
         """Verify decision to refine hypotheses when in REFINING state."""
         mock_llm.return_value = Mock()
@@ -128,8 +128,8 @@ class TestREQ_ORCH_TASK_001_DecisionMaking:
 
         assert action == NextAction.REFINE_HYPOTHESIS
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_decide_converge_when_iteration_limit_reached(self, mock_wm, mock_llm):
         """Verify decision to converge when iteration limit is reached."""
         mock_llm.return_value = Mock()
@@ -154,8 +154,8 @@ class TestREQ_ORCH_TASK_002_AgentMessageDispatch:
     using message-based coordination.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_send_to_hypothesis_generator(self, mock_wm, mock_llm):
         """Verify director can send messages to HypothesisGeneratorAgent."""
         mock_llm.return_value = Mock()
@@ -171,8 +171,8 @@ class TestREQ_ORCH_TASK_002_AgentMessageDispatch:
         assert message.content["action"] == "generate"
         assert message.content["research_question"] == "Test"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_send_to_experiment_designer(self, mock_wm, mock_llm):
         """Verify director can send messages to ExperimentDesignerAgent."""
         mock_llm.return_value = Mock()
@@ -188,8 +188,8 @@ class TestREQ_ORCH_TASK_002_AgentMessageDispatch:
         assert message.content["action"] == "design_experiment"
         assert message.content["hypothesis_id"] == "hyp1"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_send_to_executor(self, mock_wm, mock_llm):
         """Verify director can send messages to Executor."""
         mock_llm.return_value = Mock()
@@ -205,8 +205,8 @@ class TestREQ_ORCH_TASK_002_AgentMessageDispatch:
         assert message.content["action"] == "execute_experiment"
         assert message.content["protocol_id"] == "exp1"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_send_to_data_analyst(self, mock_wm, mock_llm):
         """Verify director can send messages to DataAnalystAgent."""
         mock_llm.return_value = Mock()
@@ -223,8 +223,8 @@ class TestREQ_ORCH_TASK_002_AgentMessageDispatch:
         assert message.content["result_id"] == "res1"
         assert message.content["hypothesis_id"] == "hyp1"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_send_to_hypothesis_refiner(self, mock_wm, mock_llm):
         """Verify director can send messages to HypothesisRefiner."""
         mock_llm.return_value = Mock()
@@ -240,8 +240,8 @@ class TestREQ_ORCH_TASK_002_AgentMessageDispatch:
         assert message.content["action"] == "evaluate"
         assert message.content["hypothesis_id"] == "hyp1"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_send_to_convergence_detector(self, mock_wm, mock_llm):
         """Verify director can send messages to ConvergenceDetector."""
         mock_llm.return_value = Mock()
@@ -257,8 +257,8 @@ class TestREQ_ORCH_TASK_002_AgentMessageDispatch:
         assert message.content["action"] == "check_convergence"
         assert "research_plan" in message.content
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_pending_requests_tracked(self, mock_wm, mock_llm):
         """Verify pending requests are tracked with correlation IDs."""
         mock_llm.return_value = Mock()
@@ -284,8 +284,8 @@ class TestREQ_ORCH_TASK_003_MessageHandling:
     from agents and route them to appropriate handlers.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_process_message_routes_to_handlers(self, mock_wm, mock_llm):
         """Verify messages are routed to correct handlers based on agent type."""
         mock_llm.return_value = Mock()
@@ -299,15 +299,15 @@ class TestREQ_ORCH_TASK_003_MessageHandling:
             to_agent=director.agent_id,
             type=MessageType.RESPONSE,
             content={"hypothesis_ids": ["hyp1"], "count": 1},
-            metadata={"agent_type": "HypothesisGeneratorAgent"}
+            metadata={"agent_type": "HypothesisGeneratorAgent"},
         )
 
-        with patch.object(director, '_handle_hypothesis_generator_response') as mock_handler:
+        with patch.object(director, "_handle_hypothesis_generator_response") as mock_handler:
             director.process_message(message)
             mock_handler.assert_called_once_with(message)
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_handle_hypothesis_generator_response(self, mock_wm, mock_llm):
         """Verify hypothesis generator responses are handled correctly."""
         mock_llm.return_value = Mock()
@@ -320,10 +320,10 @@ class TestREQ_ORCH_TASK_003_MessageHandling:
             to_agent=director.agent_id,
             type=MessageType.RESPONSE,
             content={"hypothesis_ids": ["hyp1", "hyp2"], "count": 2},
-            metadata={"agent_type": "HypothesisGeneratorAgent"}
+            metadata={"agent_type": "HypothesisGeneratorAgent"},
         )
 
-        with patch.object(director, '_persist_hypothesis_to_graph'):
+        with patch.object(director, "_persist_hypothesis_to_graph"):
             director._handle_hypothesis_generator_response(message)
 
         # Verify hypotheses added to research plan
@@ -331,8 +331,8 @@ class TestREQ_ORCH_TASK_003_MessageHandling:
         assert "hyp1" in director.research_plan.hypothesis_pool
         assert "hyp2" in director.research_plan.hypothesis_pool
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_handle_experiment_designer_response(self, mock_wm, mock_llm):
         """Verify experiment designer responses are handled correctly."""
         mock_llm.return_value = Mock()
@@ -345,17 +345,17 @@ class TestREQ_ORCH_TASK_003_MessageHandling:
             to_agent=director.agent_id,
             type=MessageType.RESPONSE,
             content={"protocol_id": "exp1", "hypothesis_id": "hyp1"},
-            metadata={"agent_type": "ExperimentDesignerAgent"}
+            metadata={"agent_type": "ExperimentDesignerAgent"},
         )
 
-        with patch.object(director, '_persist_protocol_to_graph'):
+        with patch.object(director, "_persist_protocol_to_graph"):
             director._handle_experiment_designer_response(message)
 
         # Verify experiment added to queue
         assert "exp1" in director.research_plan.experiment_queue
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_handle_executor_response(self, mock_wm, mock_llm):
         """Verify executor responses are handled correctly."""
         mock_llm.return_value = Mock()
@@ -372,12 +372,12 @@ class TestREQ_ORCH_TASK_003_MessageHandling:
                 "result_id": "res1",
                 "protocol_id": "exp1",
                 "hypothesis_id": "hyp1",
-                "status": "SUCCESS"
+                "status": "SUCCESS",
             },
-            metadata={"agent_type": "Executor"}
+            metadata={"agent_type": "Executor"},
         )
 
-        with patch.object(director, '_persist_result_to_graph'):
+        with patch.object(director, "_persist_result_to_graph"):
             director._handle_executor_response(message)
 
         # Verify result added and experiment completed
@@ -385,8 +385,8 @@ class TestREQ_ORCH_TASK_003_MessageHandling:
         assert "exp1" in director.research_plan.completed_experiments
         assert "exp1" not in director.research_plan.experiment_queue
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_handle_data_analyst_response(self, mock_wm, mock_llm):
         """Verify data analyst responses are handled correctly."""
         mock_llm.return_value = Mock()
@@ -403,19 +403,19 @@ class TestREQ_ORCH_TASK_003_MessageHandling:
                 "result_id": "res1",
                 "hypothesis_id": "hyp1",
                 "hypothesis_supported": True,
-                "confidence": 0.85
+                "confidence": 0.85,
             },
-            metadata={"agent_type": "DataAnalystAgent"}
+            metadata={"agent_type": "DataAnalystAgent"},
         )
 
-        with patch.object(director, '_add_support_relationship'):
+        with patch.object(director, "_add_support_relationship"):
             director._handle_data_analyst_response(message)
 
         # Verify hypothesis marked as supported
         assert "hyp1" in director.research_plan.supported_hypotheses
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_handle_error_messages(self, mock_wm, mock_llm):
         """Verify error messages are handled without crashing."""
         mock_llm.return_value = Mock()
@@ -428,7 +428,7 @@ class TestREQ_ORCH_TASK_003_MessageHandling:
             to_agent=director.agent_id,
             type=MessageType.ERROR,
             content={"error": "Generation failed"},
-            metadata={"agent_type": "HypothesisGeneratorAgent"}
+            metadata={"agent_type": "HypothesisGeneratorAgent"},
         )
 
         # Should not raise exception
@@ -446,8 +446,8 @@ class TestREQ_ORCH_TASK_004_AgentRegistry:
     for tracking and routing messages to specialized agents.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_agent_registry_initialization(self, mock_wm, mock_llm):
         """Verify agent registry is initialized empty."""
         mock_llm.return_value = Mock()
@@ -455,12 +455,12 @@ class TestREQ_ORCH_TASK_004_AgentRegistry:
 
         director = ResearchDirectorAgent(research_question="Test")
 
-        assert hasattr(director, 'agent_registry')
+        assert hasattr(director, "agent_registry")
         assert isinstance(director.agent_registry, dict)
         assert len(director.agent_registry) == 0
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_register_agent(self, mock_wm, mock_llm):
         """Verify agents can be registered."""
         mock_llm.return_value = Mock()
@@ -473,8 +473,8 @@ class TestREQ_ORCH_TASK_004_AgentRegistry:
         assert "HypothesisGeneratorAgent" in director.agent_registry
         assert director.agent_registry["HypothesisGeneratorAgent"] == "hyp_gen_001"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_register_multiple_agents(self, mock_wm, mock_llm):
         """Verify multiple agents can be registered."""
         mock_llm.return_value = Mock()
@@ -486,7 +486,7 @@ class TestREQ_ORCH_TASK_004_AgentRegistry:
             "HypothesisGeneratorAgent": "hyp_gen_001",
             "ExperimentDesignerAgent": "exp_designer_001",
             "DataAnalystAgent": "analyst_001",
-            "Executor": "executor_001"
+            "Executor": "executor_001",
         }
 
         for agent_type, agent_id in agents.items():
@@ -496,8 +496,8 @@ class TestREQ_ORCH_TASK_004_AgentRegistry:
         for agent_type, agent_id in agents.items():
             assert director.agent_registry[agent_type] == agent_id
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_get_agent_id(self, mock_wm, mock_llm):
         """Verify agent IDs can be retrieved by type."""
         mock_llm.return_value = Mock()
@@ -510,8 +510,8 @@ class TestREQ_ORCH_TASK_004_AgentRegistry:
 
         assert agent_id == "hyp_gen_001"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_get_nonexistent_agent_returns_none(self, mock_wm, mock_llm):
         """Verify getting nonexistent agent returns None."""
         mock_llm.return_value = Mock()
@@ -532,8 +532,8 @@ class TestREQ_ORCH_TASK_005_ActionExecution:
     invoking _execute_next_action() with appropriate agent coordination.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_execute_next_action_generate_hypothesis(self, mock_wm, mock_llm):
         """Verify GENERATE_HYPOTHESIS action execution."""
         mock_llm.return_value = Mock()
@@ -542,12 +542,12 @@ class TestREQ_ORCH_TASK_005_ActionExecution:
         director = ResearchDirectorAgent(research_question="Test")
         director.register_agent("HypothesisGeneratorAgent", "hyp_gen_001")
 
-        with patch.object(director, '_send_to_hypothesis_generator') as mock_send:
+        with patch.object(director, "_send_to_hypothesis_generator") as mock_send:
             director._execute_next_action(NextAction.GENERATE_HYPOTHESIS)
             mock_send.assert_called_once_with(action="generate")
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_execute_next_action_design_experiment(self, mock_wm, mock_llm):
         """Verify DESIGN_EXPERIMENT action execution."""
         mock_llm.return_value = Mock()
@@ -557,15 +557,15 @@ class TestREQ_ORCH_TASK_005_ActionExecution:
         director.register_agent("ExperimentDesignerAgent", "exp_designer_001")
         director.research_plan.add_hypothesis("hyp1")
 
-        with patch.object(director, '_send_to_experiment_designer') as mock_send:
+        with patch.object(director, "_send_to_experiment_designer") as mock_send:
             director._execute_next_action(NextAction.DESIGN_EXPERIMENT)
             mock_send.assert_called_once()
             # Verify hypothesis_id was passed
             args, kwargs = mock_send.call_args
             assert args[0] == "hyp1" or kwargs.get("hypothesis_id") == "hyp1"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_execute_next_action_execute_experiment(self, mock_wm, mock_llm):
         """Verify EXECUTE_EXPERIMENT action execution."""
         mock_llm.return_value = Mock()
@@ -575,12 +575,12 @@ class TestREQ_ORCH_TASK_005_ActionExecution:
         director.register_agent("Executor", "executor_001")
         director.research_plan.add_experiment("exp1")
 
-        with patch.object(director, '_send_to_executor') as mock_send:
+        with patch.object(director, "_send_to_executor") as mock_send:
             director._execute_next_action(NextAction.EXECUTE_EXPERIMENT)
             mock_send.assert_called_once()
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_execute_next_action_analyze_result(self, mock_wm, mock_llm):
         """Verify ANALYZE_RESULT action execution."""
         mock_llm.return_value = Mock()
@@ -590,12 +590,12 @@ class TestREQ_ORCH_TASK_005_ActionExecution:
         director.register_agent("DataAnalystAgent", "analyst_001")
         director.research_plan.add_result("res1")
 
-        with patch.object(director, '_send_to_data_analyst') as mock_send:
+        with patch.object(director, "_send_to_data_analyst") as mock_send:
             director._execute_next_action(NextAction.ANALYZE_RESULT)
             mock_send.assert_called_once()
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_execute_next_action_refine_hypothesis(self, mock_wm, mock_llm):
         """Verify REFINE_HYPOTHESIS action execution."""
         mock_llm.return_value = Mock()
@@ -606,12 +606,12 @@ class TestREQ_ORCH_TASK_005_ActionExecution:
         director.research_plan.add_hypothesis("hyp1")
         director.research_plan.mark_tested("hyp1")
 
-        with patch.object(director, '_send_to_hypothesis_refiner') as mock_send:
+        with patch.object(director, "_send_to_hypothesis_refiner") as mock_send:
             director._execute_next_action(NextAction.REFINE_HYPOTHESIS)
             mock_send.assert_called_once()
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_execute_next_action_converge(self, mock_wm, mock_llm):
         """Verify CONVERGE action execution."""
         mock_llm.return_value = Mock()
@@ -620,7 +620,7 @@ class TestREQ_ORCH_TASK_005_ActionExecution:
         director = ResearchDirectorAgent(research_question="Test")
         director.register_agent("ConvergenceDetector", "convergence_001")
 
-        with patch.object(director, '_send_to_convergence_detector') as mock_send:
+        with patch.object(director, "_send_to_convergence_detector") as mock_send:
             director._execute_next_action(NextAction.CONVERGE)
             mock_send.assert_called_once()
 
@@ -633,8 +633,8 @@ class TestREQ_ORCH_TASK_006_StrategyTracking:
     (attempts, successes, costs) for adaptive decision-making.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_strategy_stats_initialized(self, mock_wm, mock_llm):
         """Verify strategy statistics are initialized."""
         mock_llm.return_value = Mock()
@@ -650,14 +650,14 @@ class TestREQ_ORCH_TASK_006_StrategyTracking:
             "hypothesis_generation",
             "experiment_design",
             "hypothesis_refinement",
-            "literature_review"
+            "literature_review",
         ]
 
         for strategy in expected_strategies:
             assert strategy in director.strategy_stats
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_update_strategy_effectiveness(self, mock_wm, mock_llm):
         """Verify strategy effectiveness can be updated."""
         mock_llm.return_value = Mock()
@@ -673,8 +673,8 @@ class TestREQ_ORCH_TASK_006_StrategyTracking:
         assert director.strategy_stats["hypothesis_generation"]["successes"] == 1
         assert director.strategy_stats["hypothesis_generation"]["cost"] == 100.0
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_select_best_strategy(self, mock_wm, mock_llm):
         """Verify best strategy is selected based on effectiveness."""
         mock_llm.return_value = Mock()
@@ -703,8 +703,8 @@ class TestREQ_ORCH_TASK_007_ResearchPlanGeneration:
     plan using LLM (generate_research_plan) to guide investigation.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_generate_research_plan_exists(self, mock_wm, mock_llm):
         """Verify generate_research_plan method exists."""
         mock_llm.return_value = Mock()
@@ -712,11 +712,11 @@ class TestREQ_ORCH_TASK_007_ResearchPlanGeneration:
 
         director = ResearchDirectorAgent(research_question="Test")
 
-        assert hasattr(director, 'generate_research_plan')
+        assert hasattr(director, "generate_research_plan")
         assert callable(director.generate_research_plan)
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_generate_research_plan_uses_llm(self, mock_wm, mock_llm):
         """Verify research plan generation uses LLM."""
         mock_client = Mock()
@@ -726,7 +726,7 @@ class TestREQ_ORCH_TASK_007_ResearchPlanGeneration:
 
         director = ResearchDirectorAgent(research_question="Test question", domain="biology")
 
-        plan = director.generate_research_plan()
+        director.generate_research_plan()
 
         # Verify LLM was called
         mock_client.generate.assert_called_once()
@@ -737,8 +737,8 @@ class TestREQ_ORCH_TASK_007_ResearchPlanGeneration:
         assert "Test question" in prompt
         assert "biology" in prompt
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_research_plan_stored_in_research_plan(self, mock_wm, mock_llm):
         """Verify generated plan is stored in research plan."""
         mock_client = Mock()
@@ -753,8 +753,8 @@ class TestREQ_ORCH_TASK_007_ResearchPlanGeneration:
         assert director.research_plan.initial_strategy == "Generated research strategy"
         assert plan == "Generated research strategy"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_research_plan_generation_handles_errors(self, mock_wm, mock_llm):
         """Verify research plan generation handles LLM errors gracefully."""
         mock_client = Mock()

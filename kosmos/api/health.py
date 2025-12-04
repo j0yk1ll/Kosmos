@@ -6,11 +6,13 @@ Provides liveness, readiness, and metrics endpoints for monitoring.
 
 import logging
 import os
+import platform
 import time
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any
+
 import psutil
-import platform
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +33,9 @@ class HealthChecker:
         """Initialize health checker."""
         self.start_time = time.time()
         self.checks_performed = 0
-        self.last_check_time: Optional[float] = None
+        self.last_check_time: float | None = None
 
-    def get_basic_health(self) -> Dict[str, Any]:
+    def get_basic_health(self) -> dict[str, Any]:
         """
         Get basic liveness health check.
 
@@ -51,10 +53,10 @@ class HealthChecker:
             "uptime_seconds": round(uptime, 2),
             "checks_performed": self.checks_performed,
             "service": "kosmos-ai-scientist",
-            "version": self._get_version()
+            "version": self._get_version(),
         }
 
-    def get_readiness_check(self) -> Dict[str, Any]:
+    def get_readiness_check(self) -> dict[str, Any]:
         """
         Get readiness check including dependencies.
 
@@ -102,10 +104,10 @@ class HealthChecker:
             "timestamp": datetime.utcnow().isoformat(),
             "components": components,
             "service": "kosmos-ai-scientist",
-            "version": self._get_version()
+            "version": self._get_version(),
         }
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """
         Get system metrics.
 
@@ -127,7 +129,7 @@ class HealthChecker:
         memory_percent = memory.percent
 
         # Disk metrics
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
         disk_total = disk.total
         disk_used = disk.used
         disk_free = disk.free
@@ -147,12 +149,12 @@ class HealthChecker:
                 "platform_version": platform.version(),
                 "architecture": platform.machine(),
                 "processor": platform.processor(),
-                "python_version": platform.python_version()
+                "python_version": platform.python_version(),
             },
             "cpu": {
                 "percent": round(cpu_percent, 2),
                 "count": cpu_count,
-                "load_average": self._get_load_average()
+                "load_average": self._get_load_average(),
             },
             "memory": {
                 "total_bytes": memory_total,
@@ -161,7 +163,7 @@ class HealthChecker:
                 "percent": round(memory_percent, 2),
                 "total_gb": round(memory_total / (1024**3), 2),
                 "available_gb": round(memory_available / (1024**3), 2),
-                "used_gb": round(memory_used / (1024**3), 2)
+                "used_gb": round(memory_used / (1024**3), 2),
             },
             "disk": {
                 "total_bytes": disk_total,
@@ -170,7 +172,7 @@ class HealthChecker:
                 "percent": round(disk_percent, 2),
                 "total_gb": round(disk_total / (1024**3), 2),
                 "used_gb": round(disk_used / (1024**3), 2),
-                "free_gb": round(disk_free / (1024**3), 2)
+                "free_gb": round(disk_free / (1024**3), 2),
             },
             "process": {
                 "memory_rss_bytes": process_memory.rss,
@@ -179,12 +181,12 @@ class HealthChecker:
                 "memory_vms_mb": round(process_memory.vms / (1024**2), 2),
                 "cpu_percent": round(process_cpu_percent, 2),
                 "num_threads": process.num_threads(),
-                "num_fds": self._get_num_fds(process)
+                "num_fds": self._get_num_fds(process),
             },
-            "uptime_seconds": round(time.time() - self.start_time, 2)
+            "uptime_seconds": round(time.time() - self.start_time, 2),
         }
 
-    def _check_database(self) -> Dict[str, Any]:
+    def _check_database(self) -> dict[str, Any]:
         """
         Check database connectivity.
 
@@ -203,18 +205,14 @@ class HealthChecker:
                 return {
                     "status": "healthy",
                     "response_time_ms": round(query_time * 1000, 2),
-                    "details": "Database connection successful"
+                    "details": "Database connection successful",
                 }
 
         except Exception as e:
             logger.error(f"Database health check failed: {e}")
-            return {
-                "status": "unhealthy",
-                "error": str(e),
-                "details": "Database connection failed"
-            }
+            return {"status": "unhealthy", "error": str(e), "details": "Database connection failed"}
 
-    def _check_cache(self) -> Dict[str, Any]:
+    def _check_cache(self) -> dict[str, Any]:
         """
         Check cache availability.
 
@@ -228,14 +226,12 @@ class HealthChecker:
             if redis_enabled:
                 # Try to connect to Redis
                 import redis
+
                 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
                 start_time = time.time()
                 client = redis.from_url(
-                    redis_url,
-                    socket_timeout=5,
-                    socket_connect_timeout=5,
-                    decode_responses=True
+                    redis_url, socket_timeout=5, socket_connect_timeout=5, decode_responses=True
                 )
                 client.ping()
                 response_time = time.time() - start_time
@@ -251,16 +247,12 @@ class HealthChecker:
                     "info": {
                         "version": info.get("redis_version"),
                         "used_memory_mb": round(info.get("used_memory", 0) / (1024**2), 2),
-                        "connected_clients": info.get("connected_clients", 0)
-                    }
+                        "connected_clients": info.get("connected_clients", 0),
+                    },
                 }
             else:
                 # In-memory cache (always available)
-                return {
-                    "status": "healthy",
-                    "type": "memory",
-                    "details": "In-memory cache active"
-                }
+                return {"status": "healthy", "type": "memory", "details": "In-memory cache active"}
 
         except Exception as e:
             logger.error(f"Cache health check failed: {e}")
@@ -268,10 +260,10 @@ class HealthChecker:
                 "status": "unhealthy",
                 "type": "redis" if redis_enabled else "memory",
                 "error": str(e),
-                "details": "Cache connection failed"
+                "details": "Cache connection failed",
             }
 
-    def _check_external_apis(self) -> Dict[str, Any]:
+    def _check_external_apis(self) -> dict[str, Any]:
         """
         Check external API accessibility.
 
@@ -286,7 +278,7 @@ class HealthChecker:
                 return {
                     "status": "unhealthy",
                     "details": "Anthropic API key not configured",
-                    "error": "ANTHROPIC_API_KEY not set"
+                    "error": "ANTHROPIC_API_KEY not set",
                 }
 
             # Check if it's the CLI mode (all 9s)
@@ -296,7 +288,7 @@ class HealthChecker:
                 return {
                     "status": "healthy",
                     "mode": "cli",
-                    "details": "Claude Code CLI mode configured"
+                    "details": "Claude Code CLI mode configured",
                 }
             else:
                 # For API mode, we don't want to make actual API calls in health checks
@@ -305,25 +297,21 @@ class HealthChecker:
                     return {
                         "status": "healthy",
                         "mode": "api",
-                        "details": "Anthropic API key configured"
+                        "details": "Anthropic API key configured",
                     }
                 else:
                     return {
                         "status": "warning",
                         "mode": "api",
                         "details": "API key format unexpected",
-                        "warning": "Key doesn't start with sk-ant-"
+                        "warning": "Key doesn't start with sk-ant-",
                     }
 
         except Exception as e:
             logger.error(f"External API health check failed: {e}")
-            return {
-                "status": "unhealthy",
-                "error": str(e),
-                "details": "External API check failed"
-            }
+            return {"status": "unhealthy", "error": str(e), "details": "External API check failed"}
 
-    def _check_neo4j(self) -> Dict[str, Any]:
+    def _check_neo4j(self) -> dict[str, Any]:
         """
         Check Neo4j connectivity (optional component).
 
@@ -340,7 +328,7 @@ class HealthChecker:
             if not password:
                 return {
                     "status": "not_configured",
-                    "details": "Neo4j password not configured (optional)"
+                    "details": "Neo4j password not configured (optional)",
                 }
 
             start_time = time.time()
@@ -355,7 +343,7 @@ class HealthChecker:
             return {
                 "status": "healthy",
                 "response_time_ms": round(response_time * 1000, 2),
-                "details": "Neo4j connection successful"
+                "details": "Neo4j connection successful",
             }
 
         except Exception as e:
@@ -363,39 +351,40 @@ class HealthChecker:
             return {
                 "status": "unavailable",
                 "details": "Neo4j not available (optional component)",
-                "error": str(e)
+                "error": str(e),
             }
 
     def _get_version(self) -> str:
         """Get Kosmos version."""
         try:
             from kosmos import __version__
+
             return __version__
-        except:
+        except Exception:
             return "unknown"
 
-    def _get_load_average(self) -> Optional[list]:
+    def _get_load_average(self) -> list | None:
         """Get system load average (Unix only)."""
         try:
-            if hasattr(os, 'getloadavg'):
+            if hasattr(os, "getloadavg"):
                 load = os.getloadavg()
-                return [round(l, 2) for l in load]
+                return [round(load_val, 2) for load_val in load]
             return None
-        except:
+        except Exception:
             return None
 
-    def _get_num_fds(self, process) -> Optional[int]:
+    def _get_num_fds(self, process) -> int | None:
         """Get number of file descriptors (Unix only)."""
         try:
-            if hasattr(process, 'num_fds'):
+            if hasattr(process, "num_fds"):
                 return process.num_fds()
             return None
-        except:
+        except Exception:
             return None
 
 
 # Global health checker instance
-_health_checker: Optional[HealthChecker] = None
+_health_checker: HealthChecker | None = None
 
 
 def get_health_checker() -> HealthChecker:
@@ -412,16 +401,16 @@ def get_health_checker() -> HealthChecker:
 
 
 # Convenience functions for endpoints
-def get_basic_health() -> Dict[str, Any]:
+def get_basic_health() -> dict[str, Any]:
     """Get basic health status."""
     return get_health_checker().get_basic_health()
 
 
-def get_readiness_check() -> Dict[str, Any]:
+def get_readiness_check() -> dict[str, Any]:
     """Get readiness status."""
     return get_health_checker().get_readiness_check()
 
 
-def get_metrics() -> Dict[str, Any]:
+def get_metrics() -> dict[str, Any]:
     """Get system metrics."""
     return get_health_checker().get_metrics()

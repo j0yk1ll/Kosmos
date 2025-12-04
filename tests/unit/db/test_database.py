@@ -5,9 +5,9 @@ Unit tests for database models and operations.
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from kosmos.db.models import Base, Hypothesis, Experiment, HypothesisStatus, ExperimentStatus
+
 from kosmos.db import operations
-from datetime import datetime
+from kosmos.db.models import Base, ExperimentStatus, HypothesisStatus
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ class TestHypothesisCRUD:
             domain="biology",
             novelty_score=0.8,
             testability_score=0.9,
-            confidence_score=0.7
+            confidence_score=0.7,
         )
 
         assert hypothesis.id == "hyp-1"
@@ -54,7 +54,7 @@ class TestHypothesisCRUD:
             research_question="Test question",
             statement="Test statement",
             rationale="Test rationale",
-            domain="physics"
+            domain="physics",
         )
 
         # Retrieve
@@ -74,7 +74,7 @@ class TestHypothesisCRUD:
                 research_question=f"Question {i}",
                 statement=f"Statement {i}",
                 rationale=f"Rationale {i}",
-                domain="biology" if i % 2 == 0 else "physics"
+                domain="biology" if i % 2 == 0 else "physics",
             )
 
         # List all
@@ -94,14 +94,12 @@ class TestHypothesisCRUD:
             research_question="Test",
             statement="Test",
             rationale="Test",
-            domain="biology"
+            domain="biology",
         )
 
         # Update status
         updated = operations.update_hypothesis_status(
-            session=test_db,
-            hypothesis_id="hyp-3",
-            status=HypothesisStatus.TESTING
+            session=test_db, hypothesis_id="hyp-3", status=HypothesisStatus.TESTING
         )
 
         assert updated.status == HypothesisStatus.TESTING
@@ -119,7 +117,7 @@ class TestExperimentCRUD:
             research_question="Test",
             statement="Test",
             rationale="Test",
-            domain="biology"
+            domain="biology",
         )
 
         # Create experiment
@@ -130,7 +128,7 @@ class TestExperimentCRUD:
             experiment_type="computational",
             description="Test experiment",
             protocol={"method": "t-test", "data": "dataset.csv"},
-            domain="biology"
+            domain="biology",
         )
 
         assert experiment.id == "exp-1"
@@ -146,7 +144,7 @@ class TestExperimentCRUD:
             research_question="Test",
             statement="Test",
             rationale="Test",
-            domain="biology"
+            domain="biology",
         )
 
         # Create experiment
@@ -157,14 +155,12 @@ class TestExperimentCRUD:
             experiment_type="computational",
             description="Test",
             protocol={},
-            domain="biology"
+            domain="biology",
         )
 
         # Update to running
         updated = operations.update_experiment_status(
-            session=test_db,
-            experiment_id="exp-2",
-            status=ExperimentStatus.RUNNING
+            session=test_db, experiment_id="exp-2", status=ExperimentStatus.RUNNING
         )
 
         assert updated.status == ExperimentStatus.RUNNING
@@ -175,7 +171,7 @@ class TestExperimentCRUD:
             session=test_db,
             experiment_id="exp-2",
             status=ExperimentStatus.COMPLETED,
-            execution_time_seconds=30.5
+            execution_time_seconds=30.5,
         )
 
         assert updated.status == ExperimentStatus.COMPLETED
@@ -195,7 +191,7 @@ class TestResultCRUD:
             research_question="Test",
             statement="Test",
             rationale="Test",
-            domain="biology"
+            domain="biology",
         )
 
         operations.create_experiment(
@@ -205,7 +201,7 @@ class TestResultCRUD:
             experiment_type="computational",
             description="Test",
             protocol={},
-            domain="biology"
+            domain="biology",
         )
 
         # Create result
@@ -217,7 +213,7 @@ class TestResultCRUD:
             statistical_tests={"t_test": {"p_value": 0.03}},
             interpretation="Significant result",
             supports_hypothesis=True,
-            p_value=0.03
+            p_value=0.03,
         )
 
         assert result.id == "res-1"
@@ -234,7 +230,7 @@ class TestResultCRUD:
             research_question="Test",
             statement="Test",
             rationale="Test",
-            domain="biology"
+            domain="biology",
         )
 
         operations.create_experiment(
@@ -244,16 +240,13 @@ class TestResultCRUD:
             experiment_type="computational",
             description="Test",
             protocol={},
-            domain="biology"
+            domain="biology",
         )
 
         # Create multiple results
         for i in range(3):
             operations.create_result(
-                session=test_db,
-                id=f"res-{i}",
-                experiment_id="exp-11",
-                data={"result": i}
+                session=test_db, id=f"res-{i}", experiment_id="exp-11", data={"result": i}
             )
 
         # Retrieve

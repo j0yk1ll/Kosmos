@@ -11,12 +11,8 @@ Coverage target: 25 tests across 5 test classes
 """
 
 import pytest
-from kosmos.domains.materials.ontology import (
-    MaterialsOntology,
-    MaterialsConcept,
-    MaterialsRelation,
-    MaterialsRelationType
-)
+
+from kosmos.domains.materials.ontology import MaterialsOntology, MaterialsRelationType
 
 
 @pytest.fixture
@@ -39,19 +35,24 @@ class TestMaterialsOntologyInit:
     def test_concept_count_validation(self, materials_ontology):
         """Test expected number of concepts in each category"""
         # Crystal structures
-        crystal_structures = [c for c in materials_ontology.concepts.values()
-                             if c.type == "crystal_structure"]
-        assert len(crystal_structures) >= 7  # FCC, BCC, HCP, perovskite, diamond, wurtzite, simple_cubic
+        crystal_structures = [
+            c for c in materials_ontology.concepts.values() if c.type == "crystal_structure"
+        ]
+        assert (
+            len(crystal_structures) >= 7
+        )  # FCC, BCC, HCP, perovskite, diamond, wurtzite, simple_cubic
 
         # Material properties
-        properties = [c for c in materials_ontology.concepts.values()
-                     if c.type == "property"]
+        properties = [c for c in materials_ontology.concepts.values() if c.type == "property"]
         assert len(properties) >= 14  # Electrical(4) + Mechanical(4) + Optical(3) + Thermal(3)
 
         # Processing methods
-        processing = [c for c in materials_ontology.concepts.values()
-                     if c.type == "processing_method"]
-        assert len(processing) >= 8  # annealing, doping, CVD, PVD, sintering, sputtering, MBE, sol-gel
+        processing = [
+            c for c in materials_ontology.concepts.values() if c.type == "processing_method"
+        ]
+        assert (
+            len(processing) >= 8
+        )  # annealing, doping, CVD, PVD, sintering, sputtering, MBE, sol-gel
 
     def test_relations_created(self, materials_ontology):
         """Test that relationships are properly established"""
@@ -64,8 +65,11 @@ class TestMaterialsOntologyInit:
     def test_hierarchical_structure(self, materials_ontology):
         """Test hierarchical parent-child relationships"""
         # FCC should be child of crystal_structure
-        fcc_relations = [r for r in materials_ontology.relations
-                        if r.source_id == "fcc" and r.relation_type == MaterialsRelationType.IS_A]
+        fcc_relations = [
+            r
+            for r in materials_ontology.relations
+            if r.source_id == "fcc" and r.relation_type == MaterialsRelationType.IS_A
+        ]
         assert len(fcc_relations) > 0
         assert fcc_relations[0].target_id == "crystal_structure"
 
@@ -112,8 +116,11 @@ class TestCrystalStructures:
 
         for struct_id in structure_ids:
             # Find IS_A relation to crystal_structure
-            relations = [r for r in materials_ontology.relations
-                        if r.source_id == struct_id and r.relation_type == MaterialsRelationType.IS_A]
+            relations = [
+                r
+                for r in materials_ontology.relations
+                if r.source_id == struct_id and r.relation_type == MaterialsRelationType.IS_A
+            ]
             assert len(relations) > 0
             assert any(r.target_id == "crystal_structure" for r in relations)
 
@@ -129,9 +136,11 @@ class TestCrystalStructures:
     def test_structure_relations(self, materials_ontology):
         """Test materials have structure relationships"""
         # Silicon should have diamond structure
-        silicon_relations = [r for r in materials_ontology.relations
-                            if r.source_id == "silicon" and
-                            r.relation_type == MaterialsRelationType.HAS_STRUCTURE]
+        silicon_relations = [
+            r
+            for r in materials_ontology.relations
+            if r.source_id == "silicon" and r.relation_type == MaterialsRelationType.HAS_STRUCTURE
+        ]
         assert len(silicon_relations) > 0
         assert silicon_relations[0].target_id == "diamond"
 
@@ -190,16 +199,20 @@ class TestMaterialProperties:
     def test_property_relationships(self, materials_ontology):
         """Test properties are linked to categories"""
         # Band gap should be PART_OF electrical_properties
-        band_gap_relations = [r for r in materials_ontology.relations
-                             if r.source_id == "band_gap" and
-                             r.relation_type == MaterialsRelationType.PART_OF]
+        band_gap_relations = [
+            r
+            for r in materials_ontology.relations
+            if r.source_id == "band_gap" and r.relation_type == MaterialsRelationType.PART_OF
+        ]
         assert len(band_gap_relations) > 0
         assert band_gap_relations[0].target_id == "electrical_properties"
 
         # Young's modulus should be PART_OF mechanical_properties
-        youngs_relations = [r for r in materials_ontology.relations
-                           if r.source_id == "youngs_modulus" and
-                           r.relation_type == MaterialsRelationType.PART_OF]
+        youngs_relations = [
+            r
+            for r in materials_ontology.relations
+            if r.source_id == "youngs_modulus" and r.relation_type == MaterialsRelationType.PART_OF
+        ]
         assert len(youngs_relations) > 0
         assert youngs_relations[0].target_id == "mechanical_properties"
 
@@ -253,9 +266,12 @@ class TestMaterialsClasses:
         assert "organic_semiconductor" in materials_ontology.concepts
 
         # Subclasses should be IS_A semiconductor
-        elemental_relations = [r for r in materials_ontology.relations
-                              if r.source_id == "elemental_semiconductor" and
-                              r.relation_type == MaterialsRelationType.IS_A]
+        elemental_relations = [
+            r
+            for r in materials_ontology.relations
+            if r.source_id == "elemental_semiconductor"
+            and r.relation_type == MaterialsRelationType.IS_A
+        ]
         assert len(elemental_relations) > 0
         assert elemental_relations[0].target_id == "semiconductor"
 
@@ -302,7 +318,9 @@ class TestProcessingMethods:
 
         sintering = materials_ontology.concepts["sintering"]
         assert sintering.name == "Sintering"
-        assert "heating" in sintering.description.lower() or "densif" in sintering.description.lower()
+        assert (
+            "heating" in sintering.description.lower() or "densif" in sintering.description.lower()
+        )
 
     def test_doping_methods(self, materials_ontology):
         """Test doping and modification methods"""
@@ -319,9 +337,16 @@ class TestProcessingMethods:
         method_names = [p.name for p in all_processing]
 
         # Check expected methods
-        expected_methods = ["Annealing", "Doping", "Chemical Vapor Deposition",
-                          "Physical Vapor Deposition", "Sintering", "Sputtering",
-                          "Molecular Beam Epitaxy", "Sol-Gel Processing"]
+        expected_methods = [
+            "Annealing",
+            "Doping",
+            "Chemical Vapor Deposition",
+            "Physical Vapor Deposition",
+            "Sintering",
+            "Sputtering",
+            "Molecular Beam Epitaxy",
+            "Sol-Gel Processing",
+        ]
 
         for expected in expected_methods:
             assert expected in method_names

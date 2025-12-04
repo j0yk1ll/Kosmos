@@ -25,19 +25,15 @@ Example usage:
         )
 """
 
-from typing import List, Dict, Any, Optional
-from kosmos.experiments.templates.base import (
-    TemplateBase,
-    TemplateCustomizationParams
-)
+from kosmos.experiments.templates.base import TemplateBase, TemplateCustomizationParams
 from kosmos.models.experiment import (
     ExperimentProtocol,
     ExperimentType,
     ProtocolStep,
-    Variable,
     ResourceRequirements,
     StatisticalTestSpec,
     ValidationCheck,
+    Variable,
 )
 from kosmos.models.hypothesis import Hypothesis
 
@@ -70,15 +66,15 @@ class ParameterCorrelationTemplate(TemplateBase):
                 "Materials optimization studies",
                 "Parameter correlation analysis",
                 "Solar cell efficiency optimization",
-                "Process parameter effects"
+                "Process parameter effects",
             ],
             requirements=[
                 "Experimental data (CSV/Excel format)",
                 "At least 20 data points for reliable statistics",
-                "Numerical parameter and metric columns"
+                "Numerical parameter and metric columns",
             ],
             complexity_score=0.5,
-            rigor_score=0.8
+            rigor_score=0.8,
         )
 
     def is_applicable(self, hypothesis: Hypothesis) -> bool:
@@ -95,16 +91,34 @@ class ParameterCorrelationTemplate(TemplateBase):
 
         # Check for materials/optimization keywords
         materials_keywords = [
-            'material', 'perovskite', 'solar cell', 'efficiency',
-            'optimization', 'parameter', 'fabrication', 'synthesis',
-            'process', 'property', 'performance'
+            "material",
+            "perovskite",
+            "solar cell",
+            "efficiency",
+            "optimization",
+            "parameter",
+            "fabrication",
+            "synthesis",
+            "process",
+            "property",
+            "performance",
         ]
 
         # Check for correlation/relationship keywords
         correlation_keywords = [
-            'correlate', 'correlation', 'relationship', 'affect',
-            'influence', 'depend', 'impact', 'effect', 'association',
-            'increase', 'decrease', 'improve', 'reduce'
+            "correlate",
+            "correlation",
+            "relationship",
+            "affect",
+            "influence",
+            "depend",
+            "impact",
+            "effect",
+            "association",
+            "increase",
+            "decrease",
+            "improve",
+            "reduce",
         ]
 
         has_materials = any(kw in statement_lower for kw in materials_keywords)
@@ -112,10 +126,7 @@ class ParameterCorrelationTemplate(TemplateBase):
 
         return has_materials and has_correlation
 
-    def generate_protocol(
-        self,
-        params: TemplateCustomizationParams
-    ) -> ExperimentProtocol:
+    def generate_protocol(self, params: TemplateCustomizationParams) -> ExperimentProtocol:
         """
         Generate experiment protocol for parameter correlation analysis.
 
@@ -126,11 +137,11 @@ class ParameterCorrelationTemplate(TemplateBase):
             ExperimentProtocol with analysis steps
         """
         # Extract custom variables
-        data_path = params.custom_variables.get('data_path', 'data.xlsx')
-        parameter = params.custom_variables.get('parameter', 'Parameter')
-        metric = params.custom_variables.get('metric', 'Performance')
-        sheet_name = params.custom_variables.get('sheet_name', None)
-        min_samples = params.custom_variables.get('min_samples', 20)
+        data_path = params.custom_variables.get("data_path", "data.xlsx")
+        parameter = params.custom_variables.get("parameter", "Parameter")
+        metric = params.custom_variables.get("metric", "Performance")
+        sheet_name = params.custom_variables.get("sheet_name", None)
+        min_samples = params.custom_variables.get("min_samples", 20)
 
         # Define protocol steps
         steps = [
@@ -139,29 +150,29 @@ class ParameterCorrelationTemplate(TemplateBase):
                 description="Load experimental data from file",
                 code_template=self._generate_load_data_code(data_path, sheet_name),
                 expected_output="DataFrame with experimental data",
-                validation=["Check column names", "Verify data types"]
+                validation=["Check column names", "Verify data types"],
             ),
             ProtocolStep(
                 name="correlation_analysis",
                 description="Analyze correlation between parameter and metric",
                 code_template=self._generate_correlation_code(parameter, metric, min_samples),
                 expected_output="CorrelationResult with r, p-value, R², regression equation",
-                validation=["Check significance level", "Verify sample size"]
+                validation=["Check significance level", "Verify sample size"],
             ),
             ProtocolStep(
                 name="visualize_results",
                 description="Create scatter plot with regression line",
                 code_template=self._generate_visualization_code(parameter, metric),
                 expected_output="Matplotlib figure with scatter plot and regression line",
-                validation=["Plot saved to file", "Axes labeled correctly"]
+                validation=["Plot saved to file", "Axes labeled correctly"],
             ),
             ProtocolStep(
                 name="summary_report",
                 description="Generate analysis summary",
                 code_template=self._generate_summary_code(),
                 expected_output="Text summary of correlation analysis",
-                validation=["All metrics reported", "Interpretation included"]
-            )
+                validation=["All metrics reported", "Interpretation included"],
+            ),
         ]
 
         # Define variables
@@ -170,31 +181,26 @@ class ParameterCorrelationTemplate(TemplateBase):
                 name="parameter",
                 description=f"Independent variable: {parameter}",
                 type="numerical",
-                values=None
+                values=None,
             ),
             Variable(
                 name="metric",
                 description=f"Dependent variable: {metric}",
                 type="numerical",
-                values=None
-            )
+                values=None,
+            ),
         ]
 
         # Statistical tests
         statistical_tests = [
             StatisticalTestSpec(
-                test_type="pearson_correlation",
-                significance_threshold=0.05,
-                correction_method=None
+                test_type="pearson_correlation", significance_threshold=0.05, correction_method=None
             )
         ]
 
         # Resource requirements
         resources = ResourceRequirements(
-            compute_hours=0.1,
-            memory_gb=2.0,
-            storage_gb=0.1,
-            special_equipment=[]
+            compute_hours=0.1, memory_gb=2.0, storage_gb=0.1, special_equipment=[]
         )
 
         # Validation checks
@@ -202,13 +208,13 @@ class ParameterCorrelationTemplate(TemplateBase):
             ValidationCheck(
                 check_type="sample_size",
                 threshold=min_samples,
-                description=f"At least {min_samples} samples required"
+                description=f"At least {min_samples} samples required",
             ),
             ValidationCheck(
                 check_type="data_quality",
                 threshold=0.8,
-                description="At least 80% valid (non-NaN) data points"
-            )
+                description="At least 80% valid (non-NaN) data points",
+            ),
         ]
 
         # Create protocol
@@ -227,21 +233,17 @@ class ParameterCorrelationTemplate(TemplateBase):
             ethical_considerations=["Ensure data provenance is documented"],
             reproducibility_notes=[
                 "Use provided data file",
-                "Random seed not applicable (deterministic analysis)"
-            ]
+                "Random seed not applicable (deterministic analysis)",
+            ],
         )
 
         return protocol
 
-    def _generate_load_data_code(
-        self,
-        data_path: str,
-        sheet_name: Optional[str] = None
-    ) -> str:
+    def _generate_load_data_code(self, data_path: str, sheet_name: str | None = None) -> str:
         """Generate code for loading experimental data."""
         sheet_param = f", sheet_name='{sheet_name}'" if sheet_name else ""
 
-        return f'''
+        return f"""
 import pandas as pd
 import numpy as np
 
@@ -260,16 +262,11 @@ print(f"Loaded {{len(df)}} experiments")
 print(f"Columns: {{df.columns.tolist()}}")
 print(f"\\nFirst few rows:")
 print(df.head())
-'''
+"""
 
-    def _generate_correlation_code(
-        self,
-        parameter: str,
-        metric: str,
-        min_samples: int
-    ) -> str:
+    def _generate_correlation_code(self, parameter: str, metric: str, min_samples: int) -> str:
         """Generate code for correlation analysis."""
-        return f'''
+        return f"""
 from kosmos.domains.materials.optimization import MaterialsOptimizer
 
 # Initialize analyzer
@@ -315,15 +312,11 @@ if result.correlation > 0:
     print(f"Direction: POSITIVE - {{result.metric}} increases with {{result.parameter}}")
 else:
     print(f"Direction: NEGATIVE - {{result.metric}} decreases with {{result.parameter}}")
-'''
+"""
 
-    def _generate_visualization_code(
-        self,
-        parameter: str,
-        metric: str
-    ) -> str:
+    def _generate_visualization_code(self, parameter: str, metric: str) -> str:
         """Generate code for visualization."""
-        return f'''
+        return f"""
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -386,7 +379,7 @@ plt.savefig(output_file, dpi=300, bbox_inches='tight')
 print(f"\\nFigure saved: {{output_file}}")
 
 plt.show()
-'''
+"""
 
     def _generate_summary_code(self) -> str:
         """Generate code for summary report."""

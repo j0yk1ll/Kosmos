@@ -6,11 +6,11 @@ Coverage target: 30 tests across 5 test classes
 """
 
 import pytest
+
 from kosmos.domains.biology.ontology import (
-    BiologyOntology,
-    BiologicalConcept,
     BiologicalRelation,
-    BiologicalRelationType
+    BiologicalRelationType,
+    BiologyOntology,
 )
 
 
@@ -56,16 +56,14 @@ class TestBiologyOntologyInit:
         """Test that hierarchical IS_A and PART_OF relations exist."""
         # Check IS_A relations
         purine_parents = biology_ontology.get_parent_concepts(
-            "purine_metabolism",
-            BiologicalRelationType.IS_A
+            "purine_metabolism", BiologicalRelationType.IS_A
         )
         assert len(purine_parents) > 0
         assert purine_parents[0].id == "nucleotide_metabolism"
 
         # Check PART_OF relations
         salvage_parents = biology_ontology.get_parent_concepts(
-            "purine_salvage",
-            BiologicalRelationType.PART_OF
+            "purine_salvage", BiologicalRelationType.PART_OF
         )
         assert len(salvage_parents) > 0
         assert salvage_parents[0].id == "purine_metabolism"
@@ -127,15 +125,13 @@ class TestMetabolicPathways:
         """Test relationships between pathways."""
         # Purine salvage should be PART_OF purine_metabolism
         salvage_parents = biology_ontology.get_parent_concepts(
-            "purine_salvage",
-            BiologicalRelationType.PART_OF
+            "purine_salvage", BiologicalRelationType.PART_OF
         )
         assert any(p.id == "purine_metabolism" for p in salvage_parents)
 
         # Purine metabolism should be IS_A nucleotide_metabolism
         purine_parents = biology_ontology.get_parent_concepts(
-            "purine_metabolism",
-            BiologicalRelationType.IS_A
+            "purine_metabolism", BiologicalRelationType.IS_A
         )
         assert any(p.id == "nucleotide_metabolism" for p in purine_parents)
 
@@ -157,13 +153,13 @@ class TestMetabolicPathways:
         hierarchy = biology_ontology.get_pathway_hierarchy("purine_metabolism")
 
         assert hierarchy is not None
-        assert hierarchy['id'] == "purine_metabolism"
-        assert hierarchy['name'] == "Purine Metabolism"
-        assert 'children' in hierarchy
-        assert len(hierarchy['children']) > 0
+        assert hierarchy["id"] == "purine_metabolism"
+        assert hierarchy["name"] == "Purine Metabolism"
+        assert "children" in hierarchy
+        assert len(hierarchy["children"]) > 0
 
         # Should have purine_salvage and purine_de_novo_synthesis as children
-        child_ids = [c['id'] for c in hierarchy['children']]
+        child_ids = [c["id"] for c in hierarchy["children"]]
         assert "purine_salvage" in child_ids or "purine_de_novo_synthesis" in child_ids
 
 
@@ -193,7 +189,8 @@ class TestGeneticConcepts:
         # Note: Current implementation doesn't define these relations
         # This tests the relation type exists and could be used
         encoding_relations = [
-            r for r in biology_ontology.relations
+            r
+            for r in biology_ontology.relations
             if r.relation_type == BiologicalRelationType.ENCODES
         ]
         # May be 0 in current implementation, but type should exist
@@ -245,8 +242,10 @@ class TestDiseaseConcepts:
         # TCF7L2 should be associated with type_2_diabetes
         diabetes_genes = []
         for relation in biology_ontology.relations:
-            if (relation.target_id == "type_2_diabetes" and
-                relation.relation_type == BiologicalRelationType.ASSOCIATED_WITH):
+            if (
+                relation.target_id == "type_2_diabetes"
+                and relation.relation_type == BiologicalRelationType.ASSOCIATED_WITH
+            ):
                 concept = biology_ontology.get_concept(relation.source_id)
                 if concept and concept.type == "gene":
                     diabetes_genes.append(concept)
@@ -261,8 +260,7 @@ class TestDiseaseConcepts:
         # Current implementation has flat disease structure
         # Test that diseases can have parent-child relations
         cvd_children = biology_ontology.get_child_concepts(
-            "cardiovascular_disease",
-            BiologicalRelationType.IS_A
+            "cardiovascular_disease", BiologicalRelationType.IS_A
         )
         assert isinstance(cvd_children, list)
 
@@ -289,8 +287,7 @@ class TestConceptRelations:
         """Test finding related concepts by relation type."""
         # Find all concepts related to purine_salvage via PART_OF
         related = biology_ontology.get_related_concepts(
-            "purine_salvage",
-            relation_type=BiologicalRelationType.PART_OF
+            "purine_salvage", relation_type=BiologicalRelationType.PART_OF
         )
         assert len(related) > 0
         # Should include purine_metabolism (parent) and metabolites (children)
@@ -299,16 +296,14 @@ class TestConceptRelations:
         """Test IS_A hierarchical relations."""
         # Purine_metabolism IS_A nucleotide_metabolism
         purine_parents = biology_ontology.get_parent_concepts(
-            "purine_metabolism",
-            BiologicalRelationType.IS_A
+            "purine_metabolism", BiologicalRelationType.IS_A
         )
         assert len(purine_parents) == 1
         assert purine_parents[0].id == "nucleotide_metabolism"
 
         # Nucleotide_metabolism should have children
         nucleotide_children = biology_ontology.get_child_concepts(
-            "nucleotide_metabolism",
-            BiologicalRelationType.IS_A
+            "nucleotide_metabolism", BiologicalRelationType.IS_A
         )
         assert len(nucleotide_children) >= 2  # purine and pyrimidine
 
@@ -316,8 +311,7 @@ class TestConceptRelations:
         """Test PART_OF compositional relations."""
         # Purine_salvage PART_OF purine_metabolism
         salvage_parents = biology_ontology.get_parent_concepts(
-            "purine_salvage",
-            BiologicalRelationType.PART_OF
+            "purine_salvage", BiologicalRelationType.PART_OF
         )
         assert len(salvage_parents) == 1
         assert salvage_parents[0].id == "purine_metabolism"
@@ -327,7 +321,8 @@ class TestConceptRelations:
         # Current implementation doesn't define REGULATES relations
         # Test that the relation type exists
         regulates_relations = [
-            r for r in biology_ontology.relations
+            r
+            for r in biology_ontology.relations
             if r.relation_type == BiologicalRelationType.REGULATES
         ]
         assert isinstance(regulates_relations, list)
@@ -335,15 +330,11 @@ class TestConceptRelations:
     def test_bidirectional_queries(self, biology_ontology):
         """Test bidirectional relationship queries."""
         # Get all concepts related to purine_metabolism (both directions)
-        related_bi = biology_ontology.get_related_concepts(
-            "purine_metabolism",
-            bidirectional=True
-        )
+        related_bi = biology_ontology.get_related_concepts("purine_metabolism", bidirectional=True)
 
         # Get only outgoing relations
         related_out = biology_ontology.get_related_concepts(
-            "purine_metabolism",
-            bidirectional=False
+            "purine_metabolism", bidirectional=False
         )
 
         # Bidirectional should include at least as many as outgoing

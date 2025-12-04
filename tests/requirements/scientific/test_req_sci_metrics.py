@@ -5,10 +5,11 @@ These tests validate expert time estimation and cumulative time tracking
 as specified in REQUIREMENTS.md Section 10.5.
 """
 
+from datetime import datetime
+from typing import Any
+
 import pytest
-from typing import Dict, Any, List
-from datetime import datetime, timedelta
-from unittest.mock import Mock, patch, MagicMock
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -49,10 +50,7 @@ def test_req_sci_metric_001_estimate_expert_time():
             self.activities = []
 
         def record_activity(
-            self,
-            activity_type: str,
-            count: int = 1,
-            custom_time_per_unit: float = None
+            self, activity_type: str, count: int = 1, custom_time_per_unit: float = None
         ):
             """Record an activity performed by the system."""
             # Map activity type to standard time
@@ -63,20 +61,22 @@ def test_req_sci_metric_001_estimate_expert_time():
                 "experiment_design": self.TIME_PER_EXPERIMENT_DESIGN,
                 "hypothesis_generation": self.TIME_PER_HYPOTHESIS_GENERATION,
                 "literature_synthesis": self.TIME_PER_LITERATURE_SYNTHESIS,
-                "report_writing": self.TIME_PER_REPORT_WRITING
+                "report_writing": self.TIME_PER_REPORT_WRITING,
             }
 
             time_per_unit = custom_time_per_unit or time_mapping.get(activity_type, 1.0)
 
-            self.activities.append({
-                "type": activity_type,
-                "count": count,
-                "time_per_unit": time_per_unit,
-                "total_time": count * time_per_unit,
-                "timestamp": datetime.now()
-            })
+            self.activities.append(
+                {
+                    "type": activity_type,
+                    "count": count,
+                    "time_per_unit": time_per_unit,
+                    "total_time": count * time_per_unit,
+                    "timestamp": datetime.now(),
+                }
+            )
 
-        def compute_total_expert_time(self) -> Dict[str, Any]:
+        def compute_total_expert_time(self) -> dict[str, Any]:
             """
             Compute total estimated expert time.
 
@@ -95,10 +95,7 @@ def test_req_sci_metric_001_estimate_expert_time():
             for activity in self.activities:
                 act_type = activity["type"]
                 if act_type not in by_activity_type:
-                    by_activity_type[act_type] = {
-                        "count": 0,
-                        "total_hours": 0.0
-                    }
+                    by_activity_type[act_type] = {"count": 0, "total_hours": 0.0}
 
                 by_activity_type[act_type]["count"] += activity["count"]
                 by_activity_type[act_type]["total_hours"] += activity["total_time"]
@@ -110,7 +107,7 @@ def test_req_sci_metric_001_estimate_expert_time():
                 "total_months": round(total_months, 2),
                 "total_activities": len(self.activities),
                 "by_activity_type": by_activity_type,
-                "interpretation": self._generate_interpretation(total_months)
+                "interpretation": self._generate_interpretation(total_months),
             }
 
         def _generate_interpretation(self, months: float) -> str:
@@ -135,10 +132,10 @@ def test_req_sci_metric_001_estimate_expert_time():
 
     # Assert: Time is estimated correctly
     expected_hours = 100 * 0.25  # 100 papers × 15 minutes
-    assert result["total_hours"] == expected_hours, \
-        "Should correctly estimate time for paper reading"
-    assert result["total_days"] == expected_hours / 8, \
-        "Should convert to days correctly"
+    assert (
+        result["total_hours"] == expected_hours
+    ), "Should correctly estimate time for paper reading"
+    assert result["total_days"] == expected_hours / 8, "Should convert to days correctly"
 
     # Test Case 2: Complex research workflow
     estimator2 = ExpertTimeEstimator()
@@ -158,22 +155,23 @@ def test_req_sci_metric_001_estimate_expert_time():
     expected_total = 106.5
 
     # Assert: Total is computed correctly
-    assert abs(result2["total_hours"] - expected_total) < 0.1, \
-        "Should compute total expert time across all activities"
+    assert (
+        abs(result2["total_hours"] - expected_total) < 0.1
+    ), "Should compute total expert time across all activities"
 
     # Assert: Conversion to months is reasonable
     # 106.5 hours / 8 hours per day / 5 days per week / 4 weeks per month
     expected_months = 106.5 / 8 / 5 / 4
-    assert abs(result2["total_months"] - expected_months) < 0.1, \
-        "Should convert to months correctly"
+    assert (
+        abs(result2["total_months"] - expected_months) < 0.1
+    ), "Should convert to months correctly"
 
     # Assert: Breakdown by activity type exists
-    assert "by_activity_type" in result2, \
-        "Should provide breakdown by activity type"
-    assert "paper_read" in result2["by_activity_type"], \
-        "Should include all activity types"
-    assert result2["by_activity_type"]["paper_read"]["count"] == 50, \
-        "Should count activities correctly"
+    assert "by_activity_type" in result2, "Should provide breakdown by activity type"
+    assert "paper_read" in result2["by_activity_type"], "Should include all activity types"
+    assert (
+        result2["by_activity_type"]["paper_read"]["count"] == 50
+    ), "Should count activities correctly"
 
     # Test Case 3: Verify against paper's claim (6 months)
     # Paper reports Kosmos performs work equivalent to 6 months
@@ -193,10 +191,10 @@ def test_req_sci_metric_001_estimate_expert_time():
     result3 = estimator3.compute_total_expert_time()
 
     # Assert: Can estimate work at scale comparable to paper
-    assert result3["total_months"] >= 4, \
-        "Should be able to estimate large-scale work (several months)"
-    assert "interpretation" in result3, \
-        "Should provide human-readable interpretation"
+    assert (
+        result3["total_months"] >= 4
+    ), "Should be able to estimate large-scale work (several months)"
+    assert "interpretation" in result3, "Should provide human-readable interpretation"
 
 
 @pytest.mark.requirement("REQ-SCI-METRIC-002")
@@ -223,9 +221,9 @@ def test_req_sci_metric_002_track_cumulative_expert_time():
         def record_iteration(
             self,
             iteration_id: int,
-            activities: Dict[str, int],
-            time_per_activity: Dict[str, float] = None
-        ) -> Dict[str, Any]:
+            activities: dict[str, int],
+            time_per_activity: dict[str, float] = None,
+        ) -> dict[str, Any]:
             """
             Record a discovery iteration and compute expert time.
 
@@ -243,7 +241,7 @@ def test_req_sci_metric_002_track_cumulative_expert_time():
                 "analysis": 2.0,
                 "hypothesis_generation": 0.5,
                 "experiment": 4.0,
-                "synthesis": 3.0
+                "synthesis": 3.0,
             }
 
             time_mapping = time_per_activity or default_times
@@ -260,11 +258,10 @@ def test_req_sci_metric_002_track_cumulative_expert_time():
                 activity_breakdown[activity_type] = {
                     "count": count,
                     "time_per_unit": time_per_unit,
-                    "total_hours": activity_time
+                    "total_hours": activity_time,
                 }
 
             # Update cumulative time
-            previous_cumulative = self.cumulative_hours
             self.cumulative_hours += iteration_hours
 
             # Record iteration
@@ -275,14 +272,14 @@ def test_req_sci_metric_002_track_cumulative_expert_time():
                 "iteration_hours": iteration_hours,
                 "cumulative_hours": self.cumulative_hours,
                 "delta_from_previous": iteration_hours,
-                "cumulative_months": self.cumulative_hours / 8 / 5 / 4
+                "cumulative_months": self.cumulative_hours / 8 / 5 / 4,
             }
 
             self.iterations.append(iteration_record)
 
             return iteration_record
 
-        def get_scaling_metrics(self) -> Dict[str, Any]:
+        def get_scaling_metrics(self) -> dict[str, Any]:
             """
             Compute metrics showing scaling of work with iterations.
 
@@ -311,8 +308,7 @@ def test_req_sci_metric_002_track_cumulative_expert_time():
                     for i in range(len(iterations_nums))
                 )
                 denominator = sum(
-                    (iterations_nums[i] - mean_iter) ** 2
-                    for i in range(len(iterations_nums))
+                    (iterations_nums[i] - mean_iter) ** 2 for i in range(len(iterations_nums))
                 )
 
                 slope = numerator / denominator if denominator != 0 else 0.0
@@ -342,10 +338,10 @@ def test_req_sci_metric_002_track_cumulative_expert_time():
                     {
                         "iteration": it["iteration_id"],
                         "hours": round(it["iteration_hours"], 2),
-                        "cumulative": round(it["cumulative_hours"], 2)
+                        "cumulative": round(it["cumulative_hours"], 2),
                     }
                     for it in self.iterations
-                ]
+                ],
             }
 
         def generate_scaling_report(self) -> str:
@@ -383,79 +379,62 @@ Timeline:
     iteration_activities = [
         # Iteration 1: Initial exploration
         {"paper_read": 50, "analysis": 5, "hypothesis_generation": 10},
-
         # Iteration 2: Focused analysis
         {"paper_read": 30, "analysis": 10, "hypothesis_generation": 5, "experiment": 3},
-
         # Iteration 3: Deeper investigation
         {"paper_read": 40, "analysis": 15, "synthesis": 2},
-
         # Iteration 4: Refinement
         {"paper_read": 20, "analysis": 8, "experiment": 2, "synthesis": 1},
-
         # Iteration 5: Convergence
-        {"paper_read": 15, "analysis": 5, "synthesis": 2}
+        {"paper_read": 15, "analysis": 5, "synthesis": 2},
     ]
 
     for i, activities in enumerate(iteration_activities, start=1):
-        result = tracker.record_iteration(
-            iteration_id=i,
-            activities=activities
-        )
+        result = tracker.record_iteration(iteration_id=i, activities=activities)
 
         # Assert: Iteration is recorded
-        assert result["iteration_id"] == i, \
-            "Should record correct iteration ID"
-        assert result["iteration_hours"] > 0, \
-            "Should compute time for iteration"
-        assert result["cumulative_hours"] >= result["iteration_hours"], \
-            "Cumulative time should be >= iteration time"
+        assert result["iteration_id"] == i, "Should record correct iteration ID"
+        assert result["iteration_hours"] > 0, "Should compute time for iteration"
+        assert (
+            result["cumulative_hours"] >= result["iteration_hours"]
+        ), "Cumulative time should be >= iteration time"
 
     # Assert: All iterations are tracked
-    assert len(tracker.iterations) == 5, \
-        "Should track all iterations"
+    assert len(tracker.iterations) == 5, "Should track all iterations"
 
     # Test Case 2: Verify cumulative time increases
     cumulative_times = [it["cumulative_hours"] for it in tracker.iterations]
 
     # Assert: Cumulative time is monotonically increasing
     for i in range(1, len(cumulative_times)):
-        assert cumulative_times[i] >= cumulative_times[i-1], \
-            "Cumulative time should never decrease"
+        assert (
+            cumulative_times[i] >= cumulative_times[i - 1]
+        ), "Cumulative time should never decrease"
 
     # Test Case 3: Compute scaling metrics
     scaling = tracker.get_scaling_metrics()
 
     # Assert: Scaling metrics are computed
-    assert "total_iterations" in scaling, \
-        "Should compute total iterations"
-    assert "total_cumulative_hours" in scaling, \
-        "Should compute total cumulative hours"
-    assert "average_hours_per_iteration" in scaling, \
-        "Should compute average per iteration"
-    assert "scaling_slope" in scaling, \
-        "Should compute scaling slope"
-    assert "scaling_type" in scaling, \
-        "Should classify scaling type"
+    assert "total_iterations" in scaling, "Should compute total iterations"
+    assert "total_cumulative_hours" in scaling, "Should compute total cumulative hours"
+    assert "average_hours_per_iteration" in scaling, "Should compute average per iteration"
+    assert "scaling_slope" in scaling, "Should compute scaling slope"
+    assert "scaling_type" in scaling, "Should classify scaling type"
 
     # Assert: Cumulative time demonstrates scaling
-    assert scaling["total_cumulative_hours"] > 50, \
-        "Should accumulate significant work across iterations"
-    assert scaling["total_cumulative_months"] > 0, \
-        "Should convert to months"
+    assert (
+        scaling["total_cumulative_hours"] > 50
+    ), "Should accumulate significant work across iterations"
+    assert scaling["total_cumulative_months"] > 0, "Should convert to months"
 
     # Test Case 4: Generate scaling report
     report = tracker.generate_scaling_report()
 
     # Assert: Report is comprehensive
-    assert "Total Iterations: 5" in report, \
-        "Report should include iteration count"
-    assert "Total Expert Time:" in report, \
-        "Report should include total time"
-    assert "Scaling Analysis:" in report, \
-        "Report should include scaling analysis"
-    assert "Timeline:" in report, \
-        "Report should include iteration timeline"
+    assert "Total Iterations: 5" in report, "Report should include iteration count"
+    assert "Total Expert Time:" in report, "Report should include total time"
+    assert "Scaling Analysis:" in report, "Report should include scaling analysis"
+    assert "Timeline:" in report, "Report should include iteration timeline"
 
     # Test Case 5: Demonstrate scaling with runtime
     # Verify that more iterations = more cumulative work
@@ -463,10 +442,7 @@ Timeline:
 
     # Simulate consistent work per iteration
     for i in range(1, 11):
-        tracker2.record_iteration(
-            iteration_id=i,
-            activities={"paper_read": 10, "analysis": 5}
-        )
+        tracker2.record_iteration(iteration_id=i, activities={"paper_read": 10, "analysis": 5})
 
     scaling2 = tracker2.get_scaling_metrics()
 
@@ -474,11 +450,12 @@ Timeline:
     # Each iteration: 10*0.25 + 5*2.0 = 2.5 + 10 = 12.5 hours
     # 10 iterations = 125 hours
     expected_total = 12.5 * 10
-    assert abs(scaling2["total_cumulative_hours"] - expected_total) < 1, \
-        "Cumulative time should scale linearly with iterations"
+    assert (
+        abs(scaling2["total_cumulative_hours"] - expected_total) < 1
+    ), "Cumulative time should scale linearly with iterations"
 
     # Assert: More iterations demonstrate scaling
-    assert scaling2["total_iterations"] == 10, \
-        "Should track all 10 iterations"
-    assert scaling2["total_cumulative_hours"] > 100, \
-        "10 iterations should accumulate significant time"
+    assert scaling2["total_iterations"] == 10, "Should track all 10 iterations"
+    assert (
+        scaling2["total_cumulative_hours"] > 100
+    ), "10 iterations should accumulate significant time"

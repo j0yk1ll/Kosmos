@@ -27,83 +27,92 @@ Example usage:
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
 import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential
 import pandas as pd
+from tenacity import retry, stop_after_attempt, wait_exponential
+
 
 logger = logging.getLogger(__name__)
 
 
 # Data models for API responses
 
+
 @dataclass
 class MaterialProperties:
     """Material properties from Materials Project."""
+
     material_id: str
     formula: str
-    structure: Optional[Dict[str, Any]] = None
-    energy_per_atom: Optional[float] = None  # eV/atom
-    band_gap: Optional[float] = None  # eV
-    density: Optional[float] = None  # g/cm³
-    formation_energy: Optional[float] = None  # eV/atom
-    is_stable: Optional[bool] = None
-    elasticity: Optional[Dict[str, float]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    structure: dict[str, Any] | None = None
+    energy_per_atom: float | None = None  # eV/atom
+    band_gap: float | None = None  # eV
+    density: float | None = None  # g/cm³
+    formation_energy: float | None = None  # eV/atom
+    is_stable: bool | None = None
+    elasticity: dict[str, float] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass
 class NomadEntry:
     """NOMAD repository entry."""
+
     entry_id: str
     upload_id: str
-    material_name: Optional[str] = None
-    formula: Optional[str] = None
+    material_name: str | None = None
+    formula: str | None = None
     data_type: str = "calculation"  # "calculation" or "experiment"
-    properties: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
-    url: Optional[str] = None
+    properties: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+    url: str | None = None
 
 
 @dataclass
 class AflowMaterial:
     """AFLOW material data."""
+
     auid: str  # AFLOW unique ID
     compound: str
-    prototype: Optional[str] = None
-    space_group: Optional[int] = None
-    energy_per_atom: Optional[float] = None  # eV/atom
-    band_gap: Optional[float] = None  # eV
-    density: Optional[float] = None  # g/cm³
-    properties: Optional[Dict[str, Any]] = None
+    prototype: str | None = None
+    space_group: int | None = None
+    energy_per_atom: float | None = None  # eV/atom
+    band_gap: float | None = None  # eV
+    density: float | None = None  # g/cm³
+    properties: dict[str, Any] | None = None
 
 
 @dataclass
 class CitrinationData:
     """Citrination materials informatics data."""
+
     dataset_id: str
     material_name: str
-    properties: Dict[str, float]
-    conditions: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    properties: dict[str, float]
+    conditions: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass
 class PerovskiteExperiment:
     """Perovskite solar cell experimental data."""
+
     experiment_id: str
-    composition: Dict[str, float]
-    fabrication_params: Dict[str, float]
-    jsc: Optional[float] = None  # Short-circuit current density (mA/cm²)
-    voc: Optional[float] = None  # Open-circuit voltage (V)
-    fill_factor: Optional[float] = None
-    efficiency: Optional[float] = None  # Power conversion efficiency (%)
-    metadata: Optional[Dict[str, Any]] = None
+    composition: dict[str, float]
+    fabrication_params: dict[str, float]
+    jsc: float | None = None  # Short-circuit current density (mA/cm²)
+    voc: float | None = None  # Open-circuit voltage (V)
+    fill_factor: float | None = None
+    efficiency: float | None = None  # Power conversion efficiency (%)
+    metadata: dict[str, Any] | None = None
 
 
 # API Clients
+
 
 class MaterialsProjectClient:
     """
@@ -119,7 +128,7 @@ class MaterialsProjectClient:
 
     BASE_URL = "https://api.materialsproject.org"
 
-    def __init__(self, api_key: Optional[str] = None, timeout: float = 30.0):
+    def __init__(self, api_key: str | None = None, timeout: float = 30.0):
         """
         Initialize Materials Project client.
 
@@ -131,16 +140,13 @@ class MaterialsProjectClient:
         self.timeout = timeout
 
         if api_key:
-            self.client = httpx.Client(
-                timeout=timeout,
-                headers={"X-API-KEY": api_key}
-            )
+            self.client = httpx.Client(timeout=timeout, headers={"X-API-KEY": api_key})
         else:
             self.client = httpx.Client(timeout=timeout)
             logger.warning("MaterialsProjectClient initialized without API key. Limited access.")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
-    def get_material(self, material_id: str) -> Optional[MaterialProperties]:
+    def get_material(self, material_id: str) -> MaterialProperties | None:
         """
         Get material properties by Materials Project ID.
 
@@ -160,15 +166,15 @@ class MaterialsProjectClient:
             # Extract properties from response
             return MaterialProperties(
                 material_id=material_id,
-                formula=data.get('formula_pretty', data.get('formula', '')),
-                structure=data.get('structure'),
-                energy_per_atom=data.get('energy_per_atom'),
-                band_gap=data.get('band_gap'),
-                density=data.get('density'),
-                formation_energy=data.get('formation_energy_per_atom'),
-                is_stable=data.get('is_stable'),
-                elasticity=data.get('elasticity'),
-                metadata=data
+                formula=data.get("formula_pretty", data.get("formula", "")),
+                structure=data.get("structure"),
+                energy_per_atom=data.get("energy_per_atom"),
+                band_gap=data.get("band_gap"),
+                density=data.get("density"),
+                formation_energy=data.get("formation_energy_per_atom"),
+                is_stable=data.get("is_stable"),
+                elasticity=data.get("elasticity"),
+                metadata=data,
             )
 
         except httpx.HTTPError as e:
@@ -178,12 +184,12 @@ class MaterialsProjectClient:
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     def search_materials(
         self,
-        formula: Optional[str] = None,
-        elements: Optional[List[str]] = None,
-        band_gap_min: Optional[float] = None,
-        band_gap_max: Optional[float] = None,
-        limit: int = 100
-    ) -> List[MaterialProperties]:
+        formula: str | None = None,
+        elements: list[str] | None = None,
+        band_gap_min: float | None = None,
+        band_gap_max: float | None = None,
+        limit: int = 100,
+    ) -> list[MaterialProperties]:
         """
         Search materials by criteria.
 
@@ -217,18 +223,20 @@ class MaterialsProjectClient:
             data = response.json()
             materials = []
 
-            for item in data.get('data', []):
-                materials.append(MaterialProperties(
-                    material_id=item.get('material_id', ''),
-                    formula=item.get('formula_pretty', ''),
-                    structure=item.get('structure'),
-                    energy_per_atom=item.get('energy_per_atom'),
-                    band_gap=item.get('band_gap'),
-                    density=item.get('density'),
-                    formation_energy=item.get('formation_energy_per_atom'),
-                    is_stable=item.get('is_stable'),
-                    metadata=item
-                ))
+            for item in data.get("data", []):
+                materials.append(
+                    MaterialProperties(
+                        material_id=item.get("material_id", ""),
+                        formula=item.get("formula_pretty", ""),
+                        structure=item.get("structure"),
+                        energy_per_atom=item.get("energy_per_atom"),
+                        band_gap=item.get("band_gap"),
+                        density=item.get("density"),
+                        formation_energy=item.get("formation_energy_per_atom"),
+                        is_stable=item.get("is_stable"),
+                        metadata=item,
+                    )
+                )
 
             return materials
 
@@ -263,11 +271,11 @@ class NOMADClient:
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     def search_materials(
         self,
-        formula: Optional[str] = None,
-        elements: Optional[List[str]] = None,
-        data_type: Optional[str] = None,
-        limit: int = 100
-    ) -> List[NomadEntry]:
+        formula: str | None = None,
+        elements: list[str] | None = None,
+        data_type: str | None = None,
+        limit: int = 100,
+    ) -> list[NomadEntry]:
         """
         Search NOMAD repository.
 
@@ -292,28 +300,26 @@ class NOMADClient:
 
             url = f"{self.BASE_URL}/entries"
             response = self.client.post(
-                url,
-                json={
-                    "query": query,
-                    "pagination": {"page_size": limit}
-                }
+                url, json={"query": query, "pagination": {"page_size": limit}}
             )
             response.raise_for_status()
 
             data = response.json()
             entries = []
 
-            for item in data.get('data', []):
-                entries.append(NomadEntry(
-                    entry_id=item.get('entry_id', ''),
-                    upload_id=item.get('upload_id', ''),
-                    material_name=item.get('material', {}).get('material_name'),
-                    formula=item.get('material', {}).get('chemical_formula_hill'),
-                    data_type=item.get('entry_type', 'calculation'),
-                    properties=item.get('properties', {}),
-                    metadata=item,
-                    url=f"https://nomad-lab.eu/prod/v1/gui/search/entries/entry/id/{item.get('entry_id', '')}"
-                ))
+            for item in data.get("data", []):
+                entries.append(
+                    NomadEntry(
+                        entry_id=item.get("entry_id", ""),
+                        upload_id=item.get("upload_id", ""),
+                        material_name=item.get("material", {}).get("material_name"),
+                        formula=item.get("material", {}).get("chemical_formula_hill"),
+                        data_type=item.get("entry_type", "calculation"),
+                        properties=item.get("properties", {}),
+                        metadata=item,
+                        url=f"https://nomad-lab.eu/prod/v1/gui/search/entries/entry/id/{item.get('entry_id', '')}",
+                    )
+                )
 
             return entries
 
@@ -322,7 +328,7 @@ class NOMADClient:
             return []
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
-    def get_entry(self, entry_id: str) -> Optional[NomadEntry]:
+    def get_entry(self, entry_id: str) -> NomadEntry | None:
         """
         Get specific NOMAD entry by ID.
 
@@ -341,13 +347,13 @@ class NOMADClient:
 
             return NomadEntry(
                 entry_id=entry_id,
-                upload_id=data.get('upload_id', ''),
-                material_name=data.get('material', {}).get('material_name'),
-                formula=data.get('material', {}).get('chemical_formula_hill'),
-                data_type=data.get('entry_type', 'calculation'),
-                properties=data.get('properties', {}),
+                upload_id=data.get("upload_id", ""),
+                material_name=data.get("material", {}).get("material_name"),
+                formula=data.get("material", {}).get("chemical_formula_hill"),
+                data_type=data.get("entry_type", "calculation"),
+                properties=data.get("properties", {}),
                 metadata=data,
-                url=f"https://nomad-lab.eu/prod/v1/gui/search/entries/entry/id/{entry_id}"
+                url=f"https://nomad-lab.eu/prod/v1/gui/search/entries/entry/id/{entry_id}",
             )
 
         except httpx.HTTPError as e:
@@ -379,7 +385,7 @@ class AflowClient:
         self.client = httpx.Client(timeout=timeout)
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
-    def get_material(self, auid: str) -> Optional[AflowMaterial]:
+    def get_material(self, auid: str) -> AflowMaterial | None:
         """
         Get material by AFLOW unique ID.
 
@@ -404,13 +410,13 @@ class AflowClient:
 
             return AflowMaterial(
                 auid=auid,
-                compound=item.get('compound', ''),
-                prototype=item.get('prototype'),
-                space_group=item.get('spacegroup_relax'),
-                energy_per_atom=item.get('energy_atom'),
-                band_gap=item.get('Egap'),
-                density=item.get('density'),
-                properties=item
+                compound=item.get("compound", ""),
+                prototype=item.get("prototype"),
+                space_group=item.get("spacegroup_relax"),
+                energy_per_atom=item.get("energy_atom"),
+                band_gap=item.get("Egap"),
+                density=item.get("density"),
+                properties=item,
             )
 
         except httpx.HTTPError as e:
@@ -420,11 +426,11 @@ class AflowClient:
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     def search_materials(
         self,
-        compound: Optional[str] = None,
-        elements: Optional[List[str]] = None,
-        prototype: Optional[str] = None,
-        limit: int = 100
-    ) -> List[AflowMaterial]:
+        compound: str | None = None,
+        elements: list[str] | None = None,
+        prototype: str | None = None,
+        limit: int = 100,
+    ) -> list[AflowMaterial]:
         """
         Search AFLOW database.
 
@@ -463,16 +469,18 @@ class AflowClient:
             materials = []
 
             for item in data:
-                materials.append(AflowMaterial(
-                    auid=item.get('auid', ''),
-                    compound=item.get('compound', ''),
-                    prototype=item.get('prototype'),
-                    space_group=item.get('spacegroup_relax'),
-                    energy_per_atom=item.get('energy_atom'),
-                    band_gap=item.get('Egap'),
-                    density=item.get('density'),
-                    properties=item
-                ))
+                materials.append(
+                    AflowMaterial(
+                        auid=item.get("auid", ""),
+                        compound=item.get("compound", ""),
+                        prototype=item.get("prototype"),
+                        space_group=item.get("spacegroup_relax"),
+                        energy_per_atom=item.get("energy_atom"),
+                        band_gap=item.get("Egap"),
+                        density=item.get("density"),
+                        properties=item,
+                    )
+                )
 
             return materials
 
@@ -499,7 +507,7 @@ class CitrinationClient:
 
     BASE_URL = "https://citrination.com/api"
 
-    def __init__(self, api_key: Optional[str] = None, timeout: float = 30.0):
+    def __init__(self, api_key: str | None = None, timeout: float = 30.0):
         """
         Initialize Citrination client.
 
@@ -511,20 +519,13 @@ class CitrinationClient:
         self.timeout = timeout
 
         if api_key:
-            self.client = httpx.Client(
-                timeout=timeout,
-                headers={"X-API-Key": api_key}
-            )
+            self.client = httpx.Client(timeout=timeout, headers={"X-API-Key": api_key})
         else:
             self.client = httpx.Client(timeout=timeout)
             logger.warning("CitrinationClient initialized without API key. Access limited.")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
-    def search_datasets(
-        self,
-        query: str,
-        limit: int = 100
-    ) -> List[CitrinationData]:
+    def search_datasets(self, query: str, limit: int = 100) -> list[CitrinationData]:
         """
         Search Citrination datasets.
 
@@ -537,36 +538,32 @@ class CitrinationClient:
         """
         try:
             url = f"{self.BASE_URL}/search/pif"
-            response = self.client.post(
-                url,
-                json={
-                    "query": {"simple": query},
-                    "size": limit
-                }
-            )
+            response = self.client.post(url, json={"query": {"simple": query}, "size": limit})
             response.raise_for_status()
 
             data = response.json()
             results = []
 
-            for item in data.get('hits', []):
-                pif = item.get('_source', {})
+            for item in data.get("hits", []):
+                pif = item.get("_source", {})
 
                 # Extract properties
                 properties = {}
-                for prop in pif.get('properties', []):
-                    name = prop.get('name', '')
-                    value = prop.get('scalars', [{}])[0].get('value')
+                for prop in pif.get("properties", []):
+                    name = prop.get("name", "")
+                    value = prop.get("scalars", [{}])[0].get("value")
                     if name and value is not None:
                         properties[name] = value
 
-                results.append(CitrinationData(
-                    dataset_id=pif.get('uid', ''),
-                    material_name=pif.get('chemicalFormula', ''),
-                    properties=properties,
-                    conditions=pif.get('conditions'),
-                    metadata=pif
-                ))
+                results.append(
+                    CitrinationData(
+                        dataset_id=pif.get("uid", ""),
+                        material_name=pif.get("chemicalFormula", ""),
+                        properties=properties,
+                        conditions=pif.get("conditions"),
+                        metadata=pif,
+                    )
+                )
 
             return results
 
@@ -595,11 +592,7 @@ class PerovskiteDBClient:
         """Initialize Perovskite DB client."""
         pass
 
-    def load_dataset(
-        self,
-        file_path: str,
-        sheet_name: Optional[str] = None
-    ) -> pd.DataFrame:
+    def load_dataset(self, file_path: str, sheet_name: str | None = None) -> pd.DataFrame:
         """
         Load perovskite experimental data from file.
 
@@ -618,12 +611,12 @@ class PerovskiteDBClient:
                 return pd.DataFrame()
 
             # Load based on file extension
-            if path.suffix.lower() in ['.xlsx', '.xls']:
+            if path.suffix.lower() in [".xlsx", ".xls"]:
                 if sheet_name:
                     df = pd.read_excel(file_path, sheet_name=sheet_name)
                 else:
                     df = pd.read_excel(file_path)
-            elif path.suffix.lower() == '.csv':
+            elif path.suffix.lower() == ".csv":
                 df = pd.read_csv(file_path)
             else:
                 logger.error(f"Unsupported file format: {path.suffix}")
@@ -639,13 +632,13 @@ class PerovskiteDBClient:
     def parse_experiments(
         self,
         df: pd.DataFrame,
-        composition_cols: Optional[List[str]] = None,
-        fabrication_cols: Optional[List[str]] = None,
-        jsc_col: str = 'Jsc',
-        voc_col: str = 'Voc',
-        ff_col: str = 'Fill Factor',
-        eff_col: str = 'Efficiency'
-    ) -> List[PerovskiteExperiment]:
+        composition_cols: list[str] | None = None,
+        fabrication_cols: list[str] | None = None,
+        jsc_col: str = "Jsc",
+        voc_col: str = "Voc",
+        ff_col: str = "Fill Factor",
+        eff_col: str = "Efficiency",
+    ) -> list[PerovskiteExperiment]:
         """
         Parse DataFrame into PerovskiteExperiment objects.
 
@@ -685,15 +678,17 @@ class PerovskiteDBClient:
             ff = row_dict.get(ff_col) if ff_col in df.columns else None
             eff = row_dict.get(eff_col) if eff_col in df.columns else None
 
-            experiments.append(PerovskiteExperiment(
-                experiment_id=str(idx),
-                composition=composition,
-                fabrication_params=fabrication,
-                jsc=jsc,
-                voc=voc,
-                fill_factor=ff,
-                efficiency=eff,
-                metadata=row.to_dict()
-            ))
+            experiments.append(
+                PerovskiteExperiment(
+                    experiment_id=str(idx),
+                    composition=composition,
+                    fabrication_params=fabrication,
+                    jsc=jsc,
+                    voc=voc,
+                    fill_factor=ff,
+                    efficiency=eff,
+                    metadata=row.to_dict(),
+                )
+            )
 
         return experiments

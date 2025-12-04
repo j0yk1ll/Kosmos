@@ -1,71 +1,63 @@
 """Neuroscience domain module - connectomics, neurodegeneration, and brain network analysis"""
 
 from kosmos.domains.neuroscience.apis import (
-    FlyWireClient,
     AllenBrainClient,
-    MICrONSClient,
-    GEOClient,
     AMPADClient,
-    OpenConnectomeClient,
-    WormBaseClient,
-    NeuronData,
-    GeneExpressionData,
     ConnectomeDataset,
     DifferentialExpressionResult as APIDifferentialExpressionResult,
+    FlyWireClient,
+    GeneExpressionData,
+    GEOClient,
+    MICrONSClient,
+    NeuronData,
+    OpenConnectomeClient,
+    WormBaseClient,
 )
-
 from kosmos.domains.neuroscience.connectomics import (
     ConnectomicsAnalyzer,
     ConnectomicsResult,
-    ScalingRelationship,
-    PowerLawFit,
     CrossSpeciesComparison,
+    PowerLawFit,
+    ScalingRelationship,
 )
-
 from kosmos.domains.neuroscience.neurodegeneration import (
+    CrossSpeciesValidation,
+    DifferentialExpressionResult,
     NeurodegenerationAnalyzer,
     NeurodegenerationResult,
-    DifferentialExpressionResult,
     PathwayEnrichmentResult,
-    CrossSpeciesValidation,
     TemporalStage,
 )
+from kosmos.domains.neuroscience.ontology import NeuroscienceOntology
 
-from kosmos.domains.neuroscience.ontology import (
-    NeuroscienceOntology,
-)
 
 __all__ = [
     # API Clients
-    'FlyWireClient',
-    'AllenBrainClient',
-    'MICrONSClient',
-    'GEOClient',
-    'AMPADClient',
-    'OpenConnectomeClient',
-    'WormBaseClient',
-
+    "FlyWireClient",
+    "AllenBrainClient",
+    "MICrONSClient",
+    "GEOClient",
+    "AMPADClient",
+    "OpenConnectomeClient",
+    "WormBaseClient",
     # API Data Models
-    'NeuronData',
-    'GeneExpressionData',
-    'ConnectomeDataset',
-    'APIDifferentialExpressionResult',
-
+    "NeuronData",
+    "GeneExpressionData",
+    "ConnectomeDataset",
+    "APIDifferentialExpressionResult",
     # Connectomics
-    'ConnectomicsAnalyzer',
-    'ConnectomicsResult',
-    'ScalingRelationship',
-    'PowerLawFit',
-    'CrossSpeciesComparison',
-
+    "ConnectomicsAnalyzer",
+    "ConnectomicsResult",
+    "ScalingRelationship",
+    "PowerLawFit",
+    "CrossSpeciesComparison",
     # Neurodegeneration
-    'NeurodegenerationAnalyzer',
-    'NeurodegenerationResult',
-    'DifferentialExpressionResult',
-    'PathwayEnrichmentResult',
-    'CrossSpeciesValidation',
-    'TemporalStage',
-
+    "NeurodegenerationAnalyzer",
+    "NeurodegenerationResult",
+    "DifferentialExpressionResult",
+    "PathwayEnrichmentResult",
+    "CrossSpeciesValidation",
+    "TemporalStage",
     # Ontology
-    'NeuroscienceOntology',
+    "NeuroscienceOntology",
 ]

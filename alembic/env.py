@@ -4,19 +4,22 @@ Alembic environment configuration.
 Connects to Kosmos database and manages migrations.
 """
 
-from logging.config import fileConfig
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from alembic import context
 import sys
+from logging.config import fileConfig
 from pathlib import Path
+
+from sqlalchemy import engine_from_config, pool
+
+from alembic import context
+
 
 # Add kosmos to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import Kosmos models
-from kosmos.db.models import Base
 from kosmos.config import get_config
+from kosmos.db.models import Base
+
 
 # Alembic Config object
 config = context.config
@@ -27,6 +30,7 @@ if config.config_file_name is not None:
 
 # Set target metadata for autogenerate
 target_metadata = Base.metadata
+
 
 def get_url():
     """Get database URL from Kosmos config."""
@@ -76,10 +80,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

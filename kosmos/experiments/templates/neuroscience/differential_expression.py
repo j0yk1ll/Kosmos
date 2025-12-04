@@ -29,19 +29,15 @@ Example usage:
         )
 """
 
-from typing import List, Dict, Any, Optional
-from kosmos.experiments.templates.base import (
-    TemplateBase,
-    TemplateCustomizationParams
-)
+from kosmos.experiments.templates.base import TemplateBase, TemplateCustomizationParams
 from kosmos.models.experiment import (
     ExperimentProtocol,
     ExperimentType,
     ProtocolStep,
-    Variable,
     ResourceRequirements,
     StatisticalTestSpec,
     ValidationCheck,
+    Variable,
 )
 from kosmos.models.hypothesis import Hypothesis
 
@@ -76,16 +72,16 @@ class DifferentialExpressionTemplate(TemplateBase):
                 "Alzheimer's disease gene expression",
                 "Neurodegeneration studies",
                 "Temporal gene expression changes",
-                "Cross-species validation"
+                "Cross-species validation",
             ],
             requirements=[
                 "RNA-seq count matrix (genes × samples)",
                 "Sample metadata with condition labels",
                 "At least 3 samples per condition for reliable statistics",
-                "Count data (not normalized FPKM/TPM)"
+                "Count data (not normalized FPKM/TPM)",
             ],
             complexity_score=0.8,
-            rigor_score=0.9
+            rigor_score=0.9,
         )
 
     def is_applicable(self, hypothesis: Hypothesis) -> bool:
@@ -102,25 +98,44 @@ class DifferentialExpressionTemplate(TemplateBase):
 
         # Check for gene expression keywords
         expression_keywords = [
-            'gene expression', 'differential expression', 'rna-seq',
-            'transcriptom', 'mrna', 'gene', 'expressed'
+            "gene expression",
+            "differential expression",
+            "rna-seq",
+            "transcriptom",
+            "mrna",
+            "gene",
+            "expressed",
         ]
 
         # Check for comparison keywords
         comparison_keywords = [
-            'compare', 'comparison', 'difference', 'vs', 'versus',
-            'between', 'change', 'altered', 'dysregulated'
+            "compare",
+            "comparison",
+            "difference",
+            "vs",
+            "versus",
+            "between",
+            "change",
+            "altered",
+            "dysregulated",
         ]
 
         # Check for neuroscience context
         neuro_keywords = [
-            'alzheimer', 'parkinson', 'neurodegener', 'brain',
-            'neuron', 'neural', 'aging', 'dementia', 'cognitive'
+            "alzheimer",
+            "parkinson",
+            "neurodegener",
+            "brain",
+            "neuron",
+            "neural",
+            "aging",
+            "dementia",
+            "cognitive",
         ]
 
         has_expression = any(kw in statement_lower for kw in expression_keywords)
         has_comparison = any(kw in statement_lower for kw in comparison_keywords)
-        has_neuro = any(kw in statement_lower for kw in neuro_keywords)
+        any(kw in statement_lower for kw in neuro_keywords)
 
         # Require expression + comparison, neuroscience context is helpful but not required
         return has_expression and has_comparison
@@ -151,18 +166,18 @@ class DifferentialExpressionTemplate(TemplateBase):
             - mouse_data_path: Mouse data for cross-species validation (default: None)
         """
         # Extract parameters
-        counts_path = params.custom_variables.get('counts_data_path', 'rnaseq_counts.csv')
-        metadata_path = params.custom_variables.get('metadata_path', 'sample_metadata.csv')
-        condition_column = params.custom_variables.get('condition_column', 'condition')
-        case_label = params.custom_variables.get('case_label', 'Case')
-        control_label = params.custom_variables.get('control_label', 'Control')
+        counts_path = params.custom_variables.get("counts_data_path", "rnaseq_counts.csv")
+        metadata_path = params.custom_variables.get("metadata_path", "sample_metadata.csv")
+        condition_column = params.custom_variables.get("condition_column", "condition")
+        case_label = params.custom_variables.get("case_label", "Case")
+        control_label = params.custom_variables.get("control_label", "Control")
 
-        use_pydeseq2 = params.custom_variables.get('use_pydeseq2', True)
-        p_threshold = params.custom_variables.get('p_threshold', 0.05)
-        fc_threshold = params.custom_variables.get('fc_threshold', 1.0)
-        perform_temporal = params.custom_variables.get('perform_temporal', False)
-        pathway_genes = params.custom_variables.get('pathway_genes', None)
-        mouse_data_path = params.custom_variables.get('mouse_data_path', None)
+        use_pydeseq2 = params.custom_variables.get("use_pydeseq2", True)
+        p_threshold = params.custom_variables.get("p_threshold", 0.05)
+        fc_threshold = params.custom_variables.get("fc_threshold", 1.0)
+        perform_temporal = params.custom_variables.get("perform_temporal", False)
+        pathway_genes = params.custom_variables.get("pathway_genes", None)
+        mouse_data_path = params.custom_variables.get("mouse_data_path", None)
 
         # Create protocol steps
         steps = [
@@ -176,8 +191,8 @@ class DifferentialExpressionTemplate(TemplateBase):
                 validation=[
                     "Counts matrix has genes as rows, samples as columns",
                     "Metadata has sample_id column matching counts columns",
-                    f"Metadata has '{condition_column}' column"
-                ]
+                    f"Metadata has '{condition_column}' column",
+                ],
             ),
             ProtocolStep(
                 name="differential_expression",
@@ -189,23 +204,23 @@ class DifferentialExpressionTemplate(TemplateBase):
                 validation=[
                     "All genes have log2 fold change and p-values",
                     "Adjusted p-values calculated (FDR correction)",
-                    "At least some significant genes found"
-                ]
+                    "At least some significant genes found",
+                ],
             ),
             ProtocolStep(
                 name="summarize_results",
                 description="Summarize differential expression results",
                 code_template=self._generate_summary_code(p_threshold, fc_threshold),
                 expected_output="Summary statistics and significant gene lists",
-                validation=["Summary statistics computed"]
+                validation=["Summary statistics computed"],
             ),
             ProtocolStep(
                 name="volcano_plot",
                 description="Generate volcano plot visualization",
                 code_template=self._generate_volcano_code(p_threshold, fc_threshold),
                 expected_output="Volcano plot PNG file",
-                validation=["Volcano plot created"]
-            )
+                validation=["Volcano plot created"],
+            ),
         ]
 
         # Add temporal ordering if requested
@@ -216,7 +231,7 @@ class DifferentialExpressionTemplate(TemplateBase):
                     description="Order genes by temporal trajectory",
                     code_template=self._generate_temporal_code(),
                     expected_output="Genes assigned to temporal stages",
-                    validation=["Temporal stages assigned to significant genes"]
+                    validation=["Temporal stages assigned to significant genes"],
                 )
             )
 
@@ -228,7 +243,7 @@ class DifferentialExpressionTemplate(TemplateBase):
                     description="Test pathway enrichment in DEGs",
                     code_template=self._generate_enrichment_code(pathway_genes),
                     expected_output="PathwayEnrichmentResult with Fisher's test",
-                    validation=["Enrichment p-value calculated"]
+                    validation=["Enrichment p-value calculated"],
                 )
             )
 
@@ -239,11 +254,10 @@ class DifferentialExpressionTemplate(TemplateBase):
                     name="cross_species_validation",
                     description="Validate findings in mouse model",
                     code_template=self._generate_cross_species_code(
-                        mouse_data_path, metadata_path, condition_column,
-                        case_label, control_label
+                        mouse_data_path, metadata_path, condition_column, case_label, control_label
                     ),
                     expected_output="CrossSpeciesValidation results",
-                    validation=["Concordance calculated for common genes"]
+                    validation=["Concordance calculated for common genes"],
                 )
             )
 
@@ -253,26 +267,26 @@ class DifferentialExpressionTemplate(TemplateBase):
                 name="condition_column",
                 type="string",
                 value=condition_column,
-                description="Metadata column with condition labels"
+                description="Metadata column with condition labels",
             ),
             Variable(
                 name="case_label",
                 type="string",
                 value=case_label,
-                description="Label for case samples"
+                description="Label for case samples",
             ),
             Variable(
                 name="control_label",
                 type="string",
                 value=control_label,
-                description="Label for control samples"
+                description="Label for control samples",
             ),
             Variable(
                 name="p_threshold",
                 type="float",
                 value=str(p_threshold),
-                description="Adjusted p-value significance threshold"
-            )
+                description="Adjusted p-value significance threshold",
+            ),
         ]
 
         # Statistical tests
@@ -282,9 +296,9 @@ class DifferentialExpressionTemplate(TemplateBase):
                 parameters={
                     "method": "DESeq2" if use_pydeseq2 else "t-test",
                     "correction": "Benjamini-Hochberg",
-                    "significance_level": p_threshold
+                    "significance_level": p_threshold,
                 },
-                description="Differential expression with multiple testing correction"
+                description="Differential expression with multiple testing correction",
             )
         ]
 
@@ -293,7 +307,7 @@ class DifferentialExpressionTemplate(TemplateBase):
                 StatisticalTestSpec(
                     test_type="fisher_exact",
                     parameters={"alternative": "greater"},
-                    description="Pathway enrichment test"
+                    description="Pathway enrichment test",
                 )
             )
 
@@ -302,21 +316,18 @@ class DifferentialExpressionTemplate(TemplateBase):
             ValidationCheck(
                 check_type="sample_size",
                 parameters={"min_samples_per_group": 3},
-                description="Ensure sufficient samples per condition"
+                description="Ensure sufficient samples per condition",
             ),
             ValidationCheck(
                 check_type="data_quality",
-                parameters={
-                    "count_data": True,
-                    "non_negative": True
-                },
-                description="Ensure count data is valid"
+                parameters={"count_data": True, "non_negative": True},
+                description="Ensure count data is valid",
             ),
             ValidationCheck(
                 check_type="statistical_significance",
                 parameters={"p_threshold": p_threshold},
-                description="Check for significant genes"
-            )
+                description="Check for significant genes",
+            ),
         ]
 
         # Resource requirements
@@ -324,7 +335,7 @@ class DifferentialExpressionTemplate(TemplateBase):
             estimated_runtime_seconds=300,  # 5 minutes
             memory_mb=2048,  # 2 GB for DESeq2
             cpu_cores=2,
-            requires_gpu=False
+            requires_gpu=False,
         )
 
         # Create protocol
@@ -342,20 +353,17 @@ class DifferentialExpressionTemplate(TemplateBase):
             reproducibility_notes=[
                 "DESeq2 analysis is deterministic with same random seed",
                 "Results depend on count filtering thresholds",
-                "Multiple testing correction uses Benjamini-Hochberg FDR"
-            ]
+                "Multiple testing correction uses Benjamini-Hochberg FDR",
+            ],
         )
 
         return protocol
 
     def _generate_load_data_code(
-        self,
-        counts_path: str,
-        metadata_path: str,
-        condition_column: str
+        self, counts_path: str, metadata_path: str, condition_column: str
     ) -> str:
         """Generate code to load RNA-seq data"""
-        return f'''
+        return f"""
 import pandas as pd
 import numpy as np
 from kosmos.domains.neuroscience.neurodegeneration import NeurodegenerationAnalyzer
@@ -393,17 +401,13 @@ print(f"\\nSample overlap: {{len(overlap)}} / {{len(counts_samples)}} counts sam
 
 if len(overlap) < len(counts_samples):
     print(f"Warning: {{len(counts_samples) - len(overlap)}} samples in counts not in metadata")
-'''
+"""
 
     def _generate_deg_analysis_code(
-        self,
-        condition_column: str,
-        case_label: str,
-        control_label: str,
-        use_pydeseq2: bool
+        self, condition_column: str, case_label: str, control_label: str, use_pydeseq2: bool
     ) -> str:
         """Generate code for differential expression analysis"""
-        return f'''
+        return f"""
 from kosmos.domains.neuroscience.neurodegeneration import NeurodegenerationAnalyzer
 
 # Initialize analyzer
@@ -425,11 +429,11 @@ print(f"\\n=== Differential Expression Results ===")
 summary = deg_results.get_summary()
 for key, value in summary.items():
     print(f"{{key}}: {{value}}")
-'''
+"""
 
     def _generate_summary_code(self, p_threshold: float, fc_threshold: float) -> str:
         """Generate code to summarize results"""
-        return f'''
+        return f"""
 # Get significant genes
 sig_genes = deg_results.get_significant_genes(p_threshold={p_threshold})
 sig_up = deg_results.get_significant_genes(p_threshold={p_threshold}, direction='up')
@@ -458,11 +462,11 @@ if sig_down:
 deg_df = deg_results.to_dataframe()
 deg_df.to_csv('differential_expression_results.csv', index=False)
 print(f"\\nSaved results to: differential_expression_results.csv")
-'''
+"""
 
     def _generate_volcano_code(self, p_threshold: float, fc_threshold: float) -> str:
         """Generate code for volcano plot"""
-        return f'''
+        return f"""
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -509,11 +513,11 @@ plt.tight_layout()
 plt.savefig('volcano_plot.png', dpi=300, bbox_inches='tight')
 print(f"\\nSaved volcano plot: volcano_plot.png")
 plt.show()
-'''
+"""
 
     def _generate_temporal_code(self) -> str:
         """Generate code for temporal ordering"""
-        return f'''
+        return """
 # Temporal ordering of genes
 deg_results_temporal = analyzer.temporal_ordering(deg_results, n_stages=5)
 
@@ -529,13 +533,13 @@ print(stage_counts)
 # Save temporal results
 temporal_sig.to_csv('temporal_gene_expression.csv', index=False)
 print(f"\\nSaved temporal results: temporal_gene_expression.csv")
-'''
+"""
 
-    def _generate_enrichment_code(self, pathway_genes: Dict[str, List[str]]) -> str:
+    def _generate_enrichment_code(self, pathway_genes: dict[str, list[str]]) -> str:
         """Generate code for pathway enrichment"""
         pathway_genes_str = str(pathway_genes)
 
-        return f'''
+        return f"""
 # Pathway enrichment analysis
 pathway_genes_dict = {pathway_genes_str}
 
@@ -561,7 +565,7 @@ for pathway_name, result in enrichment_results.items():
     print(f"  Enriched: {{result.is_enriched}}")
 
 pathway_enrichment = enrichment_results
-'''
+"""
 
     def _generate_cross_species_code(
         self,
@@ -569,10 +573,10 @@ pathway_enrichment = enrichment_results
         metadata_path: str,
         condition_column: str,
         case_label: str,
-        control_label: str
+        control_label: str,
     ) -> str:
         """Generate code for cross-species validation"""
-        return f'''
+        return f"""
 # Load mouse data for cross-species validation
 mouse_counts = pd.read_csv('{mouse_data_path}', index_col=0)
 mouse_metadata = pd.read_csv('{metadata_path}')  # Assumes same metadata structure
@@ -612,4 +616,4 @@ if concordant:
         print(f"  {{v.gene_id}}: Human log2FC={{v.human_log2fc:.2f}}, Mouse log2FC={{v.mouse_log2fc:.2f}}")
 
 cross_species_validation = validation_results
-'''
+"""

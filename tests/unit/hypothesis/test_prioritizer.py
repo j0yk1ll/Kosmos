@@ -1,13 +1,17 @@
 """Tests for hypothesis prioritizer."""
 
 import pytest
-from unittest.mock import Mock, patch
+
 from kosmos.hypothesis.prioritizer import HypothesisPrioritizer
 from kosmos.models.hypothesis import Hypothesis
 
+
 @pytest.fixture
 def prioritizer():
-    return HypothesisPrioritizer(use_novelty_checker=False, use_testability_analyzer=False, use_impact_prediction=False)
+    return HypothesisPrioritizer(
+        use_novelty_checker=False, use_testability_analyzer=False, use_impact_prediction=False
+    )
+
 
 @pytest.fixture
 def sample_hypotheses():
@@ -19,7 +23,7 @@ def sample_hypotheses():
             domain="test",
             novelty_score=0.9,
             testability_score=0.8,
-            confidence_score=0.85
+            confidence_score=0.85,
         ),
         Hypothesis(
             research_question="Q2",
@@ -28,7 +32,7 @@ def sample_hypotheses():
             domain="test",
             novelty_score=0.6,
             testability_score=0.5,
-            confidence_score=0.55
+            confidence_score=0.55,
         ),
         Hypothesis(
             research_question="Q3",
@@ -37,9 +41,10 @@ def sample_hypotheses():
             domain="test",
             novelty_score=0.3,
             testability_score=0.4,
-            confidence_score=0.35
-        )
+            confidence_score=0.35,
+        ),
     ]
+
 
 @pytest.mark.unit
 class TestHypothesisPrioritizer:
@@ -64,7 +69,7 @@ class TestHypothesisPrioritizer:
             statement="Test hypothesis",
             rationale="Test rationale",
             domain="test",
-            estimated_resources={"cost_usd": 10, "duration_days": 3, "compute_hours": 5}
+            estimated_resources={"cost_usd": 10, "duration_days": 3, "compute_hours": 5},
         )
 
         score = prioritizer._calculate_feasibility_score(hyp)

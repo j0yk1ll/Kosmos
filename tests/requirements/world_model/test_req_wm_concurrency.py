@@ -5,17 +5,16 @@ These tests validate concurrent access handling, thread safety, ACID properties,
 and race condition prevention in the knowledge graph.
 """
 
-import pytest
-import uuid
 import threading
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
-from typing import List
-from unittest.mock import Mock, patch
 
-from kosmos.world_model.models import Entity, Relationship
+import pytest
+
 from kosmos.world_model import get_world_model, reset_world_model
+from kosmos.world_model.models import Entity, Relationship
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -28,6 +27,7 @@ pytestmark = [
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def world_model():
@@ -49,6 +49,7 @@ def world_model():
 # ============================================================================
 # REQ-WM-CONC-001: Thread-Safe Operations (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-CONC-001")
 @pytest.mark.priority("MUST")
@@ -73,9 +74,9 @@ class TestREQ_WM_CONC_001_ThreadSafeOperations:
                         type="Paper",
                         properties={
                             "title": f"Paper from thread {thread_id}, item {i}",
-                            "thread_id": thread_id
+                            "thread_id": thread_id,
                         },
-                        project="test_concurrency"
+                        project="test_concurrency",
                     )
                     entity_id = world_model.add_entity(entity)
                     with lock:
@@ -105,9 +106,7 @@ class TestREQ_WM_CONC_001_ThreadSafeOperations:
         """Verify multiple threads can read entities concurrently."""
         # Create test entity
         entity = Entity(
-            type="Paper",
-            properties={"title": "Concurrent Read Test"},
-            project="test_concurrency"
+            type="Paper", properties={"title": "Concurrent Read Test"}, project="test_concurrency"
         )
         entity_id = world_model.add_entity(entity)
 
@@ -161,10 +160,7 @@ class TestREQ_WM_CONC_001_ThreadSafeOperations:
         def create_relationship(thread_id):
             try:
                 rel = Relationship(
-                    source_id=id1,
-                    target_id=id2,
-                    type="CITES",
-                    properties={"thread_id": thread_id}
+                    source_id=id1, target_id=id2, type="CITES", properties={"thread_id": thread_id}
                 )
                 rel_id = world_model.add_relationship(rel)
                 with lock:
@@ -185,16 +181,13 @@ class TestREQ_WM_CONC_001_ThreadSafeOperations:
             thread.join()
 
         # Verify (some duplicates may be prevented by merge logic)
-        assert len(errors) == 0 or len(created_rel_ids) > 0, \
-            f"All operations failed: {errors}"
+        assert len(errors) == 0 or len(created_rel_ids) > 0, f"All operations failed: {errors}"
 
     def test_concurrent_mixed_operations(self, world_model):
         """Verify concurrent mix of reads, writes, and updates."""
         # Create initial entity
         initial_entity = Entity(
-            type="Paper",
-            properties={"title": "Mixed Operations Test"},
-            project="test_concurrency"
+            type="Paper", properties={"title": "Mixed Operations Test"}, project="test_concurrency"
         )
         initial_id = world_model.add_entity(initial_entity)
 
@@ -214,7 +207,7 @@ class TestREQ_WM_CONC_001_ThreadSafeOperations:
                 new_entity = Entity(
                     type="Concept",
                     properties={"name": f"Concept {thread_id}"},
-                    project="test_concurrency"
+                    project="test_concurrency",
                 )
                 new_id = world_model.add_entity(new_entity)
                 if new_id:
@@ -223,10 +216,7 @@ class TestREQ_WM_CONC_001_ThreadSafeOperations:
 
                 # Update (if supported)
                 try:
-                    world_model.update_entity(
-                        new_id,
-                        {"verified": True}
-                    )
+                    world_model.update_entity(new_id, {"verified": True})
                     with lock:
                         operations_count["updates"] += 1
                 except Exception:
@@ -251,6 +241,7 @@ class TestREQ_WM_CONC_001_ThreadSafeOperations:
 # REQ-WM-CONC-002: ACID Compliance (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-CONC-002")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_CONC_002_ACIDCompliance:
@@ -266,7 +257,7 @@ class TestREQ_WM_CONC_002_ACIDCompliance:
             type="Paper",
             properties={"title": "Atomic Test"},
             confidence=0.9,
-            project="test_concurrency"
+            project="test_concurrency",
         )
 
         entity_id = world_model.add_entity(valid_entity)
@@ -286,14 +277,10 @@ class TestREQ_WM_CONC_002_ACIDCompliance:
 
         # Try to create relationship to non-existent entity
         fake_id = str(uuid.uuid4())
-        invalid_rel = Relationship(
-            source_id=id1,
-            target_id=fake_id,
-            type="CITES"
-        )
+        invalid_rel = Relationship(source_id=id1, target_id=fake_id, type="CITES")
 
         # Should fail to maintain consistency
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, KeyError, RuntimeError)):
             world_model.add_relationship(invalid_rel)
 
         # Original entity should still exist
@@ -305,7 +292,7 @@ class TestREQ_WM_CONC_002_ACIDCompliance:
         entity = Entity(
             type="Paper",
             properties={"title": "Isolation Test", "counter": 0},
-            project="test_concurrency"
+            project="test_concurrency",
         )
         entity_id = world_model.add_entity(entity)
 
@@ -321,8 +308,7 @@ class TestREQ_WM_CONC_002_ACIDCompliance:
                     # Update counter
                     current_counter = current.properties.get("counter", 0)
                     world_model.update_entity(
-                        entity_id,
-                        {"properties.counter": current_counter + 1}
+                        entity_id, {"properties.counter": current_counter + 1}
                     )
             except Exception as e:
                 with lock:
@@ -348,9 +334,7 @@ class TestREQ_WM_CONC_002_ACIDCompliance:
         """Verify data persists after write operations (durability)."""
         # Create entity
         entity = Entity(
-            type="Paper",
-            properties={"title": "Durability Test"},
-            project="test_concurrency"
+            type="Paper", properties={"title": "Durability Test"}, project="test_concurrency"
         )
         entity_id = world_model.add_entity(entity)
 
@@ -375,6 +359,7 @@ class TestREQ_WM_CONC_002_ACIDCompliance:
 # REQ-WM-CONC-003: Race Condition Prevention (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-CONC-003")
 @pytest.mark.priority("MUST")
 class TestREQ_WM_CONC_003_RaceConditionPrevention:
@@ -396,12 +381,9 @@ class TestREQ_WM_CONC_003_RaceConditionPrevention:
                 entity = Entity(
                     id=shared_entity_id,
                     type="Paper",
-                    properties={
-                        "title": "Shared Paper",
-                        f"property_from_thread_{thread_id}": True
-                    },
+                    properties={"title": "Shared Paper", f"property_from_thread_{thread_id}": True},
                     confidence=0.5 + (thread_id * 0.01),  # Slightly different
-                    project="test_concurrency"
+                    project="test_concurrency",
                 )
                 result_id = world_model.add_entity(entity, merge=True)
                 with lock:
@@ -451,7 +433,7 @@ class TestREQ_WM_CONC_003_RaceConditionPrevention:
                     source_id=id1,
                     target_id=id2,
                     type="CITES",
-                    properties={"created_by_thread": thread_id}
+                    properties={"created_by_thread": thread_id},
                 )
                 rel_id = world_model.add_relationship(rel)
                 with lock:
@@ -479,7 +461,7 @@ class TestREQ_WM_CONC_003_RaceConditionPrevention:
         entity = Entity(
             type="Paper",
             properties={"title": "Update Test", "tags": []},
-            project="test_concurrency"
+            project="test_concurrency",
         )
         entity_id = world_model.add_entity(entity)
 
@@ -491,13 +473,9 @@ class TestREQ_WM_CONC_003_RaceConditionPrevention:
         def add_tag(thread_id):
             try:
                 # Each thread adds a unique tag
-                tag = f"tag_{thread_id}"
                 # Note: This is a simplified test
                 # Real implementation would need atomic list append
-                world_model.update_entity(
-                    entity_id,
-                    {f"properties.tag_{thread_id}": True}
-                )
+                world_model.update_entity(entity_id, {f"properties.tag_{thread_id}": True})
                 with lock:
                     completed.append(thread_id)
             except Exception as e:
@@ -521,6 +499,7 @@ class TestREQ_WM_CONC_003_RaceConditionPrevention:
 # ============================================================================
 # REQ-WM-CONC-004: Deadlock Prevention (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-WM-CONC-004")
 @pytest.mark.priority("MUST")
@@ -587,11 +566,9 @@ class TestREQ_WM_CONC_004_DeadlockPrevention:
 
         def perform_operation(op_id):
             entity = Entity(
-                type="Paper",
-                properties={"title": f"Paper {op_id}"},
-                project="test_concurrency"
+                type="Paper", properties={"title": f"Paper {op_id}"}, project="test_concurrency"
             )
-            entity_id = world_model.add_entity(entity)
+            world_model.add_entity(entity)
             with lock:
                 completed_operations.append(op_id)
 
@@ -613,6 +590,7 @@ class TestREQ_WM_CONC_004_DeadlockPrevention:
 # REQ-WM-CONC-005: Connection Pool Management (SHOULD)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-WM-CONC-005")
 @pytest.mark.priority("SHOULD")
 class TestREQ_WM_CONC_005_ConnectionPoolManagement:
@@ -628,9 +606,7 @@ class TestREQ_WM_CONC_005_ConnectionPoolManagement:
         def perform_read_operation(op_id):
             # Create and read entity
             entity = Entity(
-                type="Paper",
-                properties={"title": f"Paper {op_id}"},
-                project="test_concurrency"
+                type="Paper", properties={"title": f"Paper {op_id}"}, project="test_concurrency"
             )
             entity_id = world_model.add_entity(entity)
             retrieved = world_model.get_entity(entity_id)
@@ -656,7 +632,7 @@ class TestREQ_WM_CONC_005_ConnectionPoolManagement:
                 entity = Entity(
                     type="Concept",
                     properties={"name": f"Concept {op_id}"},
-                    project="test_concurrency"
+                    project="test_concurrency",
                 )
                 entity_id = world_model.add_entity(entity)
                 # Hold connection briefly
@@ -684,9 +660,7 @@ class TestREQ_WM_CONC_005_ConnectionPoolManagement:
         # Perform operations
         for i in range(10):
             entity = Entity(
-                type="Paper",
-                properties={"title": f"Cleanup Test {i}"},
-                project="test_concurrency"
+                type="Paper", properties={"title": f"Cleanup Test {i}"}, project="test_concurrency"
             )
             world_model.add_entity(entity)
 

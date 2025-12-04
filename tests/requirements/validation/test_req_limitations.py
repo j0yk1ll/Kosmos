@@ -13,11 +13,11 @@ Requirements tested:
 """
 
 import os
-import pytest
 from pathlib import Path
-from typing import Dict, Any
-from unittest.mock import Mock, patch, MagicMock
-import tempfile
+from unittest.mock import patch
+
+import pytest
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -29,6 +29,7 @@ pytestmark = [
 # ============================================================================
 # REQ-LIMIT-001: No Mid-Cycle Human Interaction (MUST NOT)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-LIMIT-001")
 @pytest.mark.priority("MUST")
@@ -46,31 +47,30 @@ def test_req_limit_001_no_interactive_prompts():
 
     try:
         # Verify workflow doesn't have interactive methods
-        workflow = ResearchWorkflow(
-            research_question="Test question",
-            domain="biology"
-        )
+        workflow = ResearchWorkflow(research_question="Test question", domain="biology")
 
         # Workflow should not have methods for human interaction
-        interactive_methods = ['wait_for_input', 'prompt_user', 'interactive_mode']
+        interactive_methods = ["wait_for_input", "prompt_user", "interactive_mode"]
 
         for method in interactive_methods:
-            assert not hasattr(workflow, method), \
-                f"Workflow should not have interactive method: {method}"
+            assert not hasattr(
+                workflow, method
+            ), f"Workflow should not have interactive method: {method}"
 
         print("✓ Workflow has no interactive methods")
 
     except ImportError:
         # Fallback: Check workflow code for input() calls
         project_root = Path(__file__).parent.parent.parent.parent
-        workflow_file = project_root / 'kosmos' / 'core' / 'workflow.py'
+        workflow_file = project_root / "kosmos" / "core" / "workflow.py"
 
         if workflow_file.exists():
             content = workflow_file.read_text()
 
             # Should not have input() calls
-            assert 'input(' not in content, \
-                "Workflow should not use input() for interactive prompts"
+            assert (
+                "input(" not in content
+            ), "Workflow should not use input() for interactive prompts"
 
             print("✓ No input() calls found in workflow code")
 
@@ -84,19 +84,14 @@ def test_req_limit_001_autonomous_execution():
     from kosmos.core.workflow import ResearchWorkflow
 
     try:
-        workflow = ResearchWorkflow(
-            research_question="Test autonomous execution",
-            domain="biology"
-        )
+        workflow = ResearchWorkflow(research_question="Test autonomous execution", domain="biology")
 
         # Check for autonomous execution flags
-        if hasattr(workflow, 'autonomous'):
-            assert workflow.autonomous == True, \
-                "Workflow should be autonomous by default"
+        if hasattr(workflow, "autonomous"):
+            assert workflow.autonomous, "Workflow should be autonomous by default"
 
-        if hasattr(workflow, 'require_user_input'):
-            assert workflow.require_user_input == False, \
-                "Workflow should not require user input"
+        if hasattr(workflow, "require_user_input"):
+            assert not workflow.require_user_input, "Workflow should not require user input"
 
         print("✓ Autonomous execution verified")
 
@@ -114,9 +109,9 @@ def test_req_limit_001_documentation_states_limitation():
 
     # Check documentation mentions this limitation
     doc_files = [
-        project_root / 'REQUIREMENTS.md',
-        project_root / 'README.md',
-        project_root / 'docs' / 'limitations.md',
+        project_root / "REQUIREMENTS.md",
+        project_root / "README.md",
+        project_root / "docs" / "limitations.md",
     ]
 
     limitation_documented = False
@@ -126,21 +121,22 @@ def test_req_limit_001_documentation_states_limitation():
             content = doc_file.read_text().lower()
 
             # Look for mentions of autonomous/no interaction
-            keywords = ['autonomous', 'no.*interaction', 'mid-cycle', 'without human']
+            keywords = ["autonomous", "no.*interaction", "mid-cycle", "without human"]
 
             import re
+
             if any(re.search(pattern, content) for pattern in keywords):
                 limitation_documented = True
                 print(f"✓ Limitation documented in {doc_file.name}")
                 break
 
-    assert limitation_documented, \
-        "Mid-cycle interaction limitation must be documented"
+    assert limitation_documented, "Mid-cycle interaction limitation must be documented"
 
 
 # ============================================================================
 # REQ-LIMIT-002: No Autonomous External Database Access (MUST NOT)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-LIMIT-002")
 @pytest.mark.priority("MUST")
@@ -165,12 +161,13 @@ def test_req_limit_002_no_auto_external_access():
             config = get_config(reload=True)
 
             # Literature APIs should require explicit keys
-            if hasattr(config, 'literature'):
+            if hasattr(config, "literature"):
                 # Should not have default API keys
-                if hasattr(config.literature, 'semantic_scholar_api_key'):
-                    assert not config.literature.semantic_scholar_api_key or \
-                           config.literature.semantic_scholar_api_key == '', \
-                        "Should not have default API keys"
+                if hasattr(config.literature, "semantic_scholar_api_key"):
+                    assert (
+                        not config.literature.semantic_scholar_api_key
+                        or config.literature.semantic_scholar_api_key == ""
+                    ), "Should not have default API keys"
 
             print("✓ External APIs require explicit configuration")
 
@@ -196,9 +193,10 @@ def test_req_limit_002_external_access_controlled():
                 client = SemanticScholarClient()
 
                 # If client created, it should have safeguards
-                if hasattr(client, 'api_key'):
-                    assert not client.api_key or client.api_key == '', \
-                        "Client should not have hardcoded API key"
+                if hasattr(client, "api_key"):
+                    assert (
+                        not client.api_key or client.api_key == ""
+                    ), "Client should not have hardcoded API key"
 
             except (ValueError, KeyError, Exception) as e:
                 # Expected: should require explicit configuration
@@ -217,27 +215,30 @@ def test_req_limit_002_no_hardcoded_endpoints():
     project_root = Path(__file__).parent.parent.parent.parent
 
     # Check literature client code
-    literature_files = list((project_root / 'kosmos' / 'literature').glob('*.py'))
+    literature_files = list((project_root / "kosmos" / "literature").glob("*.py"))
 
     for lit_file in literature_files:
         content = lit_file.read_text()
 
         # Check that API calls are gated by configuration
-        if 'requests.get' in content or 'http' in content.lower():
+        if "requests.get" in content or "http" in content.lower():
             # Should check for API keys/config before making calls
             has_config_check = (
-                'api_key' in content.lower() or
-                'if config' in content.lower() or
-                'if self.' in content
+                "api_key" in content.lower()
+                or "if config" in content.lower()
+                or "if self." in content
             )
 
             # This is more of a pattern check
-            print(f"API usage in {lit_file.name}: {'gated' if has_config_check else 'check manually'}")
+            print(
+                f"API usage in {lit_file.name}: {'gated' if has_config_check else 'check manually'}"
+            )
 
 
 # ============================================================================
 # REQ-LIMIT-003: Research Objective Sensitivity Warning (SHALL)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-LIMIT-003")
 @pytest.mark.priority("SHALL")
@@ -256,10 +257,10 @@ def test_req_limit_003_objective_sensitivity_warning():
 
     # Check for warning in documentation
     doc_files = [
-        project_root / 'README.md',
-        project_root / 'REQUIREMENTS.md',
-        project_root / 'docs' / 'limitations.md',
-        project_root / 'docs' / 'usage.md',
+        project_root / "README.md",
+        project_root / "REQUIREMENTS.md",
+        project_root / "docs" / "limitations.md",
+        project_root / "docs" / "usage.md",
     ]
 
     warning_found = False
@@ -270,21 +271,21 @@ def test_req_limit_003_objective_sensitivity_warning():
 
             # Look for sensitivity/phrasing warnings
             warning_keywords = [
-                'sensitive to.*phrasing',
-                'different.*phrasing',
-                'rephras',
-                'objective.*sensitive',
-                'non-deterministic'
+                "sensitive to.*phrasing",
+                "different.*phrasing",
+                "rephras",
+                "objective.*sensitive",
+                "non-deterministic",
             ]
 
             import re
+
             if any(re.search(pattern, content) for pattern in warning_keywords):
                 warning_found = True
                 print(f"✓ Objective sensitivity warning in {doc_file.name}")
                 break
 
-    assert warning_found, \
-        "System must warn about research objective sensitivity"
+    assert warning_found, "System must warn about research objective sensitivity"
 
 
 @pytest.mark.requirement("REQ-LIMIT-003")
@@ -294,18 +295,24 @@ def test_req_limit_003_stochastic_behavior_documented():
     REQ-LIMIT-003: Verify stochastic behavior is documented.
     """
     project_root = Path(__file__).parent.parent.parent.parent
-    requirements_file = project_root / 'REQUIREMENTS.md'
+    requirements_file = project_root / "REQUIREMENTS.md"
 
     if requirements_file.exists():
         content = requirements_file.read_text()
 
         # Check for stochastic/non-deterministic documentation
-        stochastic_keywords = ['stochastic', 'non-deterministic', 'variability', 'different results']
+        stochastic_keywords = [
+            "stochastic",
+            "non-deterministic",
+            "variability",
+            "different results",
+        ]
 
-        has_stochastic_doc = any(keyword.lower() in content.lower() for keyword in stochastic_keywords)
+        has_stochastic_doc = any(
+            keyword.lower() in content.lower() for keyword in stochastic_keywords
+        )
 
-        assert has_stochastic_doc, \
-            "Stochastic behavior should be documented"
+        assert has_stochastic_doc, "Stochastic behavior should be documented"
 
         print("✓ Stochastic behavior is documented")
 
@@ -313,6 +320,7 @@ def test_req_limit_003_stochastic_behavior_documented():
 # ============================================================================
 # REQ-LIMIT-004: Unorthodox Metrics Warning (SHALL)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-LIMIT-004")
 @pytest.mark.priority("SHALL")
@@ -331,9 +339,9 @@ def test_req_limit_004_unorthodox_metrics_warning():
 
     # Check documentation for unorthodox metrics warning
     doc_files = [
-        project_root / 'REQUIREMENTS.md',
-        project_root / 'README.md',
-        project_root / 'docs' / 'limitations.md',
+        project_root / "REQUIREMENTS.md",
+        project_root / "README.md",
+        project_root / "docs" / "limitations.md",
     ]
 
     warning_found = False
@@ -344,22 +352,22 @@ def test_req_limit_004_unorthodox_metrics_warning():
 
             # Look for warnings about novel/unorthodox metrics
             warning_keywords = [
-                'unorthodox',
-                'novel.*metric',
-                'human.*interpret',
-                'validation',
-                'require.*human',
-                'conceptually.*sound'
+                "unorthodox",
+                "novel.*metric",
+                "human.*interpret",
+                "validation",
+                "require.*human",
+                "conceptually.*sound",
             ]
 
             import re
+
             if any(re.search(pattern, content) for pattern in warning_keywords):
                 warning_found = True
                 print(f"✓ Unorthodox metrics warning in {doc_file.name}")
                 break
 
-    assert warning_found, \
-        "System must warn about potentially unorthodox metrics"
+    assert warning_found, "System must warn about potentially unorthodox metrics"
 
 
 @pytest.mark.requirement("REQ-LIMIT-004")
@@ -374,32 +382,34 @@ def test_req_limit_004_human_validation_required():
     # This could be in report templates or output generation code
 
     report_files = [
-        project_root / 'kosmos' / 'reports' / 'generator.py',
-        project_root / 'kosmos' / 'agents' / 'data_analysis_agent.py',
+        project_root / "kosmos" / "reports" / "generator.py",
+        project_root / "kosmos" / "agents" / "data_analysis_agent.py",
     ]
-
-    validation_messages_found = False
 
     for report_file in report_files:
         if report_file.exists():
             content = report_file.read_text()
 
             # Look for validation disclaimers
-            if 'validat' in content.lower() or 'verify' in content.lower() or 'confirm' in content.lower():
-                validation_messages_found = True
+            if (
+                "validat" in content.lower()
+                or "verify" in content.lower()
+                or "confirm" in content.lower()
+            ):
                 print(f"✓ Validation messaging in {report_file.name}")
 
     # Documentation should also mention this
-    req_file = project_root / 'REQUIREMENTS.md'
+    req_file = project_root / "REQUIREMENTS.md"
     if req_file.exists():
         content = req_file.read_text()
-        if 'REQ-LIMIT-004' in content:
+        if "REQ-LIMIT-004" in content:
             print("✓ Human validation requirement documented")
 
 
 # ============================================================================
 # REQ-LIMIT-005: Statistical vs Scientific Significance (MUST NOT)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-LIMIT-005")
 @pytest.mark.priority("MUST")
@@ -418,11 +428,9 @@ def test_req_limit_005_no_conflating_significance():
 
     # Check analysis agent code for proper disclaimers
     analysis_files = [
-        project_root / 'kosmos' / 'agents' / 'data_analysis_agent.py',
-        project_root / 'kosmos' / 'execution' / 'result_collector.py',
+        project_root / "kosmos" / "agents" / "data_analysis_agent.py",
+        project_root / "kosmos" / "execution" / "result_collector.py",
     ]
-
-    proper_handling = False
 
     for analysis_file in analysis_files:
         if analysis_file.exists():
@@ -430,24 +438,24 @@ def test_req_limit_005_no_conflating_significance():
 
             # Check for proper significance handling
             # Should not claim "important" based solely on p-value
-            no_auto_importance = 'important' not in content.lower() or \
-                                'significant' in content.lower()
+            ("important" not in content.lower() or "significant" in content.lower())
 
             # Should have validation disclaimers
-            has_disclaimers = 'validat' in content.lower() or \
-                            'interpret' in content.lower() or \
-                            'review' in content.lower()
+            has_disclaimers = (
+                "validat" in content.lower()
+                or "interpret" in content.lower()
+                or "review" in content.lower()
+            )
 
             if has_disclaimers:
-                proper_handling = True
                 print(f"✓ Proper significance handling in {analysis_file.name}")
 
     # Check documentation
-    requirements_file = project_root / 'REQUIREMENTS.md'
+    requirements_file = project_root / "REQUIREMENTS.md"
     if requirements_file.exists():
         content = requirements_file.read_text()
 
-        if 'REQ-LIMIT-005' in content:
+        if "REQ-LIMIT-005" in content:
             print("✓ Statistical vs scientific significance limitation documented")
 
 
@@ -463,13 +471,8 @@ def test_req_limit_005_findings_marked_for_validation():
         agent = DataAnalysisAgent()
 
         # Check if agent output includes validation flags
-        if hasattr(agent, 'generate_summary'):
+        if hasattr(agent, "generate_summary"):
             # Summary should indicate validation needed
-            sample_results = {
-                'p_value': 0.001,
-                'correlation': 0.85,
-                'significance': 'high'
-            }
 
             # The point is that system shouldn't claim scientific importance
             # just because p < 0.05
@@ -478,18 +481,21 @@ def test_req_limit_005_findings_marked_for_validation():
     except ImportError:
         # Check documentation states this requirement
         project_root = Path(__file__).parent.parent.parent.parent
-        requirements_file = project_root / 'REQUIREMENTS.md'
+        requirements_file = project_root / "REQUIREMENTS.md"
 
         if requirements_file.exists():
             content = requirements_file.read_text()
 
             # Should document the distinction
-            has_distinction = 'statistical' in content.lower() and \
-                            'scientific' in content.lower() and \
-                            'importance' in content.lower()
+            has_distinction = (
+                "statistical" in content.lower()
+                and "scientific" in content.lower()
+                and "importance" in content.lower()
+            )
 
-            assert has_distinction, \
-                "Should document distinction between statistical and scientific significance"
+            assert (
+                has_distinction
+            ), "Should document distinction between statistical and scientific significance"
 
 
 @pytest.mark.requirement("REQ-LIMIT-005")
@@ -504,14 +510,9 @@ def test_req_limit_005_no_automatic_importance_claims():
     from kosmos.execution.result_collector import ResultCollector
 
     try:
-        collector = ResultCollector()
+        ResultCollector()
 
         # Verify result structure includes metadata about validation
-        sample_result = {
-            'statistic': 2.5,
-            'p_value': 0.01,
-            'effect_size': 0.3
-        }
 
         # System should not add 'importance' field automatically
         # Only report statistics
@@ -525,13 +526,14 @@ def test_req_limit_005_no_automatic_importance_claims():
 # Integration Tests
 # ============================================================================
 
+
 class TestSystemLimitationsIntegration:
     """Integration tests for system limitations."""
 
     def test_all_limitations_documented(self):
         """Verify all limitations are documented in requirements."""
         project_root = Path(__file__).parent.parent.parent.parent
-        requirements_file = project_root / 'REQUIREMENTS.md'
+        requirements_file = project_root / "REQUIREMENTS.md"
 
         assert requirements_file.exists()
 
@@ -539,11 +541,11 @@ class TestSystemLimitationsIntegration:
 
         # Check for all limitation requirements
         limitation_reqs = [
-            'REQ-LIMIT-001',
-            'REQ-LIMIT-002',
-            'REQ-LIMIT-003',
-            'REQ-LIMIT-004',
-            'REQ-LIMIT-005'
+            "REQ-LIMIT-001",
+            "REQ-LIMIT-002",
+            "REQ-LIMIT-003",
+            "REQ-LIMIT-004",
+            "REQ-LIMIT-005",
         ]
 
         for req in limitation_reqs:
@@ -554,17 +556,17 @@ class TestSystemLimitationsIntegration:
     def test_user_facing_limitation_warnings(self):
         """Verify user-facing documentation includes limitation warnings."""
         project_root = Path(__file__).parent.parent.parent.parent
-        readme = project_root / 'README.md'
+        readme = project_root / "README.md"
 
         if readme.exists():
             content = readme.read_text().lower()
 
             # Should mention limitations
             has_limitations = (
-                'limitation' in content or
-                'constraint' in content or
-                'caveat' in content or
-                'note:' in content
+                "limitation" in content
+                or "constraint" in content
+                or "caveat" in content
+                or "note:" in content
             )
 
             if has_limitations:
@@ -576,13 +578,13 @@ class TestSystemLimitationsIntegration:
 
         reset_config()
 
-        with patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test_key'}):
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test_key"}):
             config = get_config(reload=True)
 
             # Config should support autonomous execution
-            if hasattr(config, 'research'):
+            if hasattr(config, "research"):
                 # Check for autonomous execution settings
-                if hasattr(config.research, 'autonomous_mode'):
+                if hasattr(config.research, "autonomous_mode"):
                     # Should default to True
                     print("✓ Autonomous mode configuration available")
 
@@ -597,7 +599,7 @@ class TestSystemLimitationsIntegration:
         # Without explicit configuration, external access should be limited
         with patch.dict(os.environ, {}, clear=True):
             try:
-                config = get_config(reload=True)
+                get_config(reload=True)
 
                 # Should require explicit API keys
                 print("✓ External access requires explicit configuration")
@@ -614,8 +616,8 @@ class TestSystemLimitationsIntegration:
 
         # Check multiple documentation sources
         doc_files = [
-            project_root / 'REQUIREMENTS.md',
-            project_root / 'README.md',
+            project_root / "REQUIREMENTS.md",
+            project_root / "README.md",
         ]
 
         warnings_found = 0
@@ -626,10 +628,10 @@ class TestSystemLimitationsIntegration:
 
                 # Look for various warning patterns
                 warning_patterns = [
-                    'stochastic',
-                    'non-deterministic',
-                    'may vary',
-                    'different results'
+                    "stochastic",
+                    "non-deterministic",
+                    "may vary",
+                    "different results",
                 ]
 
                 if any(pattern in content for pattern in warning_patterns):

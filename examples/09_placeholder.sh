@@ -11,4 +11,3 @@ Structure:
 2. Research execution
 3. Results analysis
 4. Export findings
-

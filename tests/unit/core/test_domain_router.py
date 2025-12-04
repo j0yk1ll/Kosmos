@@ -4,26 +4,26 @@ Unit tests for DomainRouter (Phase 9).
 Tests domain classification, routing, expertise assessment, and cross-domain capabilities.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any
+from typing import Any
+from unittest.mock import Mock
 
-from kosmos.core.domain_router import (
-    DomainRouter
-)
+import pytest
+
+from kosmos.core.domain_router import DomainRouter
 from kosmos.models.domain import (
-    DomainClassification,
-    DomainRoute,
-    DomainExpertise,
     DomainCapability,
+    DomainClassification,
+    DomainConfidence,
+    DomainExpertise,
+    DomainRoute,
     ScientificDomain,
-    DomainConfidence
 )
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_llm_client():
@@ -41,7 +41,7 @@ def domain_router(mock_llm_client, mock_env_vars):
 
 
 @pytest.fixture
-def sample_classification_response() -> Dict[str, Any]:
+def sample_classification_response() -> dict[str, Any]:
     """Sample classification response from Claude"""
     return {
         "primary_domain": "biology",
@@ -49,12 +49,12 @@ def sample_classification_response() -> Dict[str, Any]:
         "secondary_domains": ["neuroscience"],
         "is_multi_domain": False,
         "keywords": ["gene", "protein", "expression"],
-        "rationale": "Focus on genetic and protein analysis"
+        "rationale": "Focus on genetic and protein analysis",
     }
 
 
 @pytest.fixture
-def multi_domain_classification_response() -> Dict[str, Any]:
+def multi_domain_classification_response() -> dict[str, Any]:
     """Sample multi-domain classification response"""
     return {
         "primary_domain": "neuroscience",
@@ -62,13 +62,14 @@ def multi_domain_classification_response() -> Dict[str, Any]:
         "secondary_domains": ["biology", "materials"],
         "is_multi_domain": True,
         "keywords": ["neural", "conductance", "materials"],
-        "rationale": "Combines neuroscience with materials science"
+        "rationale": "Combines neuroscience with materials science",
     }
 
 
 # ============================================================================
 # Test Domain Router Initialization
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestDomainRouterInit:
@@ -110,6 +111,7 @@ class TestDomainRouterInit:
 # Test Classification Prompt Building
 # ============================================================================
 
+
 @pytest.mark.unit
 class TestClassificationPromptBuilding:
     """Test domain classification prompt construction."""
@@ -148,12 +150,15 @@ class TestClassificationPromptBuilding:
         prompt = domain_router._build_classification_prompt(question, context=None)
 
         # Should include examples of domain keywords
-        assert any(keyword in prompt.lower() for keyword in ["gene", "neuron", "material", "crystal"])
+        assert any(
+            keyword in prompt.lower() for keyword in ["gene", "neuron", "material", "crystal"]
+        )
 
 
 # ============================================================================
 # Test Classification Response Parsing
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestClassificationParsing:
@@ -182,9 +187,7 @@ class TestClassificationParsing:
         }
         question = "Test question"
 
-        classification = domain_router._parse_classification_response(
-            incomplete_response, question
-        )
+        classification = domain_router._parse_classification_response(incomplete_response, question)
 
         # Should still create classification with defaults
         assert isinstance(classification, DomainClassification)
@@ -200,13 +203,11 @@ class TestClassificationParsing:
             "secondary_domains": [],
             "is_multi_domain": False,
             "keywords": [],
-            "rationale": "Test"
+            "rationale": "Test",
         }
         question = "Test question"
 
-        classification = domain_router._parse_classification_response(
-            invalid_response, question
-        )
+        classification = domain_router._parse_classification_response(invalid_response, question)
 
         # Should fallback to GENERAL
         assert classification.primary_domain == ScientificDomain.GENERAL
@@ -222,7 +223,9 @@ class TestClassificationParsing:
                 malformed_response, question
             )
             # If it doesn't raise, should be None or have fallback
-            assert classification is None or classification.primary_domain == ScientificDomain.GENERAL
+            assert (
+                classification is None or classification.primary_domain == ScientificDomain.GENERAL
+            )
         except (TypeError, AttributeError):
             # Expected for malformed input
             pass
@@ -232,9 +235,7 @@ class TestClassificationParsing:
         empty_response = {}
         question = "Test question"
 
-        classification = domain_router._parse_classification_response(
-            empty_response, question
-        )
+        classification = domain_router._parse_classification_response(empty_response, question)
 
         # Should fallback gracefully
         assert classification is None or isinstance(classification, DomainClassification)
@@ -244,18 +245,22 @@ class TestClassificationParsing:
 # Test Keyword-Based Classification
 # ============================================================================
 
+
 @pytest.mark.unit
 class TestKeywordBasedClassification:
     """Test fallback keyword-based classification."""
 
-    @pytest.mark.parametrize("question,expected_domain", [
-        ("What genes regulate protein synthesis?", ScientificDomain.BIOLOGY),
-        ("How do neurons transmit signals?", ScientificDomain.NEUROSCIENCE),
-        ("What is the band gap of graphene?", ScientificDomain.MATERIALS),
-        ("Analyze KEGG pathway data", ScientificDomain.BIOLOGY),
-        ("Study synaptic plasticity in mice", ScientificDomain.NEUROSCIENCE),
-        ("Optimize perovskite crystal structure", ScientificDomain.MATERIALS),
-    ])
+    @pytest.mark.parametrize(
+        "question,expected_domain",
+        [
+            ("What genes regulate protein synthesis?", ScientificDomain.BIOLOGY),
+            ("How do neurons transmit signals?", ScientificDomain.NEUROSCIENCE),
+            ("What is the band gap of graphene?", ScientificDomain.MATERIALS),
+            ("Analyze KEGG pathway data", ScientificDomain.BIOLOGY),
+            ("Study synaptic plasticity in mice", ScientificDomain.NEUROSCIENCE),
+            ("Optimize perovskite crystal structure", ScientificDomain.MATERIALS),
+        ],
+    )
     def test_single_domain_keywords(self, domain_router, question, expected_domain):
         """Test keyword matching for single-domain questions."""
         classification = domain_router._keyword_based_classification(question)
@@ -280,8 +285,10 @@ class TestKeywordBasedClassification:
         classification = domain_router._keyword_based_classification(question)
 
         # Should fallback to GENERAL or have low confidence
-        assert (classification.primary_domain == ScientificDomain.GENERAL or
-                classification.confidence in [DomainConfidence.LOW, DomainConfidence.VERY_LOW])
+        assert (
+            classification.primary_domain == ScientificDomain.GENERAL
+            or classification.confidence in [DomainConfidence.LOW, DomainConfidence.VERY_LOW]
+        )
 
     def test_empty_query(self, domain_router):
         """Test handling of empty query."""
@@ -307,6 +314,7 @@ class TestKeywordBasedClassification:
 # ============================================================================
 # Test Domain Classification (End-to-End)
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestDomainClassification:
@@ -354,7 +362,7 @@ class TestDomainClassification:
                 "secondary_domains": [],
                 "is_multi_domain": False,
                 "keywords": ["gene"],
-                "rationale": "Test"
+                "rationale": "Test",
             }
             domain_router.claude.generate_structured.return_value = response
 
@@ -369,7 +377,7 @@ class TestDomainClassification:
             "secondary_domains": ["neuroscience", "materials_science"],
             "is_multi_domain": True,
             "keywords": ["gene", "neuron", "material"],
-            "rationale": "Cross-domain research"
+            "rationale": "Cross-domain research",
         }
         domain_router.claude.generate_structured.return_value = response
 
@@ -386,17 +394,18 @@ class TestDomainClassification:
         question = "Analyze this data"
         context = {"previous_findings": "Gene expression analysis"}
 
-        classification = domain_router.classify_research_question(question, context=context)
+        domain_router.classify_research_question(question, context=context)
 
         # Verify context was used in prompt
         call_args = domain_router.claude.generate_structured.call_args
-        prompt = call_args[0][0] if call_args[0] else call_args[1].get('prompt', '')
+        prompt = call_args[0][0] if call_args[0] else call_args[1].get("prompt", "")
         assert "Gene expression" in prompt or context is not None
 
 
 # ============================================================================
 # Test Routing
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestRouting:
@@ -411,7 +420,7 @@ class TestRouting:
             secondary_domains=[],
             is_multi_domain=False,
             key_terms=["gene", "protein"],
-            rationale="Biology research"
+            rationale="Biology research",
         )
 
         route = domain_router.route("Test question", classification)
@@ -431,7 +440,7 @@ class TestRouting:
             secondary_domains=[],
             is_multi_domain=False,
             key_terms=["gene"],
-            rationale="Test"
+            rationale="Test",
         )
 
         route = domain_router.route("Test question", classification)
@@ -450,7 +459,7 @@ class TestRouting:
             secondary_domains=[],
             is_multi_domain=False,
             key_terms=["neuron"],
-            rationale="Test"
+            rationale="Test",
         )
 
         route = domain_router.route("Test question", classification)
@@ -469,7 +478,7 @@ class TestRouting:
             secondary_domains=[],
             is_multi_domain=False,
             key_terms=["crystal"],
-            rationale="Test"
+            rationale="Test",
         )
 
         route = domain_router.route("Test question", classification)
@@ -486,7 +495,7 @@ class TestRouting:
             secondary_domains=[ScientificDomain.NEUROSCIENCE],
             is_multi_domain=True,
             key_terms=["gene", "neuron"],
-            rationale="Multi-domain"
+            rationale="Multi-domain",
         )
 
         route = domain_router.route("Test question", classification)
@@ -504,7 +513,7 @@ class TestRouting:
             secondary_domains=[ScientificDomain.NEUROSCIENCE],
             is_multi_domain=True,
             key_terms=["gene", "expression", "neuron"],
-            rationale="Sequential analysis needed"
+            rationale="Sequential analysis needed",
         )
         context = {"requires_sequential": True}
 
@@ -518,15 +527,19 @@ class TestRouting:
 # Test Expertise Assessment
 # ============================================================================
 
+
 @pytest.mark.unit
 class TestExpertiseAssessment:
     """Test domain expertise assessment."""
 
-    @pytest.mark.parametrize("domain", [
-        ScientificDomain.BIOLOGY,
-        ScientificDomain.NEUROSCIENCE,
-        ScientificDomain.MATERIALS,
-    ])
+    @pytest.mark.parametrize(
+        "domain",
+        [
+            ScientificDomain.BIOLOGY,
+            ScientificDomain.NEUROSCIENCE,
+            ScientificDomain.MATERIALS,
+        ],
+    )
     def test_expertise_for_supported_domains(self, domain_router, domain):
         """Test expertise assessment for supported domains."""
         expertise = domain_router.assess_domain_expertise(domain)
@@ -548,6 +561,7 @@ class TestExpertiseAssessment:
 # ============================================================================
 # Test Capabilities and Cross-Domain Suggestions
 # ============================================================================
+
 
 @pytest.mark.unit
 class TestCapabilitiesAndSuggestions:
@@ -582,8 +596,7 @@ class TestCapabilitiesAndSuggestions:
     def test_cross_domain_connection_suggestions(self, domain_router):
         """Test cross-domain connection suggestions."""
         suggestions = domain_router.suggest_cross_domain_connections(
-            source_domain=ScientificDomain.MATERIALS,
-            target_domain=ScientificDomain.NEUROSCIENCE
+            source_domain=ScientificDomain.MATERIALS, target_domain=ScientificDomain.NEUROSCIENCE
         )
 
         assert isinstance(suggestions, list)

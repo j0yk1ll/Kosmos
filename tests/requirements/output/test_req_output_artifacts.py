@@ -5,14 +5,15 @@ These tests validate artifact storage, organization, preservation, and export
 as specified in REQUIREMENTS.md Section 7.1.
 """
 
-import pytest
-import os
 import json
-import tempfile
+import os
 import shutil
-from pathlib import Path
+import tempfile
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch, MagicMock
+from pathlib import Path
+
+import pytest
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -24,6 +25,7 @@ pytestmark = [
 # ============================================================================
 # REQ-OUT-ART-001: Centralized Artifact Storage (MUST)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-OUT-ART-001")
 @pytest.mark.priority("MUST")
@@ -46,42 +48,44 @@ def test_req_out_art_001_centralized_storage():
 
             # Sample artifacts of different types
             artifacts = {
-                'code': {
-                    'content': 'import pandas as pd\ndf = pd.read_csv("data.csv")',
-                    'filename': 'analysis.py',
-                    'artifact_type': 'code'
+                "code": {
+                    "content": 'import pandas as pd\ndf = pd.read_csv("data.csv")',
+                    "filename": "analysis.py",
+                    "artifact_type": "code",
                 },
-                'notebook': {
-                    'content': json.dumps({
-                        'cells': [{'cell_type': 'code', 'source': ['print("test")']}],
-                        'metadata': {},
-                        'nbformat': 4,
-                        'nbformat_minor': 5
-                    }),
-                    'filename': 'experiment.ipynb',
-                    'artifact_type': 'notebook'
+                "notebook": {
+                    "content": json.dumps(
+                        {
+                            "cells": [{"cell_type": "code", "source": ['print("test")']}],
+                            "metadata": {},
+                            "nbformat": 4,
+                            "nbformat_minor": 5,
+                        }
+                    ),
+                    "filename": "experiment.ipynb",
+                    "artifact_type": "notebook",
                 },
-                'visualization': {
-                    'content': b'PNG_DATA_HERE',
-                    'filename': 'plot.png',
-                    'artifact_type': 'visualization',
-                    'binary': True
+                "visualization": {
+                    "content": b"PNG_DATA_HERE",
+                    "filename": "plot.png",
+                    "artifact_type": "visualization",
+                    "binary": True,
                 },
-                'log': {
-                    'content': 'INFO: Analysis started\nINFO: Analysis completed',
-                    'filename': 'execution.log',
-                    'artifact_type': 'log'
-                }
+                "log": {
+                    "content": "INFO: Analysis started\nINFO: Analysis completed",
+                    "filename": "execution.log",
+                    "artifact_type": "log",
+                },
             }
 
             # Act: Store all artifacts
             stored_ids = {}
             for artifact_type, artifact_data in artifacts.items():
                 artifact_id = artifact_manager.store_artifact(
-                    content=artifact_data['content'],
-                    filename=artifact_data['filename'],
-                    artifact_type=artifact_data['artifact_type'],
-                    metadata={'test': True}
+                    content=artifact_data["content"],
+                    filename=artifact_data["filename"],
+                    artifact_type=artifact_data["artifact_type"],
+                    metadata={"test": True},
                 )
                 stored_ids[artifact_type] = artifact_id
 
@@ -92,7 +96,7 @@ def test_req_out_art_001_centralized_storage():
             for artifact_type, artifact_id in stored_ids.items():
                 artifact = artifact_manager.get_artifact(artifact_id)
                 assert artifact is not None, f"{artifact_type} should be retrievable"
-                assert artifact['type'] == artifacts[artifact_type]['artifact_type']
+                assert artifact["type"] == artifacts[artifact_type]["artifact_type"]
 
             # Assert: Storage path should be consistent
             storage_path = artifact_manager.get_storage_path()
@@ -129,6 +133,7 @@ def test_req_out_art_001_centralized_storage():
 # REQ-OUT-ART-002: Organized by Workflow/Iteration/Agent (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-OUT-ART-002")
 @pytest.mark.priority("MUST")
 def test_req_out_art_002_hierarchical_organization():
@@ -150,10 +155,10 @@ def test_req_out_art_002_hierarchical_organization():
 
             # Sample workflow context
             workflow_contexts = [
-                {'workflow_id': 'wf_001', 'iteration': 1, 'agent': 'data_analyst'},
-                {'workflow_id': 'wf_001', 'iteration': 1, 'agent': 'literature_search'},
-                {'workflow_id': 'wf_001', 'iteration': 2, 'agent': 'data_analyst'},
-                {'workflow_id': 'wf_002', 'iteration': 1, 'agent': 'data_analyst'},
+                {"workflow_id": "wf_001", "iteration": 1, "agent": "data_analyst"},
+                {"workflow_id": "wf_001", "iteration": 1, "agent": "literature_search"},
+                {"workflow_id": "wf_001", "iteration": 2, "agent": "data_analyst"},
+                {"workflow_id": "wf_002", "iteration": 1, "agent": "data_analyst"},
             ]
 
             # Act: Store artifacts with different contexts
@@ -162,21 +167,21 @@ def test_req_out_art_002_hierarchical_organization():
                 artifact_id = artifact_manager.store_artifact(
                     content="test analysis code",
                     filename=f"analysis_{context['agent']}.py",
-                    artifact_type='code',
-                    metadata=context
+                    artifact_type="code",
+                    metadata=context,
                 )
                 stored_artifacts.append((artifact_id, context))
 
             # Assert: Can retrieve artifacts by workflow
-            wf_001_artifacts = artifact_manager.get_artifacts_by_workflow('wf_001')
+            wf_001_artifacts = artifact_manager.get_artifacts_by_workflow("wf_001")
             assert len(wf_001_artifacts) == 3, "Should have 3 artifacts for workflow 001"
 
             # Assert: Can retrieve artifacts by iteration
-            iter_1_artifacts = artifact_manager.get_artifacts_by_iteration('wf_001', 1)
+            iter_1_artifacts = artifact_manager.get_artifacts_by_iteration("wf_001", 1)
             assert len(iter_1_artifacts) == 2, "Should have 2 artifacts for iteration 1"
 
             # Assert: Can retrieve artifacts by agent
-            analyst_artifacts = artifact_manager.get_artifacts_by_agent('wf_001', 'data_analyst')
+            analyst_artifacts = artifact_manager.get_artifacts_by_agent("wf_001", "data_analyst")
             assert len(analyst_artifacts) == 2, "Should have 2 data analyst artifacts"
 
             # Assert: Storage structure follows hierarchy
@@ -189,9 +194,9 @@ def test_req_out_art_002_hierarchical_organization():
             base_dir = Path(temp_dir)
 
             # Create hierarchical structure
-            for wf_id in ['wf_001', 'wf_002']:
+            for wf_id in ["wf_001", "wf_002"]:
                 for iteration in [1, 2]:
-                    for agent in ['data_analyst', 'literature_search']:
+                    for agent in ["data_analyst", "literature_search"]:
                         artifact_dir = base_dir / wf_id / f"iteration_{iteration}" / agent
                         artifact_dir.mkdir(parents=True, exist_ok=True)
 
@@ -218,6 +223,7 @@ def test_req_out_art_002_hierarchical_organization():
 # REQ-OUT-ART-003: Artifact Preservation (MUST)
 # ============================================================================
 
+
 @pytest.mark.requirement("REQ-OUT-ART-003")
 @pytest.mark.priority("MUST")
 def test_req_out_art_003_artifact_preservation():
@@ -236,20 +242,14 @@ def test_req_out_art_003_artifact_preservation():
     with tempfile.TemporaryDirectory() as temp_dir:
         try:
             # Create manager with 30-day retention
-            artifact_manager = ArtifactManager(
-                storage_path=temp_dir,
-                retention_days=30
-            )
+            artifact_manager = ArtifactManager(storage_path=temp_dir, retention_days=30)
 
             # Act: Store artifact
             artifact_id = artifact_manager.store_artifact(
                 content="important analysis results",
                 filename="results.txt",
-                artifact_type='result',
-                metadata={
-                    'workflow_id': 'wf_001',
-                    'created_at': datetime.now().isoformat()
-                }
+                artifact_type="result",
+                metadata={"workflow_id": "wf_001", "created_at": datetime.now().isoformat()},
             )
 
             # Assert: Artifact exists immediately
@@ -259,19 +259,20 @@ def test_req_out_art_003_artifact_preservation():
             # Assert: Can query retention info
             retention_info = artifact_manager.get_retention_info(artifact_id)
             assert retention_info is not None
-            assert retention_info['retention_days'] == 30
+            assert retention_info["retention_days"] == 30
 
             # Assert: Artifact is not marked for deletion within retention period
             is_expired = artifact_manager.is_expired(artifact_id)
             assert not is_expired, "Artifact should not be expired within retention period"
 
             # Simulate workflow completion
-            artifact_manager.mark_workflow_complete('wf_001')
+            artifact_manager.mark_workflow_complete("wf_001")
 
             # Assert: Artifact still exists after workflow completion
             artifact_after_completion = artifact_manager.get_artifact(artifact_id)
-            assert artifact_after_completion is not None, \
-                "Artifact should survive workflow completion"
+            assert (
+                artifact_after_completion is not None
+            ), "Artifact should survive workflow completion"
 
         except (ImportError, AttributeError):
             # Fallback: Test file persistence
@@ -280,11 +281,11 @@ def test_req_out_art_003_artifact_preservation():
             artifact_path.write_text("important data")
 
             # Create metadata file with retention info
-            metadata_path = artifact_path.with_suffix('.meta.json')
+            metadata_path = artifact_path.with_suffix(".meta.json")
             metadata = {
-                'created_at': datetime.now().isoformat(),
-                'retention_days': 30,
-                'expires_at': (datetime.now() + timedelta(days=30)).isoformat()
+                "created_at": datetime.now().isoformat(),
+                "retention_days": 30,
+                "expires_at": (datetime.now() + timedelta(days=30)).isoformat(),
             }
             metadata_path.write_text(json.dumps(metadata))
 
@@ -294,10 +295,10 @@ def test_req_out_art_003_artifact_preservation():
 
             # Check retention metadata
             stored_metadata = json.loads(metadata_path.read_text())
-            assert stored_metadata['retention_days'] == 30
+            assert stored_metadata["retention_days"] == 30
 
             # Verify not expired
-            expires_at = datetime.fromisoformat(stored_metadata['expires_at'])
+            expires_at = datetime.fromisoformat(stored_metadata["expires_at"])
             assert expires_at > datetime.now(), "Should not be expired"
 
 
@@ -332,14 +333,14 @@ def test_req_out_art_003_configurable_retention():
 
         def days_until_expiry(self):
             if self.expires_at is None:
-                return float('inf')
+                return float("inf")
             delta = self.expires_at - datetime.now()
             return max(0, delta.days)
 
     # Act: Create artifacts with different retention periods
-    short_retention = ArtifactWithRetention('art_001', retention_days=7)
-    long_retention = ArtifactWithRetention('art_002', retention_days=365)
-    infinite_retention = ArtifactWithRetention('art_003', retention_days=None)
+    short_retention = ArtifactWithRetention("art_001", retention_days=7)
+    long_retention = ArtifactWithRetention("art_002", retention_days=365)
+    infinite_retention = ArtifactWithRetention("art_003", retention_days=None)
 
     # Assert: Short retention expires sooner
     assert short_retention.days_until_expiry() <= 7
@@ -349,11 +350,11 @@ def test_req_out_art_003_configurable_retention():
     assert long_retention.days_until_expiry() > 300
 
     # Assert: Infinite retention never expires
-    assert infinite_retention.days_until_expiry() == float('inf')
+    assert infinite_retention.days_until_expiry() == float("inf")
     assert not infinite_retention.is_expired()
 
     # Simulate expired artifact
-    expired_artifact = ArtifactWithRetention('art_004', retention_days=0)
+    expired_artifact = ArtifactWithRetention("art_004", retention_days=0)
     expired_artifact.created_at = datetime.now() - timedelta(days=1)
     expired_artifact.expires_at = datetime.now() - timedelta(days=1)
 
@@ -364,6 +365,7 @@ def test_req_out_art_003_configurable_retention():
 # ============================================================================
 # REQ-OUT-ART-004: Artifact Export (SHOULD)
 # ============================================================================
+
 
 @pytest.mark.requirement("REQ-OUT-ART-004")
 @pytest.mark.priority("SHOULD")
@@ -377,9 +379,9 @@ def test_req_out_art_004_artifact_export():
     - Export includes metadata
     - Exported artifacts can be reimported
     """
-    from kosmos.core.artifact_manager import ArtifactManager
     import zipfile
-    import tarfile
+
+    from kosmos.core.artifact_manager import ArtifactManager
 
     # Arrange: Create artifact manager
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -392,20 +394,14 @@ def test_req_out_art_004_artifact_export():
                 artifact_id = artifact_manager.store_artifact(
                     content=f"Analysis code {i}",
                     filename=f"analysis_{i}.py",
-                    artifact_type='code',
-                    metadata={
-                        'workflow_id': 'wf_001',
-                        'iteration': 1,
-                        'index': i
-                    }
+                    artifact_type="code",
+                    metadata={"workflow_id": "wf_001", "iteration": 1, "index": i},
                 )
                 artifact_ids.append(artifact_id)
 
             # Act: Export artifacts
             export_path = artifact_manager.export_artifacts(
-                workflow_id='wf_001',
-                output_path=os.path.join(temp_dir, 'export.zip'),
-                format='zip'
+                workflow_id="wf_001", output_path=os.path.join(temp_dir, "export.zip"), format="zip"
             )
 
             # Assert: Export file exists
@@ -415,12 +411,12 @@ def test_req_out_art_004_artifact_export():
             assert zipfile.is_zipfile(export_path), "Should be a valid zip file"
 
             # Assert: Export contains all artifacts
-            with zipfile.ZipFile(export_path, 'r') as zf:
+            with zipfile.ZipFile(export_path, "r") as zf:
                 file_list = zf.namelist()
                 assert len(file_list) >= 3, "Should contain all artifacts"
 
                 # Check metadata is included
-                metadata_files = [f for f in file_list if 'metadata' in f or '.meta' in f]
+                metadata_files = [f for f in file_list if "metadata" in f or ".meta" in f]
                 assert len(metadata_files) > 0, "Should include metadata files"
 
         except (ImportError, AttributeError):
@@ -432,12 +428,12 @@ def test_req_out_art_004_artifact_export():
             for i in range(3):
                 (artifacts_dir / f"analysis_{i}.py").write_text(f"code {i}")
                 (artifacts_dir / f"analysis_{i}.meta.json").write_text(
-                    json.dumps({'index': i, 'workflow_id': 'wf_001'})
+                    json.dumps({"index": i, "workflow_id": "wf_001"})
                 )
 
             # Export to zip
             export_path = Path(temp_dir) / "export.zip"
-            with zipfile.ZipFile(export_path, 'w') as zf:
+            with zipfile.ZipFile(export_path, "w") as zf:
                 for file in artifacts_dir.iterdir():
                     zf.write(file, arcname=file.name)
 
@@ -446,11 +442,11 @@ def test_req_out_art_004_artifact_export():
             assert zipfile.is_zipfile(export_path)
 
             # Verify contents
-            with zipfile.ZipFile(export_path, 'r') as zf:
+            with zipfile.ZipFile(export_path, "r") as zf:
                 files = zf.namelist()
                 assert len(files) == 6, "Should have 3 code files + 3 metadata files"
-                assert any('analysis_0.py' in f for f in files)
-                assert any('.meta.json' in f for f in files)
+                assert any("analysis_0.py" in f for f in files)
+                assert any(".meta.json" in f for f in files)
 
 
 @pytest.mark.requirement("REQ-OUT-ART-004")
@@ -464,8 +460,8 @@ def test_req_out_art_004_export_formats():
     - Format selection works correctly
     - All formats preserve artifact integrity
     """
-    import zipfile
     import tarfile
+    import zipfile
 
     with tempfile.TemporaryDirectory() as temp_dir:
         # Arrange: Create sample artifacts
@@ -473,9 +469,9 @@ def test_req_out_art_004_export_formats():
         artifacts_dir.mkdir()
 
         test_files = {
-            'code.py': 'import pandas as pd',
-            'notebook.ipynb': '{"cells": []}',
-            'results.json': '{"accuracy": 0.95}'
+            "code.py": "import pandas as pd",
+            "notebook.ipynb": '{"cells": []}',
+            "results.json": '{"accuracy": 0.95}',
         }
 
         for filename, content in test_files.items():
@@ -483,7 +479,7 @@ def test_req_out_art_004_export_formats():
 
         # Test ZIP export
         zip_path = Path(temp_dir) / "export.zip"
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for file in artifacts_dir.iterdir():
                 zf.write(file, arcname=file.name)
 
@@ -491,13 +487,13 @@ def test_req_out_art_004_export_formats():
         assert zip_path.exists()
         assert zipfile.is_zipfile(zip_path)
 
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(zip_path, "r") as zf:
             assert len(zf.namelist()) == 3
-            assert 'code.py' in zf.namelist()
+            assert "code.py" in zf.namelist()
 
         # Test TAR.GZ export
         tar_path = Path(temp_dir) / "export.tar.gz"
-        with tarfile.open(tar_path, 'w:gz') as tf:
+        with tarfile.open(tar_path, "w:gz") as tf:
             for file in artifacts_dir.iterdir():
                 tf.add(file, arcname=file.name)
 
@@ -505,10 +501,10 @@ def test_req_out_art_004_export_formats():
         assert tar_path.exists()
         assert tarfile.is_tarfile(tar_path)
 
-        with tarfile.open(tar_path, 'r:gz') as tf:
+        with tarfile.open(tar_path, "r:gz") as tf:
             names = tf.getnames()
             assert len(names) == 3
-            assert 'notebook.ipynb' in names
+            assert "notebook.ipynb" in names
 
         # Test directory export (simple copy)
         dir_export = Path(temp_dir) / "export_dir"
@@ -517,4 +513,4 @@ def test_req_out_art_004_export_formats():
         # Assert: Directory export works
         assert dir_export.exists()
         assert len(list(dir_export.iterdir())) == 3
-        assert (dir_export / 'results.json').exists()
+        assert (dir_export / "results.json").exists()

@@ -9,7 +9,6 @@ This module provides reusable, structured prompts for:
 - Result interpretation
 """
 
-from typing import Dict, List, Optional, Any
 from string import Template
 
 
@@ -32,9 +31,9 @@ class PromptTemplate:
         self,
         name: str,
         template: str,
-        variables: List[str],
-        system_prompt: Optional[str] = None,
-        description: Optional[str] = None,
+        variables: list[str],
+        system_prompt: str | None = None,
+        description: str | None = None,
     ):
         """
         Initialize a prompt template.
@@ -85,17 +84,14 @@ class PromptTemplate:
         """
         return self.render(**kwargs)
 
-    def get_full_prompt(self, **kwargs) -> Dict[str, str]:
+    def get_full_prompt(self, **kwargs) -> dict[str, str]:
         """
         Get both system and user prompts.
 
         Returns:
             dict: {"system": str, "prompt": str}
         """
-        return {
-            "system": self.system_prompt or "",
-            "prompt": self.render(**kwargs)
-        }
+        return {"system": self.system_prompt or "", "prompt": self.render(**kwargs)}
 
 
 # ============================================================================
@@ -192,7 +188,7 @@ Ensure hypotheses explore different aspects or mechanisms related to the researc
 
 Output the hypotheses as a JSON object with the exact structure specified in the system prompt.""",
     variables=["research_question", "domain", "num_hypotheses", "literature_context"],
-    description="Generate scientific hypotheses from research questions with structured output"
+    description="Generate scientific hypotheses from research questions with structured output",
 )
 
 # ============================================================================
@@ -491,8 +487,16 @@ Constraints:
 - Use appropriate statistical methods for the hypothesis type
 
 Output the experiment protocol as a JSON object with the exact structure specified in the system prompt.""",
-    variables=["hypothesis_statement", "hypothesis_rationale", "domain", "experiment_type", "research_question", "max_cost_usd", "max_duration_days"],
-    description="Design detailed experimental protocols from hypotheses with full specifications"
+    variables=[
+        "hypothesis_statement",
+        "hypothesis_rationale",
+        "domain",
+        "experiment_type",
+        "research_question",
+        "max_cost_usd",
+        "max_duration_days",
+    ],
+    description="Design detailed experimental protocols from hypotheses with full specifications",
 )
 
 # ============================================================================
@@ -527,8 +531,14 @@ Please analyze these results:
 6. Suggest follow-up experiments if needed
 
 ${analysis_constraints}""",
-    variables=["hypothesis", "experiment_description", "results_data", "statistical_tests", "analysis_constraints"],
-    description="Analyze and interpret experimental results"
+    variables=[
+        "hypothesis",
+        "experiment_description",
+        "results_data",
+        "statistical_tests",
+        "analysis_constraints",
+    ],
+    description="Analyze and interpret experimental results",
 )
 
 # ============================================================================
@@ -560,7 +570,7 @@ Please analyze this literature:
 
 ${specific_questions}""",
     variables=["research_question", "papers_list", "specific_questions"],
-    description="Analyze scientific literature"
+    description="Analyze scientific literature",
 )
 
 PAPER_SUMMARIZER = PromptTemplate(
@@ -588,7 +598,7 @@ Provide a structured summary:
 4. Limitations: What are the acknowledged limitations?
 5. Relevance: How relevant is this to ${domain} research (0-1 score)?""",
     variables=["title", "abstract", "domain", "full_text"],
-    description="Summarize scientific papers"
+    description="Summarize scientific papers",
 )
 
 # ============================================================================
@@ -632,7 +642,7 @@ Output Format (JSON):
   "should_continue": true/false
 }""",
     variables=["research_question", "progress_summary", "recent_results", "available_actions"],
-    description="Orchestrate research workflow and decide next steps"
+    description="Orchestrate research workflow and decide next steps",
 )
 
 # ============================================================================
@@ -671,8 +681,15 @@ Generate Python code that:
 
 Constraints:
 ${constraints}""",
-    variables=["task_description", "analysis_type", "data_format", "expected_output", "libraries", "constraints"],
-    description="Generate scientific analysis code"
+    variables=[
+        "task_description",
+        "analysis_type",
+        "data_format",
+        "expected_output",
+        "libraries",
+        "constraints",
+    ],
+    description="Generate scientific analysis code",
 )
 
 
@@ -680,7 +697,7 @@ ${constraints}""",
 # TEMPLATE REGISTRY
 # ============================================================================
 
-TEMPLATE_REGISTRY: Dict[str, PromptTemplate] = {
+TEMPLATE_REGISTRY: dict[str, PromptTemplate] = {
     "hypothesis_generator": HYPOTHESIS_GENERATOR,
     "experiment_designer": EXPERIMENT_DESIGNER,
     "data_analyst": DATA_ANALYST,
@@ -710,7 +727,7 @@ def get_template(name: str) -> PromptTemplate:
     return TEMPLATE_REGISTRY[name]
 
 
-def list_templates() -> List[str]:
+def list_templates() -> list[str]:
     """
     List all available template names.
 

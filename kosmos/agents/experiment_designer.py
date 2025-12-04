@@ -5,42 +5,37 @@ Designs experimental protocols from hypotheses using templates and Claude,
 with resource estimation and scientific rigor validation.
 """
 
+import json
 import logging
 import time
 import uuid
-import json
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import Any
 
-from kosmos.agents.base import BaseAgent, AgentMessage, MessageType, AgentStatus
+from kosmos.agents.base import AgentMessage, AgentStatus, BaseAgent, MessageType
 from kosmos.core.llm import get_client
 from kosmos.core.prompts import EXPERIMENT_DESIGNER
-from kosmos.utils.compat import model_to_dict
-from kosmos.models.hypothesis import Hypothesis, ExperimentType
-from kosmos.models.experiment import (
-    ExperimentProtocol,
-    ExperimentDesignRequest,
-    ExperimentDesignResponse,
-    ProtocolStep,
-    Variable,
-    VariableType,
-    ControlGroup,
-    ResourceRequirements,
-    StatisticalTestSpec,
-    StatisticalTest,
-    ValidationCheck,
-)
-from kosmos.experiments.templates.base import (
-    TemplateBase,
-    get_template_registry,
-    TemplateCustomizationParams,
-)
+from kosmos.db import get_session
 from kosmos.db.models import (
-    Hypothesis as DBHypothesis,
     Experiment as DBExperiment,
     ExperimentStatus,
+    Hypothesis as DBHypothesis,
 )
-from kosmos.db import get_session
+from kosmos.experiments.templates.base import TemplateCustomizationParams, get_template_registry
+from kosmos.models.experiment import (
+    ControlGroup,
+    ExperimentDesignResponse,
+    ExperimentProtocol,
+    ProtocolStep,
+    ResourceRequirements,
+    StatisticalTest,
+    StatisticalTestSpec,
+    Variable,
+    VariableType,
+)
+from kosmos.models.hypothesis import ExperimentType, Hypothesis
+from kosmos.utils.compat import model_to_dict
+
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +74,9 @@ class ExperimentDesignerAgent(BaseAgent):
 
     def __init__(
         self,
-        agent_id: Optional[str] = None,
-        agent_type: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None
+        agent_id: str | None = None,
+        agent_type: str | None = None,
+        config: dict[str, Any] | None = None,
     ):
         """
         Initialize Experiment Designer Agent.
@@ -133,7 +128,7 @@ class ExperimentDesignerAgent(BaseAgent):
                     hypothesis_id=hypothesis_id,
                     preferred_experiment_type=preferred_type,
                     max_cost_usd=max_cost,
-                    max_duration_days=max_duration
+                    max_duration_days=max_duration,
                 )
 
                 return AgentMessage(
@@ -141,7 +136,7 @@ class ExperimentDesignerAgent(BaseAgent):
                     from_agent=self.agent_id,
                     to_agent=message.from_agent,
                     content={"response": model_to_dict(response)},
-                    correlation_id=message.correlation_id
+                    correlation_id=message.correlation_id,
                 )
 
             else:
@@ -155,7 +150,7 @@ class ExperimentDesignerAgent(BaseAgent):
                 from_agent=self.agent_id,
                 to_agent=message.from_agent,
                 content={"error": str(e)},
-                correlation_id=message.correlation_id
+                correlation_id=message.correlation_id,
             )
 
         finally:
@@ -163,12 +158,12 @@ class ExperimentDesignerAgent(BaseAgent):
 
     def design_experiment(
         self,
-        hypothesis: Optional[Hypothesis] = None,
-        hypothesis_id: Optional[str] = None,
-        preferred_experiment_type: Optional[ExperimentType] = None,
-        max_cost_usd: Optional[float] = None,
-        max_duration_days: Optional[float] = None,
-        store_in_db: bool = True
+        hypothesis: Hypothesis | None = None,
+        hypothesis_id: str | None = None,
+        preferred_experiment_type: ExperimentType | None = None,
+        max_cost_usd: float | None = None,
+        max_duration_days: float | None = None,
+        store_in_db: bool = True,
     ) -> ExperimentDesignResponse:
         """
         Design an experimental protocol for a hypothesis.
@@ -207,14 +202,14 @@ class ExperimentDesignerAgent(BaseAgent):
                 hypothesis=hypothesis,
                 experiment_type=experiment_type,
                 max_cost_usd=max_cost_usd,
-                max_duration_days=max_duration_days
+                max_duration_days=max_duration_days,
             )
         else:
             protocol = self._generate_with_claude(
                 hypothesis=hypothesis,
                 experiment_type=experiment_type,
                 max_cost_usd=max_cost_usd,
-                max_duration_days=max_duration_days
+                max_duration_days=max_duration_days,
             )
 
         # Step 4: Enhance with LLM if enabled
@@ -250,7 +245,7 @@ class ExperimentDesignerAgent(BaseAgent):
             estimated_duration_days=protocol.resource_requirements.estimated_duration_days,
             feasibility_assessment=feasibility,
             recommendations=self._generate_recommendations(protocol, validation_result),
-            warnings=validation_result["warnings"]
+            warnings=validation_result["warnings"],
         )
 
         logger.info(
@@ -262,12 +257,12 @@ class ExperimentDesignerAgent(BaseAgent):
 
     def design_experiments(
         self,
-        hypotheses: List[Hypothesis],
-        preferred_experiment_type: Optional[ExperimentType] = None,
-        max_cost_usd: Optional[float] = None,
-        max_duration_days: Optional[float] = None,
-        store_in_db: bool = True
-    ) -> List[ExperimentDesignResponse]:
+        hypotheses: list[Hypothesis],
+        preferred_experiment_type: ExperimentType | None = None,
+        max_cost_usd: float | None = None,
+        max_duration_days: float | None = None,
+        store_in_db: bool = True,
+    ) -> list[ExperimentDesignResponse]:
         """
         Design experimental protocols for multiple hypotheses.
 
@@ -302,7 +297,7 @@ class ExperimentDesignerAgent(BaseAgent):
                     preferred_experiment_type=preferred_experiment_type,
                     max_cost_usd=max_cost_usd,
                     max_duration_days=max_duration_days,
-                    store_in_db=store_in_db
+                    store_in_db=store_in_db,
                 )
                 responses.append(response)
             except Exception as e:
@@ -332,9 +327,7 @@ class ExperimentDesignerAgent(BaseAgent):
             )
 
     def _select_experiment_type(
-        self,
-        hypothesis: Hypothesis,
-        preferred: Optional[ExperimentType]
+        self, hypothesis: Hypothesis, preferred: ExperimentType | None
     ) -> ExperimentType:
         """Select the most appropriate experiment type."""
         if preferred:
@@ -356,16 +349,15 @@ class ExperimentDesignerAgent(BaseAgent):
         }
 
         return domain_defaults.get(
-            hypothesis.domain.lower(),
-            ExperimentType.COMPUTATIONAL  # Default fallback
+            hypothesis.domain.lower(), ExperimentType.COMPUTATIONAL  # Default fallback
         )
 
     def _generate_from_template(
         self,
         hypothesis: Hypothesis,
         experiment_type: ExperimentType,
-        max_cost_usd: Optional[float],
-        max_duration_days: Optional[float]
+        max_cost_usd: float | None,
+        max_duration_days: float | None,
     ) -> ExperimentProtocol:
         """Generate protocol from template."""
         # Find best template
@@ -381,9 +373,7 @@ class ExperimentDesignerAgent(BaseAgent):
 
         # Customize template
         params = TemplateCustomizationParams(
-            hypothesis=hypothesis,
-            max_cost_usd=max_cost_usd,
-            max_duration_days=max_duration_days
+            hypothesis=hypothesis, max_cost_usd=max_cost_usd, max_duration_days=max_duration_days
         )
 
         protocol = template.generate_protocol(params)
@@ -396,8 +386,8 @@ class ExperimentDesignerAgent(BaseAgent):
         self,
         hypothesis: Hypothesis,
         experiment_type: ExperimentType,
-        max_cost_usd: Optional[float],
-        max_duration_days: Optional[float]
+        max_cost_usd: float | None,
+        max_duration_days: float | None,
     ) -> ExperimentProtocol:
         """Generate protocol using Claude LLM."""
         logger.info("Generating protocol with Claude")
@@ -410,7 +400,7 @@ class ExperimentDesignerAgent(BaseAgent):
             experiment_type=experiment_type.value,
             max_cost_usd=max_cost_usd or "unlimited",
             max_duration_days=max_duration_days or "flexible",
-            research_question=hypothesis.research_question
+            research_question=hypothesis.research_question,
         )
 
         # Define expected JSON schema for structured output
@@ -431,8 +421,8 @@ class ExperimentDesignerAgent(BaseAgent):
                             "action": {"type": "string"},
                             "expected_duration_minutes": {"type": "number"},
                         },
-                        "required": ["step_number", "title", "description", "action"]
-                    }
+                        "required": ["step_number", "title", "description", "action"],
+                    },
                 },
                 "variables": {"type": "object"},
                 "control_groups": {"type": "array"},
@@ -440,7 +430,7 @@ class ExperimentDesignerAgent(BaseAgent):
                 "sample_size": {"type": "integer"},
                 "resource_estimates": {"type": "object"},
             },
-            "required": ["name", "description", "objective", "steps"]
+            "required": ["name", "description", "objective", "steps"],
         }
 
         try:
@@ -450,7 +440,7 @@ class ExperimentDesignerAgent(BaseAgent):
                 prompt=prompt,
                 schema=schema,
                 system=EXPERIMENT_DESIGNER.system_prompt,  # Fixed: was system_prompt
-                max_tokens=8192  # Increased from default 4096 for detailed protocols
+                max_tokens=8192,  # Increased from default 4096 for detailed protocols
             )
 
             # Parse and validate protocol
@@ -467,30 +457,29 @@ class ExperimentDesignerAgent(BaseAgent):
 
         except Exception as e:
             logger.error(f"Error generating protocol with Claude: {e}")
-            raise ValueError(f"Failed to generate protocol: {e}")
+            raise ValueError(f"Failed to generate protocol: {e}") from e
 
     def _parse_claude_protocol(
-        self,
-        data: Dict[str, Any],
-        hypothesis: Hypothesis,
-        experiment_type: ExperimentType
+        self, data: dict[str, Any], hypothesis: Hypothesis, experiment_type: ExperimentType
     ) -> ExperimentProtocol:
         """Parse Claude's response into ExperimentProtocol."""
         # Parse steps
         steps = []
         for step_data in data.get("steps", []):
-            steps.append(ProtocolStep(
-                step_number=step_data.get("step_number", len(steps) + 1),
-                title=step_data.get("title", ""),
-                description=step_data.get("description", ""),
-                action=step_data.get("action", ""),
-                expected_duration_minutes=step_data.get("expected_duration_minutes"),
-                requires_steps=step_data.get("requires_steps", []),
-                expected_output=step_data.get("expected_output"),
-                validation_check=step_data.get("validation_check"),
-                code_template=step_data.get("code_template"),
-                library_imports=step_data.get("library_imports", []),
-            ))
+            steps.append(
+                ProtocolStep(
+                    step_number=step_data.get("step_number", len(steps) + 1),
+                    title=step_data.get("title", ""),
+                    description=step_data.get("description", ""),
+                    action=step_data.get("action", ""),
+                    expected_duration_minutes=step_data.get("expected_duration_minutes"),
+                    requires_steps=step_data.get("requires_steps", []),
+                    expected_output=step_data.get("expected_output"),
+                    validation_check=step_data.get("validation_check"),
+                    code_template=step_data.get("code_template"),
+                    library_imports=step_data.get("library_imports", []),
+                )
+            )
 
         # Parse variables
         variables = {}
@@ -510,13 +499,15 @@ class ExperimentDesignerAgent(BaseAgent):
         control_groups = []
         for cg_data in data.get("control_groups", []):
             if isinstance(cg_data, dict):
-                control_groups.append(ControlGroup(
-                    name=cg_data.get("name", "control"),
-                    description=cg_data.get("description", "Control group"),
-                    variables=cg_data.get("variables", {}),
-                    rationale=cg_data.get("rationale", "Standard control group"),
-                    sample_size=cg_data.get("sample_size"),
-                ))
+                control_groups.append(
+                    ControlGroup(
+                        name=cg_data.get("name", "control"),
+                        description=cg_data.get("description", "Control group"),
+                        variables=cg_data.get("variables", {}),
+                        rationale=cg_data.get("rationale", "Standard control group"),
+                        sample_size=cg_data.get("sample_size"),
+                    )
+                )
 
         # Parse statistical tests
         statistical_tests = []
@@ -528,18 +519,20 @@ class ExperimentDesignerAgent(BaseAgent):
                 except ValueError:
                     test_type = StatisticalTest.CUSTOM
 
-                statistical_tests.append(StatisticalTestSpec(
-                    test_type=test_type,
-                    description=test_data.get("description", "Statistical test"),
-                    null_hypothesis=test_data.get("null_hypothesis", "H0: No effect"),
-                    alternative=test_data.get("alternative", "two-sided"),
-                    alpha=test_data.get("alpha", 0.05),
-                    variables=test_data.get("variables", []),
-                    groups=test_data.get("groups"),
-                    correction_method=test_data.get("correction_method"),
-                    required_power=test_data.get("required_power", 0.8),
-                    expected_effect_size=test_data.get("expected_effect_size"),
-                ))
+                statistical_tests.append(
+                    StatisticalTestSpec(
+                        test_type=test_type,
+                        description=test_data.get("description", "Statistical test"),
+                        null_hypothesis=test_data.get("null_hypothesis", "H0: No effect"),
+                        alternative=test_data.get("alternative", "two-sided"),
+                        alpha=test_data.get("alpha", 0.05),
+                        variables=test_data.get("variables", []),
+                        groups=test_data.get("groups"),
+                        correction_method=test_data.get("correction_method"),
+                        required_power=test_data.get("required_power", 0.8),
+                        expected_effect_size=test_data.get("expected_effect_size"),
+                    )
+                )
 
         # Parse resource estimates
         resource_data = data.get("resource_estimates", {})
@@ -584,9 +577,7 @@ class ExperimentDesignerAgent(BaseAgent):
         return protocol
 
     def _enhance_protocol_with_llm(
-        self,
-        protocol: ExperimentProtocol,
-        hypothesis: Hypothesis
+        self, protocol: ExperimentProtocol, hypothesis: Hypothesis
     ) -> ExperimentProtocol:
         """Enhance template-generated protocol with LLM insights."""
         logger.info("Enhancing protocol with LLM")
@@ -613,7 +604,7 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
 """
 
         try:
-            response = self.llm_client.generate(prompt, max_tokens=1000)
+            self.llm_client.generate(prompt, max_tokens=1000)
             # Parse and apply enhancements (simplified for now)
             # In production, would parse JSON and selectively apply
             logger.info("LLM enhancements applied")
@@ -622,7 +613,7 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
 
         return protocol
 
-    def _validate_protocol(self, protocol: ExperimentProtocol) -> Dict[str, Any]:
+    def _validate_protocol(self, protocol: ExperimentProtocol) -> dict[str, Any]:
         """Validate protocol for scientific rigor."""
         errors = []
         warnings = []
@@ -633,7 +624,9 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
 
         # Check sample size
         if protocol.sample_size and protocol.sample_size < 10:
-            warnings.append(f"Small sample size ({protocol.sample_size}) may lack statistical power")
+            warnings.append(
+                f"Small sample size ({protocol.sample_size}) may lack statistical power"
+            )
 
         # Check variables
         if not protocol.get_independent_variables():
@@ -654,16 +647,10 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
         if not protocol.resource_requirements.estimated_duration_days:
             warnings.append("No duration estimate provided")
 
-        return {
-            "passed": len(errors) == 0,
-            "errors": errors,
-            "warnings": warnings
-        }
+        return {"passed": len(errors) == 0, "errors": errors, "warnings": warnings}
 
     def _calculate_rigor_score(
-        self,
-        protocol: ExperimentProtocol,
-        validation: Dict[str, Any]
+        self, protocol: ExperimentProtocol, validation: dict[str, Any]
     ) -> float:
         """Calculate scientific rigor score (0.0-1.0)."""
         score = 1.0
@@ -714,10 +701,7 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
         return score / total_checks
 
     def _assess_feasibility(
-        self,
-        protocol: ExperimentProtocol,
-        max_cost: Optional[float],
-        max_duration: Optional[float]
+        self, protocol: ExperimentProtocol, max_cost: float | None, max_duration: float | None
     ) -> str:
         """Assess experiment feasibility: High/Medium/Low."""
         cost = protocol.resource_requirements.estimated_cost_usd or 0
@@ -738,10 +722,8 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
             return "Low"
 
     def _generate_recommendations(
-        self,
-        protocol: ExperimentProtocol,
-        validation: Dict[str, Any]
-    ) -> List[str]:
+        self, protocol: ExperimentProtocol, validation: dict[str, Any]
+    ) -> list[str]:
         """Generate recommendations for improving protocol."""
         recommendations = []
 
@@ -789,7 +771,7 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
             # Don't fail if database isn't available - the protocol is still valid
             error_str = str(e)
             if "Database not initialized" in error_str:
-                logger.warning(f"Database not initialized, skipping protocol storage")
+                logger.warning("Database not initialized, skipping protocol storage")
                 if not protocol.id:
                     protocol.id = str(uuid.uuid4())
             elif "invalid keyword argument" in error_str:
@@ -802,10 +784,8 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
                 raise
 
     def list_templates(
-        self,
-        experiment_type: Optional[ExperimentType] = None,
-        domain: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, experiment_type: ExperimentType | None = None, domain: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         List available templates.
 

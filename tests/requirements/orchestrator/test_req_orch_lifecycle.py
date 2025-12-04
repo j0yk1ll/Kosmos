@@ -5,16 +5,15 @@ These tests validate lifecycle management including initialization, startup,
 pause/resume, shutdown, and state persistence for the Research Director.
 """
 
-import pytest
-from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock, call
-from typing import Dict, Any
 import threading
-import time
+from unittest.mock import Mock, patch
 
-from kosmos.core.workflow import WorkflowState, ResearchWorkflow, ResearchPlan
-from kosmos.agents.research_director import ResearchDirectorAgent
+import pytest
+
 from kosmos.agents.base import AgentStatus
+from kosmos.agents.research_director import ResearchDirectorAgent
+from kosmos.core.workflow import ResearchPlan, ResearchWorkflow, WorkflowState
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -31,16 +30,15 @@ class TestREQ_ORCH_LIFE_001_DirectorInitialization:
     research question, domain, configuration, and create initial research plan.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_initialization_with_required_params(self, mock_wm, mock_llm):
         """Verify director initializes with required parameters."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
         director = ResearchDirectorAgent(
-            research_question="What is the mechanism of action?",
-            domain="biology"
+            research_question="What is the mechanism of action?", domain="biology"
         )
 
         assert director.research_question == "What is the mechanism of action?"
@@ -48,17 +46,14 @@ class TestREQ_ORCH_LIFE_001_DirectorInitialization:
         assert director.agent_type == "ResearchDirector"
         assert director.agent_id is not None
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_creates_research_plan_on_init(self, mock_wm, mock_llm):
         """Verify director creates research plan during initialization."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
-        director = ResearchDirectorAgent(
-            research_question="Test question",
-            domain="test"
-        )
+        director = ResearchDirectorAgent(research_question="Test question", domain="test")
 
         assert director.research_plan is not None
         assert director.research_plan.research_question == "Test question"
@@ -66,23 +61,21 @@ class TestREQ_ORCH_LIFE_001_DirectorInitialization:
         assert director.research_plan.iteration_count == 0
         assert director.research_plan.current_state == WorkflowState.INITIALIZING
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_creates_workflow_on_init(self, mock_wm, mock_llm):
         """Verify director creates workflow state machine during initialization."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
-        director = ResearchDirectorAgent(
-            research_question="Test question"
-        )
+        director = ResearchDirectorAgent(research_question="Test question")
 
         assert director.workflow is not None
         assert director.workflow.current_state == WorkflowState.INITIALIZING
         assert director.workflow.research_plan is director.research_plan
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_initializes_with_custom_config(self, mock_wm, mock_llm):
         """Verify director accepts and applies custom configuration."""
         mock_llm.return_value = Mock()
@@ -92,22 +85,19 @@ class TestREQ_ORCH_LIFE_001_DirectorInitialization:
             "max_iterations": 15,
             "mandatory_stopping_criteria": ["custom_criterion"],
             "enable_concurrent_operations": True,
-            "max_parallel_hypotheses": 5
+            "max_parallel_hypotheses": 5,
         }
 
-        director = ResearchDirectorAgent(
-            research_question="Test",
-            config=config
-        )
+        director = ResearchDirectorAgent(research_question="Test", config=config)
 
         assert director.max_iterations == 15
         assert director.research_plan.max_iterations == 15
         assert "custom_criterion" in director.mandatory_stopping_criteria
-        assert director.enable_concurrent == True
+        assert director.enable_concurrent
         assert director.max_parallel_hypotheses == 5
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_initializes_strategy_tracking(self, mock_wm, mock_llm):
         """Verify director initializes strategy effectiveness tracking."""
         mock_llm.return_value = Mock()
@@ -121,15 +111,15 @@ class TestREQ_ORCH_LIFE_001_DirectorInitialization:
         assert "hypothesis_refinement" in director.strategy_stats
 
         # Verify initial stats structure
-        for strategy, stats in director.strategy_stats.items():
+        for _strategy, stats in director.strategy_stats.items():
             assert "attempts" in stats
             assert "successes" in stats
             assert "cost" in stats
             assert stats["attempts"] == 0
             assert stats["successes"] == 0
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_initializes_agent_registry(self, mock_wm, mock_llm):
         """Verify director initializes empty agent registry."""
         mock_llm.return_value = Mock()
@@ -140,8 +130,8 @@ class TestREQ_ORCH_LIFE_001_DirectorInitialization:
         assert director.agent_registry is not None
         assert len(director.agent_registry) == 0
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_initializes_thread_safety_locks(self, mock_wm, mock_llm):
         """Verify director initializes thread safety locks for concurrent operations."""
         mock_llm.return_value = Mock()
@@ -149,9 +139,9 @@ class TestREQ_ORCH_LIFE_001_DirectorInitialization:
 
         director = ResearchDirectorAgent(research_question="Test")
 
-        assert hasattr(director, '_research_plan_lock')
-        assert hasattr(director, '_strategy_stats_lock')
-        assert hasattr(director, '_workflow_lock')
+        assert hasattr(director, "_research_plan_lock")
+        assert hasattr(director, "_strategy_stats_lock")
+        assert hasattr(director, "_workflow_lock")
         assert isinstance(director._research_plan_lock, threading.RLock)
 
 
@@ -163,8 +153,8 @@ class TestREQ_ORCH_LIFE_002_DirectorStartup:
     from INITIALIZING to GENERATING_HYPOTHESES state, invoking _on_start hooks.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_start_transitions_to_generating_hypotheses(self, mock_wm, mock_llm):
         """Verify director transitions to GENERATING_HYPOTHESES on start."""
         mock_llm.return_value = Mock()
@@ -179,8 +169,8 @@ class TestREQ_ORCH_LIFE_002_DirectorStartup:
         assert director.workflow.current_state == WorkflowState.GENERATING_HYPOTHESES
         assert director.get_status() in [AgentStatus.RUNNING, AgentStatus.IDLE]
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_on_start_hook_invoked(self, mock_wm, mock_llm):
         """Verify _on_start lifecycle hook is invoked."""
         mock_llm.return_value = Mock()
@@ -189,12 +179,12 @@ class TestREQ_ORCH_LIFE_002_DirectorStartup:
         director = ResearchDirectorAgent(research_question="Test")
 
         # Spy on _on_start method
-        with patch.object(director, '_on_start', wraps=director._on_start) as mock_on_start:
+        with patch.object(director, "_on_start", wraps=director._on_start) as mock_on_start:
             director.start()
             mock_on_start.assert_called_once()
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_start_records_transition(self, mock_wm, mock_llm):
         """Verify starting director records transition in history."""
         mock_llm.return_value = Mock()
@@ -208,8 +198,8 @@ class TestREQ_ORCH_LIFE_002_DirectorStartup:
         assert len(history) >= 1
         assert history[0].to_state == WorkflowState.GENERATING_HYPOTHESES
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_start_is_idempotent(self, mock_wm, mock_llm):
         """Verify multiple start calls don't cause issues."""
         mock_llm.return_value = Mock()
@@ -234,8 +224,8 @@ class TestREQ_ORCH_LIFE_003_PauseResume:
     operations, preserving workflow state and allowing continuation.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_can_pause(self, mock_wm, mock_llm):
         """Verify director can be paused."""
         mock_llm.return_value = Mock()
@@ -249,8 +239,8 @@ class TestREQ_ORCH_LIFE_003_PauseResume:
         # Verify paused state
         assert director.get_status() == AgentStatus.PAUSED
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_pause_preserves_state(self, mock_wm, mock_llm):
         """Verify pausing preserves workflow state and research plan."""
         mock_llm.return_value = Mock()
@@ -275,8 +265,8 @@ class TestREQ_ORCH_LIFE_003_PauseResume:
         assert len(director.research_plan.hypothesis_pool) == hypothesis_count
         assert director.research_plan.iteration_count == iteration
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_can_resume_from_pause(self, mock_wm, mock_llm):
         """Verify director can resume from paused state."""
         mock_llm.return_value = Mock()
@@ -292,8 +282,8 @@ class TestREQ_ORCH_LIFE_003_PauseResume:
 
         assert director.get_status() in [AgentStatus.RUNNING, AgentStatus.IDLE]
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_workflow_can_transition_to_paused_from_any_state(self, mock_wm, mock_llm):
         """Verify workflow can transition to PAUSED from any active state."""
         workflow = ResearchWorkflow()
@@ -307,7 +297,7 @@ class TestREQ_ORCH_LIFE_003_PauseResume:
             WorkflowState.DESIGNING_EXPERIMENTS,
             WorkflowState.EXECUTING,
             WorkflowState.ANALYZING,
-            WorkflowState.REFINING
+            WorkflowState.REFINING,
         ]
 
         workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES)
@@ -326,8 +316,8 @@ class TestREQ_ORCH_LIFE_004_DirectorShutdown:
     resources, closing connections, and invoking _on_stop hooks.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_can_stop(self, mock_wm, mock_llm):
         """Verify director can be stopped."""
         mock_llm.return_value = Mock()
@@ -340,8 +330,8 @@ class TestREQ_ORCH_LIFE_004_DirectorShutdown:
 
         assert director.get_status() == AgentStatus.STOPPED
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_on_stop_hook_invoked(self, mock_wm, mock_llm):
         """Verify _on_stop lifecycle hook is invoked."""
         mock_llm.return_value = Mock()
@@ -350,12 +340,12 @@ class TestREQ_ORCH_LIFE_004_DirectorShutdown:
         director = ResearchDirectorAgent(research_question="Test")
         director.start()
 
-        with patch.object(director, '_on_stop', wraps=director._on_stop) as mock_on_stop:
+        with patch.object(director, "_on_stop", wraps=director._on_stop) as mock_on_stop:
             director.stop()
             mock_on_stop.assert_called_once()
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_stop_preserves_research_data(self, mock_wm, mock_llm):
         """Verify stopping director preserves research plan and workflow state."""
         mock_llm.return_value = Mock()
@@ -380,16 +370,15 @@ class TestREQ_ORCH_LIFE_004_DirectorShutdown:
         assert len(director.research_plan.experiment_queue) == experiment_count
         assert director.research_plan.iteration_count == iteration
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_cleanup_async_resources_on_stop(self, mock_wm, mock_llm):
         """Verify async resources are cleaned up on stop."""
         mock_llm.return_value = Mock()
         mock_wm.return_value = None
 
         director = ResearchDirectorAgent(
-            research_question="Test",
-            config={"enable_concurrent_operations": True}
+            research_question="Test", config={"enable_concurrent_operations": True}
         )
 
         # Mock async client
@@ -403,8 +392,8 @@ class TestREQ_ORCH_LIFE_004_DirectorShutdown:
         # Note: actual cleanup is async, but we verify the intent is there
         # In real implementation, close() would be called
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_stop_is_idempotent(self, mock_wm, mock_llm):
         """Verify multiple stop calls don't cause errors."""
         mock_llm.return_value = Mock()
@@ -454,7 +443,7 @@ class TestREQ_ORCH_LIFE_005_StatePersistence:
             WorkflowState.DESIGNING_EXPERIMENTS,
             WorkflowState.EXECUTING,
             WorkflowState.ANALYZING,
-            WorkflowState.REFINING
+            WorkflowState.REFINING,
         ]
 
         for state in transitions:
@@ -469,11 +458,7 @@ class TestREQ_ORCH_LIFE_005_StatePersistence:
 
     def test_research_plan_serialization(self):
         """Verify research plan can be serialized."""
-        plan = ResearchPlan(
-            research_question="Test question",
-            domain="test",
-            max_iterations=10
-        )
+        plan = ResearchPlan(research_question="Test question", domain="test", max_iterations=10)
 
         plan.add_hypothesis("hyp1")
         plan.add_hypothesis("hyp2")
@@ -513,14 +498,14 @@ class TestREQ_ORCH_LIFE_005_StatePersistence:
             "results",
             "iteration_count",
             "max_iterations",
-            "has_converged"
+            "has_converged",
         ]
 
         for field in required_fields:
             assert field in plan_dict, f"Missing field: {field}"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_get_research_status_provides_complete_state(self, mock_wm, mock_llm):
         """Verify director provides complete research status for persistence."""
         mock_llm.return_value = Mock()
@@ -539,8 +524,8 @@ class TestREQ_ORCH_LIFE_005_StatePersistence:
         assert "hypothesis_pool_size" in status
         assert "strategy_stats" in status
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_status_includes_convergence_info(self, mock_wm, mock_llm):
         """Verify director status includes convergence information."""
         mock_llm.return_value = Mock()

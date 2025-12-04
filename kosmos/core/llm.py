@@ -11,16 +11,18 @@ This module provides:
 4. Provider-agnostic get_client() function
 """
 
-import os
-import threading
-from typing import Any, Dict, List, Optional, Union
 import json
 import logging
+import os
+import threading
+from typing import Any
 
-from kosmos.config import _DEFAULT_CLAUDE_SONNET_MODEL, _DEFAULT_CLAUDE_HAIKU_MODEL
+from kosmos.config import _DEFAULT_CLAUDE_HAIKU_MODEL, _DEFAULT_CLAUDE_SONNET_MODEL
+
 
 try:
-    from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+    from anthropic import AI_PROMPT, HUMAN_PROMPT, Anthropic
+
     HAS_ANTHROPIC = True
 except ImportError:
     HAS_ANTHROPIC = False
@@ -29,10 +31,10 @@ except ImportError:
     AI_PROMPT = None
     print("Warning: anthropic package not installed. Install with: pip install anthropic")
 
-from kosmos.core.claude_cache import get_claude_cache, ClaudeCache
-from kosmos.core.utils.json_parser import parse_json_response, JSONParseError
-from kosmos.core.providers.base import ProviderAPIError
-from kosmos.core.providers.base import LLMProvider
+from kosmos.core.claude_cache import ClaudeCache, get_claude_cache
+from kosmos.core.providers.base import LLMProvider, ProviderAPIError
+from kosmos.core.utils.json_parser import JSONParseError, parse_json_response
+
 
 logger = logging.getLogger(__name__)
 
@@ -42,17 +44,30 @@ class ModelComplexity:
 
     # Complexity keywords that suggest Sonnet should be used
     COMPLEX_KEYWORDS = [
-        'analyze', 'synthesis', 'complex', 'design', 'architecture',
-        'research', 'hypothesis', 'experiment', 'optimize', 'algorithm',
-        'proof', 'theorem', 'mathematical', 'scientific', 'reasoning',
-        'creative', 'novel', 'innovative', 'strategy', 'plan'
+        "analyze",
+        "synthesis",
+        "complex",
+        "design",
+        "architecture",
+        "research",
+        "hypothesis",
+        "experiment",
+        "optimize",
+        "algorithm",
+        "proof",
+        "theorem",
+        "mathematical",
+        "scientific",
+        "reasoning",
+        "creative",
+        "novel",
+        "innovative",
+        "strategy",
+        "plan",
     ]
 
     @staticmethod
-    def estimate_complexity(
-        prompt: str,
-        system: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def estimate_complexity(prompt: str, system: str | None = None) -> dict[str, Any]:
         """
         Estimate prompt complexity.
 
@@ -71,8 +86,7 @@ class ModelComplexity:
         # Check for complex keywords
         prompt_lower = prompt.lower()
         keyword_matches = sum(
-            1 for keyword in ModelComplexity.COMPLEX_KEYWORDS
-            if keyword in prompt_lower
+            1 for keyword in ModelComplexity.COMPLEX_KEYWORDS if keyword in prompt_lower
         )
 
         # Scoring (0-100)
@@ -92,15 +106,15 @@ class ModelComplexity:
             recommendation = "sonnet"  # High complexity
 
         return {
-            'complexity_score': round(complexity_score, 2),
-            'total_tokens_estimate': int(total_tokens),
-            'keyword_matches': keyword_matches,
-            'recommendation': recommendation,
-            'reason': (
-                'simple query' if complexity_score < 30
-                else 'moderate complexity' if complexity_score < 60
-                else 'high complexity task'
-            )
+            "complexity_score": round(complexity_score, 2),
+            "total_tokens_estimate": int(total_tokens),
+            "keyword_matches": keyword_matches,
+            "recommendation": recommendation,
+            "reason": (
+                "simple query"
+                if complexity_score < 30
+                else "moderate complexity" if complexity_score < 60 else "high complexity task"
+            ),
         }
 
 
@@ -131,7 +145,7 @@ class ClaudeClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = _DEFAULT_CLAUDE_SONNET_MODEL,
         max_tokens: int = 4096,
         temperature: float = 0.7,
@@ -156,7 +170,7 @@ class ClaudeClient:
                 "For CLI routing support: pip install git+https://github.com/jimmc414/claude_n_codex_api_proxy.git"
             )
 
-        self.api_key = api_key or os.environ.get('ANTHROPIC_API_KEY')
+        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError(
                 "ANTHROPIC_API_KEY environment variable not set. "
@@ -175,7 +189,7 @@ class ClaudeClient:
         self.sonnet_model = _DEFAULT_CLAUDE_SONNET_MODEL
 
         # Detect mode
-        self.is_cli_mode = self.api_key.replace('9', '') == ''
+        self.is_cli_mode = self.api_key.replace("9", "") == ""
 
         # Initialize Anthropic client (will auto-route based on API key)
         try:
@@ -186,7 +200,7 @@ class ClaudeClient:
             raise
 
         # Initialize cache
-        self.cache: Optional[ClaudeCache] = None
+        self.cache: ClaudeCache | None = None
         if self.enable_cache:
             self.cache = get_claude_cache()
             logger.info("Claude response caching enabled")
@@ -206,12 +220,12 @@ class ClaudeClient:
     def generate(
         self,
         prompt: str,
-        system: Optional[str] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        stop_sequences: Optional[List[str]] = None,
+        system: str | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        stop_sequences: list[str] | None = None,
         bypass_cache: bool = False,
-        model_override: Optional[str] = None,
+        model_override: str | None = None,
     ) -> str:
         """
         Generate text from Claude.
@@ -249,11 +263,9 @@ class ClaudeClient:
                 logger.debug(f"Model override: {selected_model}")
             elif self.enable_auto_model_selection and not self.is_cli_mode:
                 # Auto-select based on complexity
-                complexity_analysis = ModelComplexity.estimate_complexity(
-                    prompt, system
-                )
+                complexity_analysis = ModelComplexity.estimate_complexity(prompt, system)
 
-                if complexity_analysis['recommendation'] == 'haiku':
+                if complexity_analysis["recommendation"] == "haiku":
                     selected_model = self.haiku_model
                     self.haiku_requests += 1
                 else:
@@ -267,31 +279,28 @@ class ClaudeClient:
                 )
             else:
                 # Track model usage
-                if 'haiku' in selected_model.lower():
+                if "haiku" in selected_model.lower():
                     self.haiku_requests += 1
-                elif 'sonnet' in selected_model.lower():
+                elif "sonnet" in selected_model.lower():
                     self.sonnet_requests += 1
 
             # Check cache first (if enabled and not bypassed)
             if self.cache and not bypass_cache:
                 cache_key_params = {
-                    'system': system or "",
-                    'max_tokens': max_tokens or self.max_tokens,
-                    'temperature': temperature or self.temperature,
-                    'stop_sequences': stop_sequences or [],
+                    "system": system or "",
+                    "max_tokens": max_tokens or self.max_tokens,
+                    "temperature": temperature or self.temperature,
+                    "stop_sequences": stop_sequences or [],
                 }
 
                 cached_response = self.cache.get(
-                    prompt=prompt,
-                    model=selected_model,
-                    bypass=False,
-                    **cache_key_params
+                    prompt=prompt, model=selected_model, bypass=False, **cache_key_params
                 )
 
                 if cached_response is not None:
                     # Cache hit!
                     self.cache_hits += 1
-                    response_text = cached_response['response']
+                    response_text = cached_response["response"]
                     logger.info(
                         f"Cache hit ({cached_response.get('cache_hit_type', 'exact')}): "
                         f"saved API call"
@@ -316,10 +325,10 @@ class ClaudeClient:
 
             # Update statistics
             self.total_requests += 1
-            if hasattr(response, 'usage') and response.usage:
-                if hasattr(response.usage, 'input_tokens'):
+            if hasattr(response, "usage") and response.usage:
+                if hasattr(response.usage, "input_tokens"):
                     self.total_input_tokens += response.usage.input_tokens
-                if hasattr(response.usage, 'output_tokens'):
+                if hasattr(response.usage, "output_tokens"):
                     self.total_output_tokens += response.usage.output_tokens
 
             # Extract text
@@ -328,18 +337,20 @@ class ClaudeClient:
             # Cache the response (if caching enabled)
             if self.cache and not bypass_cache:
                 metadata = {}
-                if hasattr(response, 'usage') and response.usage:
-                    if hasattr(response.usage, 'input_tokens') and hasattr(response.usage, 'output_tokens'):
+                if hasattr(response, "usage") and response.usage:
+                    if hasattr(response.usage, "input_tokens") and hasattr(
+                        response.usage, "output_tokens"
+                    ):
                         metadata = {
-                            'input_tokens': response.usage.input_tokens,
-                            'output_tokens': response.usage.output_tokens,
+                            "input_tokens": response.usage.input_tokens,
+                            "output_tokens": response.usage.output_tokens,
                         }
 
                 cache_key_params = {
-                    'system': system or "",
-                    'max_tokens': max_tokens or self.max_tokens,
-                    'temperature': temperature or self.temperature,
-                    'stop_sequences': stop_sequences or [],
+                    "system": system or "",
+                    "max_tokens": max_tokens or self.max_tokens,
+                    "temperature": temperature or self.temperature,
+                    "stop_sequences": stop_sequences or [],
                 }
 
                 self.cache.set(
@@ -347,7 +358,7 @@ class ClaudeClient:
                     model=selected_model,
                     response=text,
                     metadata=metadata,
-                    **cache_key_params
+                    **cache_key_params,
                 )
 
             logger.debug(f"Generated {len(text)} characters from Claude")
@@ -359,10 +370,10 @@ class ClaudeClient:
 
     def generate_with_messages(
         self,
-        messages: List[Dict[str, str]],
-        system: Optional[str] = None,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
+        messages: list[dict[str, str]],
+        system: str | None = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
         """
         Generate text using multi-turn conversation format.
@@ -388,10 +399,10 @@ class ClaudeClient:
 
             # Update statistics
             self.total_requests += 1
-            if hasattr(response, 'usage') and response.usage:
-                if hasattr(response.usage, 'input_tokens'):
+            if hasattr(response, "usage") and response.usage:
+                if hasattr(response.usage, "input_tokens"):
                     self.total_input_tokens += response.usage.input_tokens
-                if hasattr(response.usage, 'output_tokens'):
+                if hasattr(response.usage, "output_tokens"):
                     self.total_output_tokens += response.usage.output_tokens
 
             return response.content[0].text
@@ -403,9 +414,9 @@ class ClaudeClient:
     def generate_structured(
         self,
         prompt: str,
-        output_schema: Dict[str, Any],
-        system: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        output_schema: dict[str, Any],
+        system: str | None = None,
+    ) -> dict[str, Any]:
         """
         Generate structured output (JSON) from Claude.
 
@@ -433,7 +444,11 @@ class ClaudeClient:
             ```
         """
         # Add JSON instruction to system prompt
-        json_system = (system or "") + "\n\nYou must respond with valid JSON matching this schema:\n" + json.dumps(output_schema, indent=2)
+        json_system = (
+            (system or "")
+            + "\n\nYou must respond with valid JSON matching this schema:\n"
+            + json.dumps(output_schema, indent=2)
+        )
 
         response_text = self.generate(
             prompt=prompt,
@@ -448,13 +463,10 @@ class ClaudeClient:
             logger.error(f"Response text: {response_text[:500]}")
             # JSON parse errors are NOT recoverable - retrying won't help
             raise ProviderAPIError(
-                "claude",
-                f"Invalid JSON response: {e.message}",
-                raw_error=e,
-                recoverable=False
-            )
+                "claude", f"Invalid JSON response: {e.message}", raw_error=e, recoverable=False
+            ) from e
 
-    def get_usage_stats(self) -> Dict[str, Any]:
+    def get_usage_stats(self) -> dict[str, Any]:
         """
         Get usage statistics including cache metrics.
 
@@ -472,14 +484,10 @@ class ClaudeClient:
         if self.cache and self.cache_hits > 0:
             # Estimate average tokens per request
             avg_input_tokens = (
-                self.total_input_tokens / self.total_requests
-                if self.total_requests > 0
-                else 1000
+                self.total_input_tokens / self.total_requests if self.total_requests > 0 else 1000
             )
             avg_output_tokens = (
-                self.total_output_tokens / self.total_requests
-                if self.total_requests > 0
-                else 500
+                self.total_output_tokens / self.total_requests if self.total_requests > 0 else 500
             )
 
             # Estimate cost savings (API mode only)
@@ -515,8 +523,12 @@ class ClaudeClient:
                 "sonnet_requests": self.sonnet_requests,
                 "total_model_requests": total_model_requests,
                 "haiku_percent": round(
-                    (self.haiku_requests / total_model_requests * 100)
-                    if total_model_requests > 0 else 0, 2
+                    (
+                        (self.haiku_requests / total_model_requests * 100)
+                        if total_model_requests > 0
+                        else 0
+                    ),
+                    2,
                 ),
                 "model_overrides": self.model_overrides,
             }
@@ -526,13 +538,16 @@ class ClaudeClient:
             # Simplified: assume each Haiku request saved ~80% of cost
             if self.haiku_requests > 0 and not self.is_cli_mode:
                 avg_tokens_per_request = (
-                    (self.total_input_tokens + self.total_output_tokens) /
-                    self.total_requests if self.total_requests > 0 else 1500
+                    (self.total_input_tokens + self.total_output_tokens) / self.total_requests
+                    if self.total_requests > 0
+                    else 1500
                 )
                 # Estimate savings: 80% of what Sonnet would have cost
                 estimated_haiku_savings = (
-                    (avg_tokens_per_request / 1_000_000) *
-                    self.haiku_requests * 12 * 0.8  # ~80% savings
+                    (avg_tokens_per_request / 1_000_000)
+                    * self.haiku_requests
+                    * 12
+                    * 0.8  # ~80% savings
                 )
                 stats["model_selection"]["estimated_cost_saved_usd"] = round(
                     estimated_haiku_savings, 2
@@ -575,11 +590,11 @@ class ClaudeClient:
 
 
 # Singleton instance for convenience with thread safety
-_default_client: Optional[Union[ClaudeClient, LLMProvider]] = None
+_default_client: ClaudeClient | LLMProvider | None = None
 _client_lock = threading.Lock()
 
 
-def get_client(reset: bool = False, use_provider_system: bool = True) -> Union[ClaudeClient, LLMProvider]:
+def get_client(reset: bool = False, use_provider_system: bool = True) -> ClaudeClient | LLMProvider:
     """
     Get or create default LLM client singleton.
 
@@ -629,15 +644,18 @@ def get_client(reset: bool = False, use_provider_system: bool = True) -> Union[C
                     logger.info(f"Initialized {config.llm_provider} provider via config")
 
                 except Exception as e:
-                    logger.warning(f"Failed to initialize provider from config: {e}. Falling back to AnthropicProvider")
+                    logger.warning(
+                        f"Failed to initialize provider from config: {e}. Falling back to AnthropicProvider"
+                    )
                     # Fallback to AnthropicProvider instance (LLMProvider-compatible)
                     from kosmos.core.providers.anthropic import AnthropicProvider
+
                     fallback_config = {
-                        'api_key': os.environ.get('ANTHROPIC_API_KEY'),
-                        'model': _DEFAULT_CLAUDE_SONNET_MODEL,
-                        'max_tokens': 4096,
-                        'temperature': 0.7,
-                        'enable_cache': True,
+                        "api_key": os.environ.get("ANTHROPIC_API_KEY"),
+                        "model": _DEFAULT_CLAUDE_SONNET_MODEL,
+                        "max_tokens": 4096,
+                        "temperature": 0.7,
+                        "enable_cache": True,
                     }
                     _default_client = AnthropicProvider(fallback_config)
             else:

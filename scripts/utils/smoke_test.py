@@ -8,7 +8,6 @@ Run time target: < 30 seconds.
 
 import asyncio
 import sys
-from pathlib import Path
 
 
 def test_imports():
@@ -31,7 +30,7 @@ def test_imports():
     for module_name, class_name in modules:
         try:
             module = __import__(module_name, fromlist=[class_name])
-            cls = getattr(module, class_name)
+            getattr(module, class_name)
             print(f"  [OK] {module_name}.{class_name}")
         except ImportError as e:
             print(f"  [FAIL] {module_name}.{class_name}: {e}")
@@ -43,18 +42,18 @@ def test_imports():
 def test_compression():
     """Test context compression."""
     print("\nTesting compression...")
-    from kosmos.compression.compressor import NotebookCompressor, ContextCompressor
+    from kosmos.compression.compressor import ContextCompressor, NotebookCompressor
 
     # Test NotebookCompressor
     compressor = NotebookCompressor()
     stats = compressor._extract_statistics("p = 0.001, n = 100, r = 0.85")
-    assert 'p_value' in stats, "P-value extraction failed"
-    assert stats['sample_size'] == 100, "Sample size extraction failed"
+    assert "p_value" in stats, "P-value extraction failed"
+    assert stats["sample_size"] == 100, "Sample size extraction failed"
     print("  [OK] NotebookCompressor statistics extraction")
 
     # Test ContextCompressor
     ctx = ContextCompressor()
-    result = ctx.compress_cycle_results(1, [{'type': 'generic', 'content': 'test'}])
+    result = ctx.compress_cycle_results(1, [{"type": "generic", "content": "test"}])
     assert result.summary is not None, "Cycle compression failed"
     print("  [OK] ContextCompressor cycle compression")
 
@@ -65,6 +64,7 @@ async def test_state_manager_async():
     """Test state manager operations."""
     print("\nTesting state manager...")
     import tempfile
+
     from kosmos.world_model.artifacts import ArtifactStateManager, Finding
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -76,7 +76,7 @@ async def test_state_manager_async():
             cycle=1,
             task_id=1,
             summary="Test finding",
-            statistics={"p_value": 0.01}
+            statistics={"p_value": 0.01},
         )
         await manager.save_finding_artifact(1, 1, finding.to_dict())
 
@@ -87,7 +87,7 @@ async def test_state_manager_async():
 
         # Test statistics
         stats = manager.get_statistics()
-        assert 'total_findings' in stats, "Statistics generation failed"
+        assert "total_findings" in stats, "Statistics generation failed"
         print("  [OK] ArtifactStateManager statistics")
 
     return True
@@ -101,9 +101,9 @@ def test_state_manager():
 def test_orchestration():
     """Test orchestration components."""
     print("\nTesting orchestration...")
+    from kosmos.orchestration.novelty_detector import NoveltyDetector
     from kosmos.orchestration.plan_creator import PlanCreatorAgent
     from kosmos.orchestration.plan_reviewer import PlanReviewerAgent
-    from kosmos.orchestration.novelty_detector import NoveltyDetector
 
     # Test plan creator
     creator = PlanCreatorAgent()
@@ -113,7 +113,7 @@ def test_orchestration():
 
     # Test plan reviewer
     reviewer = PlanReviewerAgent()
-    plan_dict = {'tasks': plan.to_dict()['tasks']}
+    plan_dict = {"tasks": plan.to_dict()["tasks"]}
     is_valid = reviewer._meets_structural_requirements(plan_dict)
     assert is_valid, "Structural validation failed"
     print("  [OK] PlanReviewerAgent structural validation")
@@ -122,12 +122,12 @@ def test_orchestration():
     detector = NoveltyDetector()
     past_tasks = [
         {"description": "Task 1: Analyze data"},
-        {"description": "Task 2: Review literature"}
+        {"description": "Task 2: Review literature"},
     ]
     detector.index_past_tasks(past_tasks)
     result = detector.check_task_novelty({"description": "Task 3: Analyze similar data"})
-    assert 'novelty_score' in result, "Novelty result missing score"
-    assert 0 <= result['novelty_score'] <= 1, "Novelty score out of range"
+    assert "novelty_score" in result, "Novelty result missing score"
+    assert 0 <= result["novelty_score"] <= 1, "Novelty score out of range"
     print("  [OK] NoveltyDetector novelty scoring")
 
     return True
@@ -142,11 +142,11 @@ async def test_validation_async():
     finding = {
         "summary": "KRAS mutation correlates with poor outcomes",
         "statistics": {"p_value": 0.001, "sample_size": 500},
-        "methods": "Statistical analysis"
+        "methods": "Statistical analysis",
     }
 
     score = await validator.evaluate_finding(finding)
-    assert hasattr(score, 'overall_score'), "ScholarEval scoring failed"
+    assert hasattr(score, "overall_score"), "ScholarEval scoring failed"
     assert 0 <= score.overall_score <= 10, "Score out of range"
     print("  [OK] ScholarEvalValidator mock scoring")
 
@@ -162,18 +162,16 @@ async def test_workflow():
     """Test workflow execution."""
     print("\nTesting workflow...")
     import tempfile
+
     from kosmos.workflow.research_loop import ResearchWorkflow
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        workflow = ResearchWorkflow(
-            research_objective="Test objective",
-            artifacts_dir=tmpdir
-        )
+        workflow = ResearchWorkflow(research_objective="Test objective", artifacts_dir=tmpdir)
 
         result = await workflow.run(num_cycles=1, tasks_per_cycle=5)
 
-        assert result['cycles_completed'] == 1, "Workflow cycle failed"
-        assert result['total_tasks_generated'] >= 5, "Task generation failed"
+        assert result["cycles_completed"] == 1, "Workflow cycle failed"
+        assert result["total_tasks_generated"] >= 5, "Task generation failed"
         print("  [OK] ResearchWorkflow single-cycle execution")
 
     return True
@@ -190,8 +188,8 @@ def test_skill_loader():
     print("  [OK] SkillLoader initialization")
 
     # Test bundle lookup
-    bundle = loader.SKILL_BUNDLES.get('single_cell_analysis', [])
-    assert 'scanpy' in bundle, "Bundle lookup failed"
+    bundle = loader.SKILL_BUNDLES.get("single_cell_analysis", [])
+    assert "scanpy" in bundle, "Bundle lookup failed"
     print("  [OK] SkillLoader bundle configuration")
 
     return True

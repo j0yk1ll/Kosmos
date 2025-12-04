@@ -4,10 +4,10 @@ Unit tests for CLI commands.
 Tests all CLI commands: run, status, history, cache, config, profile.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from typer.testing import CliRunner
-from unittest.mock import MagicMock, patch
-from pathlib import Path
 
 from kosmos.cli.main import app
 
@@ -37,7 +37,7 @@ class TestCLIBasics:
 
     def test_doctor_command(self, runner):
         """Test doctor diagnostic command."""
-        with patch('kosmos.cli.main.get_session') as mock_session:
+        with patch("kosmos.cli.main.get_session") as mock_session:
             mock_session.return_value.close = MagicMock()
 
             result = runner.invoke(app, ["doctor"])
@@ -55,7 +55,7 @@ class TestInfoCommand:
 
     def test_info_displays_configuration(self, runner):
         """Test info command displays configuration."""
-        with patch('kosmos.config.get_config') as mock_config:
+        with patch("kosmos.config.get_config") as mock_config:
             mock_cfg = MagicMock()
             mock_cfg.claude.model = "claude-3-5-sonnet-20241022"
             mock_cfg.research.max_iterations = 10
@@ -75,23 +75,28 @@ class TestRunCommand:
     def runner(self):
         return CliRunner()
 
-    @patch('kosmos.cli.commands.run.ResearchDirectorAgent')
+    @patch("kosmos.cli.commands.run.ResearchDirectorAgent")
     def test_run_with_question(self, mock_director, runner):
         """Test running research with question."""
         # Mock director
         director_instance = MagicMock()
         mock_director.return_value = director_instance
 
-        result = runner.invoke(app, [
-            "run",
-            "--question", "What is the effect of temperature on protein folding?",
-            "--domain", "biology"
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "--question",
+                "What is the effect of temperature on protein folding?",
+                "--domain",
+                "biology",
+            ],
+        )
 
         # Command should attempt to run
         assert result.exit_code >= 0
 
-    @patch('kosmos.cli.commands.run.ResearchDirectorAgent')
+    @patch("kosmos.cli.commands.run.ResearchDirectorAgent")
     def test_run_interactive_mode(self, mock_director, runner):
         """Test interactive mode."""
         director_instance = MagicMock()
@@ -111,7 +116,7 @@ class TestStatusCommand:
     def runner(self):
         return CliRunner()
 
-    @patch('kosmos.cli.commands.status.get_session')
+    @patch("kosmos.cli.commands.status.get_session")
     def test_status_shows_research_status(self, mock_session, runner):
         """Test status command shows research status."""
         # Mock database query
@@ -124,7 +129,7 @@ class TestStatusCommand:
         # Should show some status
         assert result.exit_code >= 0
 
-    @patch('kosmos.cli.commands.status.get_session')
+    @patch("kosmos.cli.commands.status.get_session")
     def test_status_watch_mode(self, mock_session, runner):
         """Test status watch mode."""
         mock_query = MagicMock()
@@ -145,7 +150,7 @@ class TestHistoryCommand:
     def runner(self):
         return CliRunner()
 
-    @patch('kosmos.cli.commands.history.get_session')
+    @patch("kosmos.cli.commands.history.get_session")
     def test_history_lists_past_research(self, mock_session, runner):
         """Test history command lists past research."""
         # Mock research cycles
@@ -155,13 +160,15 @@ class TestHistoryCommand:
         mock_cycle.domain = "biology"
         mock_cycle.status = "completed"
 
-        mock_session.return_value.query.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_cycle]
+        mock_session.return_value.query.return_value.order_by.return_value.limit.return_value.all.return_value = [
+            mock_cycle
+        ]
 
         result = runner.invoke(app, ["history"])
 
         assert result.exit_code >= 0
 
-    @patch('kosmos.cli.commands.history.get_session')
+    @patch("kosmos.cli.commands.history.get_session")
     def test_history_view_specific_cycle(self, mock_session, runner):
         """Test viewing specific research cycle."""
         mock_cycle = MagicMock()
@@ -169,7 +176,9 @@ class TestHistoryCommand:
         mock_cycle.research_question = "Test question"
         mock_cycle.results = []
 
-        mock_session.return_value.query.return_value.filter.return_value.first.return_value = mock_cycle
+        mock_session.return_value.query.return_value.filter.return_value.first.return_value = (
+            mock_cycle
+        )
 
         result = runner.invoke(app, ["history", "--cycle-id", "1"])
 
@@ -183,7 +192,7 @@ class TestCacheCommand:
     def runner(self):
         return CliRunner()
 
-    @patch('kosmos.cli.commands.cache.CacheManager')
+    @patch("kosmos.cli.commands.cache.CacheManager")
     def test_cache_info(self, mock_manager, runner):
         """Test cache info command."""
         manager_instance = MagicMock()
@@ -196,7 +205,7 @@ class TestCacheCommand:
 
         assert result.exit_code >= 0
 
-    @patch('kosmos.cli.commands.cache.CacheManager')
+    @patch("kosmos.cli.commands.cache.CacheManager")
     def test_cache_clear(self, mock_manager, runner):
         """Test cache clear command."""
         manager_instance = MagicMock()
@@ -206,7 +215,7 @@ class TestCacheCommand:
 
         assert result.exit_code >= 0
 
-    @patch('kosmos.cli.commands.cache.CacheManager')
+    @patch("kosmos.cli.commands.cache.CacheManager")
     def test_cache_clear_requires_confirmation(self, mock_manager, runner):
         """Test cache clear requires confirmation."""
         manager_instance = MagicMock()
@@ -228,7 +237,7 @@ class TestConfigCommand:
 
     def test_config_show(self, runner):
         """Test showing configuration."""
-        with patch('kosmos.config.get_config') as mock_config:
+        with patch("kosmos.config.get_config") as mock_config:
             mock_cfg = MagicMock()
             mock_cfg.claude.model = "claude-3-5-sonnet-20241022"
             mock_config.return_value = mock_cfg
@@ -239,7 +248,7 @@ class TestConfigCommand:
 
     def test_config_get_value(self, runner):
         """Test getting specific config value."""
-        with patch('kosmos.config.get_config') as mock_config:
+        with patch("kosmos.config.get_config") as mock_config:
             mock_cfg = MagicMock()
             mock_cfg.claude.model = "claude-3-5-sonnet-20241022"
             mock_config.return_value = mock_cfg
@@ -250,7 +259,7 @@ class TestConfigCommand:
 
     def test_config_validate(self, runner):
         """Test config validation."""
-        with patch('kosmos.config.get_config') as mock_config:
+        with patch("kosmos.config.get_config") as mock_config:
             mock_cfg = MagicMock()
             mock_config.return_value = mock_cfg
 
@@ -266,14 +275,11 @@ class TestProfileCommand:
     def runner(self):
         return CliRunner()
 
-    @patch('kosmos.cli.commands.profile.get_profiler')
+    @patch("kosmos.cli.commands.profile.get_profiler")
     def test_profile_view(self, mock_profiler, runner):
         """Test viewing profile data."""
         profiler_instance = MagicMock()
-        profiler_instance.get_summary.return_value = {
-            "total_profiles": 10,
-            "total_duration": 5.5
-        }
+        profiler_instance.get_summary.return_value = {"total_profiles": 10, "total_duration": 5.5}
         profiler_instance.profiles = []
         mock_profiler.return_value = profiler_instance
 
@@ -281,7 +287,7 @@ class TestProfileCommand:
 
         assert result.exit_code >= 0
 
-    @patch('kosmos.cli.commands.profile.get_profiler')
+    @patch("kosmos.cli.commands.profile.get_profiler")
     def test_profile_clear(self, mock_profiler, runner):
         """Test clearing profile data."""
         profiler_instance = MagicMock()
@@ -291,7 +297,7 @@ class TestProfileCommand:
 
         assert result.exit_code >= 0
 
-    @patch('kosmos.cli.commands.profile.get_profiler')
+    @patch("kosmos.cli.commands.profile.get_profiler")
     def test_profile_bottlenecks(self, mock_profiler, runner):
         """Test finding bottlenecks."""
         profiler_instance = MagicMock()
@@ -349,7 +355,7 @@ class TestCLIErrorHandling:
         # Should show error or help
         assert result.exit_code != 0 or "question" in result.stdout.lower()
 
-    @patch('kosmos.cli.commands.run.ResearchDirectorAgent')
+    @patch("kosmos.cli.commands.run.ResearchDirectorAgent")
     def test_exception_handling(self, mock_director, runner):
         """Test graceful exception handling."""
         # Make director raise exception
@@ -370,11 +376,13 @@ class TestCLIOutputFormatting:
 
     def test_table_output(self, runner):
         """Test table output formatting."""
-        with patch('kosmos.cli.commands.history.get_session') as mock_session:
+        with patch("kosmos.cli.commands.history.get_session") as mock_session:
             mock_cycle = MagicMock()
             mock_cycle.id = 1
             mock_cycle.research_question = "Test"
-            mock_session.return_value.query.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_cycle]
+            mock_session.return_value.query.return_value.order_by.return_value.limit.return_value.all.return_value = [
+                mock_cycle
+            ]
 
             result = runner.invoke(app, ["history", "--format", "table"])
 
@@ -382,10 +390,12 @@ class TestCLIOutputFormatting:
 
     def test_json_output(self, runner):
         """Test JSON output formatting."""
-        with patch('kosmos.cli.commands.history.get_session') as mock_session:
+        with patch("kosmos.cli.commands.history.get_session") as mock_session:
             mock_cycle = MagicMock()
             mock_cycle.id = 1
-            mock_session.return_value.query.return_value.order_by.return_value.limit.return_value.all.return_value = [mock_cycle]
+            mock_session.return_value.query.return_value.order_by.return_value.limit.return_value.all.return_value = [
+                mock_cycle
+            ]
 
             result = runner.invoke(app, ["history", "--format", "json"])
 
@@ -402,7 +412,7 @@ class TestCLIIntegration:
     @pytest.mark.integration
     def test_full_workflow(self, runner):
         """Test complete CLI workflow."""
-        with patch('kosmos.cli.commands.run.ResearchDirectorAgent') as mock_director:
+        with patch("kosmos.cli.commands.run.ResearchDirectorAgent") as mock_director:
             director_instance = MagicMock()
             mock_director.return_value = director_instance
 
@@ -415,11 +425,9 @@ class TestCLIIntegration:
             assert result.exit_code >= 0
 
             # 3. Run research
-            result = runner.invoke(app, [
-                "run",
-                "--question", "Test question",
-                "--domain", "biology"
-            ])
+            result = runner.invoke(
+                app, ["run", "--question", "Test question", "--domain", "biology"]
+            )
             assert result.exit_code >= 0
 
             # 4. Check history

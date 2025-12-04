@@ -5,15 +5,18 @@ Provides Pydantic models for hypothesis generation, validation, and analysis.
 Complements the SQLAlchemy Hypothesis model in kosmos.db.models.
 """
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, validator, field_validator, ConfigDict
 from datetime import datetime
 from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from kosmos.config import _DEFAULT_CLAUDE_SONNET_MODEL
 
+
 class ExperimentType(str, Enum):
     """Types of experiments that can test a hypothesis."""
+
     COMPUTATIONAL = "computational"  # Simulations, algorithms, mathematical proofs
     DATA_ANALYSIS = "data_analysis"  # Statistical analysis of existing datasets
     LITERATURE_SYNTHESIS = "literature_synthesis"  # Systematic review, meta-analysis
@@ -21,6 +24,7 @@ class ExperimentType(str, Enum):
 
 class HypothesisStatus(str, Enum):
     """Hypothesis lifecycle status."""
+
     GENERATED = "generated"
     UNDER_REVIEW = "under_review"
     TESTING = "testing"
@@ -47,30 +51,35 @@ class Hypothesis(BaseModel):
         )
         ```
     """
-    id: Optional[str] = None
+
+    id: str | None = None
     research_question: str = Field(..., description="Original research question")
-    statement: str = Field(..., min_length=10, max_length=500, description="Clear, testable hypothesis statement")
-    rationale: str = Field(..., min_length=20, description="Scientific rationale for the hypothesis")
+    statement: str = Field(
+        ..., min_length=10, max_length=500, description="Clear, testable hypothesis statement"
+    )
+    rationale: str = Field(
+        ..., min_length=20, description="Scientific rationale for the hypothesis"
+    )
 
     domain: str = Field(..., description="Scientific domain (e.g., biology, physics, ML)")
     status: HypothesisStatus = Field(default=HypothesisStatus.GENERATED)
 
     # Scores (0.0 - 1.0)
-    testability_score: Optional[float] = Field(None, ge=0.0, le=1.0)
-    novelty_score: Optional[float] = Field(None, ge=0.0, le=1.0)
-    confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0)
-    priority_score: Optional[float] = Field(None, ge=0.0, le=1.0)
+    testability_score: float | None = Field(None, ge=0.0, le=1.0)
+    novelty_score: float | None = Field(None, ge=0.0, le=1.0)
+    confidence_score: float | None = Field(None, ge=0.0, le=1.0)
+    priority_score: float | None = Field(None, ge=0.0, le=1.0)
 
     # Testability analysis
-    suggested_experiment_types: List[ExperimentType] = Field(default_factory=list)
-    estimated_resources: Optional[Dict[str, Any]] = None  # compute, time, cost estimates
+    suggested_experiment_types: list[ExperimentType] = Field(default_factory=list)
+    estimated_resources: dict[str, Any] | None = None  # compute, time, cost estimates
 
     # Novelty analysis
-    similar_work: List[str] = Field(default_factory=list)  # Paper IDs of similar work
-    novelty_report: Optional[str] = None
+    similar_work: list[str] = Field(default_factory=list)  # Paper IDs of similar work
+    novelty_report: str | None = None
 
     # Literature context
-    related_papers: List[str] = Field(default_factory=list)  # Paper IDs used in generation
+    related_papers: list[str] = Field(default_factory=list)  # Paper IDs used in generation
 
     # Metadata
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -78,12 +87,20 @@ class Hypothesis(BaseModel):
     generated_by: str = Field(default="hypothesis_generator")
 
     # Evolution tracking (Phase 7)
-    parent_hypothesis_id: Optional[str] = Field(None, description="ID of parent hypothesis (if refined/spawned)")
-    generation: int = Field(default=1, ge=1, description="Generation number (1 = original, 2+ = refined)")
-    refinement_count: int = Field(default=0, ge=0, description="Number of times this hypothesis was refined")
-    evolution_history: List[Dict[str, Any]] = Field(default_factory=list, description="History of refinements and results")
+    parent_hypothesis_id: str | None = Field(
+        None, description="ID of parent hypothesis (if refined/spawned)"
+    )
+    generation: int = Field(
+        default=1, ge=1, description="Generation number (1 = original, 2+ = refined)"
+    )
+    refinement_count: int = Field(
+        default=0, ge=0, description="Number of times this hypothesis was refined"
+    )
+    evolution_history: list[dict[str, Any]] = Field(
+        default_factory=list, description="History of refinements and results"
+    )
 
-    @field_validator('statement')
+    @field_validator("statement")
     @classmethod
     def validate_statement(cls, v: str) -> str:
         """Ensure statement is a clear, testable hypothesis."""
@@ -91,18 +108,27 @@ class Hypothesis(BaseModel):
             raise ValueError("Statement cannot be empty")
 
         # Check for question marks (hypothesis should be a statement, not a question)
-        if v.strip().endswith('?'):
+        if v.strip().endswith("?"):
             raise ValueError("Hypothesis should be a statement, not a question")
 
         # Encourage predictive statements
-        predictive_words = ['will', 'would', 'should', 'increases', 'decreases', 'affects', 'causes', 'leads to']
+        predictive_words = [
+            "will",
+            "would",
+            "should",
+            "increases",
+            "decreases",
+            "affects",
+            "causes",
+            "leads to",
+        ]
         if not any(word in v.lower() for word in predictive_words):
             # Warning but don't fail - some valid hypotheses might not use these words
             pass
 
         return v.strip()
 
-    @field_validator('rationale')
+    @field_validator("rationale")
     @classmethod
     def validate_rationale(cls, v: str) -> str:
         """Ensure rationale provides sufficient scientific justification."""
@@ -110,11 +136,13 @@ class Hypothesis(BaseModel):
             raise ValueError("Rationale cannot be empty")
 
         if len(v.strip()) < 20:
-            raise ValueError("Rationale must be at least 20 characters to provide sufficient justification")
+            raise ValueError(
+                "Rationale must be at least 20 characters to provide sufficient justification"
+            )
 
         return v.strip()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage or serialization."""
         return {
             "id": self.id,
@@ -170,20 +198,35 @@ class HypothesisGenerationRequest(BaseModel):
         )
         ```
     """
-    research_question: str = Field(..., min_length=10, description="Research question to generate hypotheses for")
-    domain: Optional[str] = Field(None, description="Scientific domain (auto-detected if not provided)")
-    num_hypotheses: int = Field(default=3, ge=1, le=10, description="Number of hypotheses to generate")
+
+    research_question: str = Field(
+        ..., min_length=10, description="Research question to generate hypotheses for"
+    )
+    domain: str | None = Field(
+        None, description="Scientific domain (auto-detected if not provided)"
+    )
+    num_hypotheses: int = Field(
+        default=3, ge=1, le=10, description="Number of hypotheses to generate"
+    )
 
     # Optional context
-    context: Optional[Dict[str, Any]] = Field(None, description="Additional context (literature, data, etc.)")
-    related_paper_ids: List[str] = Field(default_factory=list, description="Relevant paper IDs for context")
+    context: dict[str, Any] | None = Field(
+        None, description="Additional context (literature, data, etc.)"
+    )
+    related_paper_ids: list[str] = Field(
+        default_factory=list, description="Relevant paper IDs for context"
+    )
 
     # Generation parameters
     max_iterations: int = Field(default=1, ge=1, le=5, description="Max refinement iterations")
-    require_novelty_check: bool = Field(default=True, description="Run novelty check before returning")
-    min_novelty_score: float = Field(default=0.5, ge=0.0, le=1.0, description="Minimum novelty score")
+    require_novelty_check: bool = Field(
+        default=True, description="Run novelty check before returning"
+    )
+    min_novelty_score: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Minimum novelty score"
+    )
 
-    @field_validator('research_question')
+    @field_validator("research_question")
     @classmethod
     def validate_question(cls, v: str) -> str:
         """Validate research question format."""
@@ -202,7 +245,8 @@ class HypothesisGenerationResponse(BaseModel):
 
     Contains generated hypotheses with metadata.
     """
-    hypotheses: List[Hypothesis]
+
+    hypotheses: list[Hypothesis]
     research_question: str
     domain: str
 
@@ -212,10 +256,10 @@ class HypothesisGenerationResponse(BaseModel):
     model_used: str = _DEFAULT_CLAUDE_SONNET_MODEL
 
     # Quality metrics
-    avg_novelty_score: Optional[float] = None
-    avg_testability_score: Optional[float] = None
+    avg_novelty_score: float | None = None
+    avg_testability_score: float | None = None
 
-    def get_best_hypothesis(self) -> Optional[Hypothesis]:
+    def get_best_hypothesis(self) -> Hypothesis | None:
         """Get highest priority hypothesis."""
         if not self.hypotheses:
             return None
@@ -228,11 +272,11 @@ class HypothesisGenerationResponse(BaseModel):
         # Fallback: return first hypothesis
         return self.hypotheses[0]
 
-    def filter_testable(self, threshold: float = 0.3) -> List[Hypothesis]:
+    def filter_testable(self, threshold: float = 0.3) -> list[Hypothesis]:
         """Return only testable hypotheses."""
         return [h for h in self.hypotheses if h.is_testable(threshold)]
 
-    def filter_novel(self, threshold: float = 0.5) -> List[Hypothesis]:
+    def filter_novel(self, threshold: float = 0.5) -> list[Hypothesis]:
         """Return only novel hypotheses."""
         return [h for h in self.hypotheses if h.is_novel(threshold)]
 
@@ -243,12 +287,17 @@ class NoveltyReport(BaseModel):
 
     Provides detailed analysis of how novel the hypothesis is.
     """
+
     hypothesis_id: str
     novelty_score: float = Field(..., ge=0.0, le=1.0, description="Overall novelty score")
 
     # Similar work detection
-    similar_hypotheses: List[Dict[str, Any]] = Field(default_factory=list, description="Similar existing hypotheses")
-    similar_papers: List[Dict[str, Any]] = Field(default_factory=list, description="Papers with similar claims")
+    similar_hypotheses: list[dict[str, Any]] = Field(
+        default_factory=list, description="Similar existing hypotheses"
+    )
+    similar_papers: list[dict[str, Any]] = Field(
+        default_factory=list, description="Papers with similar claims"
+    )
 
     # Analysis details
     max_similarity: float = Field(0.0, ge=0.0, le=1.0, description="Highest similarity found")
@@ -268,6 +317,7 @@ class TestabilityReport(BaseModel):
 
     Assesses whether and how the hypothesis can be tested.
     """
+
     hypothesis_id: str
     testability_score: float = Field(..., ge=0.0, le=1.0, description="Overall testability score")
 
@@ -276,18 +326,20 @@ class TestabilityReport(BaseModel):
     testability_threshold_used: float = 0.3
 
     # Suggested experiment types
-    suggested_experiments: List[Dict[str, Any]] = Field(default_factory=list, description="Ranked experiment types")
+    suggested_experiments: list[dict[str, Any]] = Field(
+        default_factory=list, description="Ranked experiment types"
+    )
     primary_experiment_type: ExperimentType
 
     # Resource requirements
-    estimated_compute_hours: Optional[float] = None
-    estimated_cost_usd: Optional[float] = None
-    estimated_duration_days: Optional[float] = None
-    required_data_sources: List[str] = Field(default_factory=list)
+    estimated_compute_hours: float | None = None
+    estimated_cost_usd: float | None = None
+    estimated_duration_days: float | None = None
+    required_data_sources: list[str] = Field(default_factory=list)
 
     # Challenges
-    challenges: List[str] = Field(default_factory=list, description="Implementation challenges")
-    limitations: List[str] = Field(default_factory=list, description="Testing limitations")
+    challenges: list[str] = Field(default_factory=list, description="Implementation challenges")
+    limitations: list[str] = Field(default_factory=list, description="Testing limitations")
 
     # Recommendations
     summary: str = Field(..., description="Human-readable summary")
@@ -302,6 +354,7 @@ class PrioritizedHypothesis(BaseModel):
 
     Used for ranking and selecting which hypotheses to test first.
     """
+
     hypothesis: Hypothesis
     priority_score: float = Field(..., ge=0.0, le=1.0, description="Overall priority score")
 
@@ -312,15 +365,17 @@ class PrioritizedHypothesis(BaseModel):
     testability_score: float = Field(..., ge=0.0, le=1.0)
 
     # Scoring weights used
-    weights: Dict[str, float] = Field(default_factory=lambda: {
-        "novelty": 0.30,
-        "feasibility": 0.25,
-        "impact": 0.25,
-        "testability": 0.20
-    })
+    weights: dict[str, float] = Field(
+        default_factory=lambda: {
+            "novelty": 0.30,
+            "feasibility": 0.25,
+            "impact": 0.25,
+            "testability": 0.20,
+        }
+    )
 
     # Ranking
-    rank: Optional[int] = None
+    rank: int | None = None
 
     # Justification
     priority_rationale: str = Field(..., description="Why this priority score")

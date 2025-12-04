@@ -4,10 +4,9 @@ End-to-End tests for autonomous research workflow.
 Tests multi-cycle autonomous operation verifying all components integrate correctly.
 """
 
-import pytest
-import asyncio
-from pathlib import Path
 from datetime import datetime
+
+import pytest
 
 from kosmos.workflow.research_loop import ResearchWorkflow
 
@@ -17,15 +16,13 @@ from kosmos.workflow.research_loop import ResearchWorkflow
 # ============================================================================
 
 # Mark all tests as E2E and slow
-pytestmark = [
-    pytest.mark.e2e,
-    pytest.mark.slow
-]
+pytestmark = [pytest.mark.e2e, pytest.mark.slow]
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def e2e_artifacts_dir(temp_dir):
@@ -49,13 +46,14 @@ def e2e_workflow(e2e_artifacts_dir):
         """,
         anthropic_client=None,  # Mock mode for testing
         artifacts_dir=str(e2e_artifacts_dir),
-        max_cycles=20
+        max_cycles=20,
     )
 
 
 # ============================================================================
 # E2E Tests
 # ============================================================================
+
 
 class TestAutonomousResearchE2E:
     """End-to-end tests for autonomous research."""
@@ -66,34 +64,34 @@ class TestAutonomousResearchE2E:
         result = await e2e_workflow.run(num_cycles=3, tasks_per_cycle=5)
 
         # Verify completion
-        assert result['cycles_completed'] == 3
+        assert result["cycles_completed"] == 3
 
         # Verify statistics
-        assert result['total_tasks_generated'] >= 10
-        assert result['total_time'] > 0
+        assert result["total_tasks_generated"] >= 10
+        assert result["total_time"] > 0
 
         # Verify validation
-        assert 'validation_rate' in result
-        assert 0 <= result['validation_rate'] <= 1
+        assert "validation_rate" in result
+        assert 0 <= result["validation_rate"] <= 1
 
     @pytest.mark.asyncio
     async def test_component_integration(self, e2e_workflow):
         """Test all components integrate correctly."""
         # Run minimal workflow
-        result = await e2e_workflow.run(num_cycles=2, tasks_per_cycle=5)
+        await e2e_workflow.run(num_cycles=2, tasks_per_cycle=5)
 
         # Verify plan creation worked
         assert len(e2e_workflow.cycle_results) == 2
         for cycle_result in e2e_workflow.cycle_results:
-            assert 'tasks_generated' in cycle_result
-            assert 'plan_approved' in cycle_result
+            assert "tasks_generated" in cycle_result
+            assert "plan_approved" in cycle_result
 
         # Verify novelty detection accumulated tasks
         assert len(e2e_workflow.past_tasks) > 0
 
         # Verify state manager has data
         stats = e2e_workflow.state_manager.get_statistics()
-        assert 'total_findings' in stats
+        assert "total_findings" in stats
 
     @pytest.mark.asyncio
     async def test_workflow_produces_report(self, e2e_workflow):
@@ -103,10 +101,10 @@ class TestAutonomousResearchE2E:
         report = await e2e_workflow.generate_report()
 
         # Verify report structure
-        assert '# Research Report' in report
-        assert 'KRAS' in report
-        assert 'Date' in report
-        assert 'Cycles Completed' in report
+        assert "# Research Report" in report
+        assert "KRAS" in report
+        assert "Date" in report
+        assert "Cycles Completed" in report
 
     @pytest.mark.asyncio
     async def test_exploration_exploitation_progression(self, e2e_workflow):
@@ -117,8 +115,8 @@ class TestAutonomousResearchE2E:
         # Early cycles should have more exploration
         # (verified by mock plan creator behavior)
 
-        for i, cycle_result in enumerate(e2e_workflow.cycle_results):
-            assert cycle_result['tasks_generated'] == 10
+        for _i, cycle_result in enumerate(e2e_workflow.cycle_results):
+            assert cycle_result["tasks_generated"] == 10
 
 
 class TestWorkflowRobustness:
@@ -128,8 +126,7 @@ class TestWorkflowRobustness:
     async def test_workflow_continues_after_failures(self, e2e_artifacts_dir):
         """Test workflow continues after individual cycle failures."""
         workflow = ResearchWorkflow(
-            research_objective="Test robustness",
-            artifacts_dir=str(e2e_artifacts_dir)
+            research_objective="Test robustness", artifacts_dir=str(e2e_artifacts_dir)
         )
 
         # Inject failure in middle cycle
@@ -147,19 +144,18 @@ class TestWorkflowRobustness:
         result = await workflow.run(num_cycles=3, tasks_per_cycle=5)
 
         # Should complete 2 of 3 cycles
-        assert result['cycles_completed'] == 2
+        assert result["cycles_completed"] == 2
 
     @pytest.mark.asyncio
     async def test_handles_large_task_count(self, e2e_artifacts_dir):
         """Test workflow handles larger task counts."""
         workflow = ResearchWorkflow(
-            research_objective="Test scale",
-            artifacts_dir=str(e2e_artifacts_dir)
+            research_objective="Test scale", artifacts_dir=str(e2e_artifacts_dir)
         )
 
         result = await workflow.run(num_cycles=2, tasks_per_cycle=20)
 
-        assert result['total_tasks_generated'] >= 40
+        assert result["total_tasks_generated"] >= 40
 
 
 class TestDataFlow:
@@ -171,12 +167,9 @@ class TestDataFlow:
         await e2e_workflow.run(num_cycles=3, tasks_per_cycle=5)
 
         # Get context for later cycles
-        context_cycle_3 = e2e_workflow.state_manager.get_cycle_context(
-            cycle=3,
-            lookback=2
-        )
+        context_cycle_3 = e2e_workflow.state_manager.get_cycle_context(cycle=3, lookback=2)
 
-        assert context_cycle_3['cycle'] == 3
+        assert context_cycle_3["cycle"] == 3
         # Should have access to earlier findings (if any were generated)
 
     @pytest.mark.asyncio
@@ -198,24 +191,20 @@ class TestStatisticsAccuracy:
         result = await e2e_workflow.run(num_cycles=3, tasks_per_cycle=5)
 
         # Total tasks should be sum of per-cycle tasks
-        total_generated = sum(
-            r['tasks_generated'] for r in e2e_workflow.cycle_results
-        )
-        assert result['total_tasks_generated'] == total_generated
+        total_generated = sum(r["tasks_generated"] for r in e2e_workflow.cycle_results)
+        assert result["total_tasks_generated"] == total_generated
 
-        total_completed = sum(
-            r['tasks_completed'] for r in e2e_workflow.cycle_results
-        )
-        assert result['total_tasks_completed'] == total_completed
+        total_completed = sum(r["tasks_completed"] for r in e2e_workflow.cycle_results)
+        assert result["total_tasks_completed"] == total_completed
 
     @pytest.mark.asyncio
     async def test_completion_rate_accurate(self, e2e_workflow):
         """Test that completion rate is accurately calculated."""
         result = await e2e_workflow.run(num_cycles=2, tasks_per_cycle=5)
 
-        if result['total_tasks_generated'] > 0:
-            expected_rate = result['total_tasks_completed'] / result['total_tasks_generated']
-            assert abs(result['task_completion_rate'] - expected_rate) < 0.01
+        if result["total_tasks_generated"] > 0:
+            expected_rate = result["total_tasks_completed"] / result["total_tasks_generated"]
+            assert abs(result["task_completion_rate"] - expected_rate) < 0.01
 
 
 class TestPerformance:
@@ -225,8 +214,7 @@ class TestPerformance:
     async def test_reasonable_execution_time(self, e2e_artifacts_dir):
         """Test that workflow completes in reasonable time."""
         workflow = ResearchWorkflow(
-            research_objective="Performance test",
-            artifacts_dir=str(e2e_artifacts_dir)
+            research_objective="Performance test", artifacts_dir=str(e2e_artifacts_dir)
         )
 
         start_time = datetime.now()
@@ -245,7 +233,7 @@ class TestPaperRequirements:
         """Verify research_loop.py can manage multiple cycles."""
         result = await e2e_workflow.run(num_cycles=5, tasks_per_cycle=5)
 
-        assert result['cycles_completed'] == 5
+        assert result["cycles_completed"] == 5
 
     @pytest.mark.asyncio
     async def test_parallel_task_dispatch(self, e2e_workflow):
@@ -254,7 +242,7 @@ class TestPaperRequirements:
         await e2e_workflow.run(num_cycles=1, tasks_per_cycle=10)
 
         # If tasks were batched correctly, cycle should complete
-        assert e2e_workflow.cycle_results[0]['tasks_generated'] == 10
+        assert e2e_workflow.cycle_results[0]["tasks_generated"] == 10
 
     @pytest.mark.asyncio
     async def test_state_persistence(self, e2e_workflow):
@@ -271,11 +259,12 @@ class TestPaperRequirements:
         result = await e2e_workflow.run(num_cycles=2, tasks_per_cycle=5)
 
         # Should have validation statistics
-        assert 'validation_rate' in result
+        assert "validation_rate" in result
         validated_findings = e2e_workflow.state_manager.get_validated_findings()
 
         # All validated findings should have scholar_eval scores
         for finding in validated_findings:
-            if hasattr(finding, 'scholar_eval') and finding.scholar_eval:
-                assert 'overall_score' in finding.scholar_eval or \
-                       hasattr(finding.scholar_eval, 'overall_score')
+            if hasattr(finding, "scholar_eval") and finding.scholar_eval:
+                assert "overall_score" in finding.scholar_eval or hasattr(
+                    finding.scholar_eval, "overall_score"
+                )

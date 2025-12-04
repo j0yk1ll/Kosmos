@@ -1,8 +1,9 @@
 """Tests for world model data models."""
 
 import json
-import pytest
 from datetime import datetime
+
+import pytest
 
 from kosmos.world_model.models import Annotation, Entity, Relationship
 
@@ -37,11 +38,7 @@ class TestAnnotation:
     def test_annotation_with_timestamp(self):
         """Test annotation with explicit timestamp."""
         now = datetime.now()
-        ann = Annotation(
-            text="Test",
-            created_by="user",
-            created_at=now
-        )
+        ann = Annotation(text="Test", created_by="user", created_at=now)
         assert ann.created_at == now
 
 
@@ -88,11 +85,7 @@ class TestEntity:
 
     def test_preserve_provided_id(self):
         """Test that provided ID is preserved."""
-        entity = Entity(
-            id="custom-id",
-            type="Paper",
-            properties={}
-        )
+        entity = Entity(id="custom-id", type="Paper", properties={})
         assert entity.id == "custom-id"
 
     def test_invalid_confidence_raises_error(self):
@@ -130,11 +123,7 @@ class TestEntity:
         ann1 = Annotation(text="Note 1", created_by="user1")
         ann2 = Annotation(text="Note 2", created_by="user2")
 
-        entity = Entity(
-            type="Paper",
-            properties={},
-            annotations=[ann1, ann2]
-        )
+        entity = Entity(type="Paper", properties={}, annotations=[ann1, ann2])
 
         assert len(entity.annotations) == 2
         assert entity.annotations[0].text == "Note 1"
@@ -169,11 +158,7 @@ class TestEntity:
     def test_to_dict_with_annotations(self):
         """Test serialization with annotations."""
         ann = Annotation(text="Test note", created_by="user")
-        entity = Entity(
-            type="Paper",
-            properties={},
-            annotations=[ann]
-        )
+        entity = Entity(type="Paper", properties={}, annotations=[ann])
 
         data = entity.to_dict()
 
@@ -216,11 +201,7 @@ class TestEntity:
             "type": "Paper",
             "properties": {},
             "annotations": [
-                {
-                    "text": "Test note",
-                    "created_by": "user",
-                    "created_at": "2024-01-15T10:30:00"
-                }
+                {"text": "Test note", "created_by": "user", "created_at": "2024-01-15T10:30:00"}
             ],
         }
 
@@ -264,11 +245,7 @@ class TestRelationship:
 
     def test_create_relationship_minimal(self):
         """Test creating relationship with minimal fields."""
-        rel = Relationship(
-            source_id="entity1",
-            target_id="entity2",
-            type="CITES"
-        )
+        rel = Relationship(source_id="entity1", target_id="entity2", type="CITES")
 
         assert rel.source_id == "entity1"
         assert rel.target_id == "entity2"
@@ -286,7 +263,7 @@ class TestRelationship:
             type="CITES",
             properties={"section": "introduction", "context": "builds on"},
             confidence=0.95,
-            created_by="citation_extractor"
+            created_by="citation_extractor",
         )
 
         assert rel.properties["section"] == "introduction"
@@ -320,31 +297,18 @@ class TestRelationship:
     def test_invalid_confidence_raises_error(self):
         """Test that invalid confidence raises error."""
         with pytest.raises(ValueError, match="between 0.0 and 1.0"):
-            Relationship(
-                source_id="a",
-                target_id="b",
-                type="CITES",
-                confidence=1.5
-            )
+            Relationship(source_id="a", target_id="b", type="CITES", confidence=1.5)
 
     def test_standard_relationship_types(self):
         """Test that standard types don't warn."""
         for rel_type in Relationship.VALID_TYPES:
-            rel = Relationship(
-                source_id="a",
-                target_id="b",
-                type=rel_type
-            )
+            rel = Relationship(source_id="a", target_id="b", type=rel_type)
             assert rel.type == rel_type
 
     def test_non_standard_type_warns(self):
         """Test that non-standard type issues warning."""
         with pytest.warns(UserWarning, match="not standard"):
-            Relationship(
-                source_id="a",
-                target_id="b",
-                type="CUSTOM_RELATION"
-            )
+            Relationship(source_id="a", target_id="b", type="CUSTOM_RELATION")
 
     def test_to_dict(self):
         """Test relationship serialization."""
@@ -355,7 +319,7 @@ class TestRelationship:
             type="CITES",
             properties={"section": "intro"},
             confidence=0.9,
-            created_by="extractor"
+            created_by="extractor",
         )
 
         data = rel.to_dict()
@@ -379,7 +343,7 @@ class TestRelationship:
             "properties": {"section": "intro"},
             "confidence": 0.9,
             "created_at": "2024-01-15T10:30:00",
-            "created_by": "extractor"
+            "created_by": "extractor",
         }
 
         rel = Relationship.from_dict(data)
@@ -402,7 +366,7 @@ class TestRelationship:
             type="SUPPORTS",
             properties={"strength": "strong", "p_value": 0.001},
             confidence=0.99,
-            created_by="analyzer"
+            created_by="analyzer",
         )
 
         # Serialize

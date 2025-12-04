@@ -5,25 +5,21 @@ Provides templates for statistical analysis experiments based on
 kosmos-figures patterns.
 """
 
-from typing import List, Dict, Any, Optional
-import re
-
-from kosmos.models.hypothesis import Hypothesis, ExperimentType
-from kosmos.models.experiment import (
-    ExperimentProtocol,
-    ProtocolStep,
-    Variable,
-    VariableType,
-    ControlGroup,
-    ResourceRequirements,
-    StatisticalTestSpec,
-    StatisticalTest,
-)
 from kosmos.experiments.templates.base import (
     TemplateBase,
     TemplateCustomizationParams,
     register_template,
 )
+from kosmos.models.experiment import (
+    ControlGroup,
+    ExperimentProtocol,
+    ProtocolStep,
+    StatisticalTest,
+    StatisticalTestSpec,
+    Variable,
+    VariableType,
+)
+from kosmos.models.hypothesis import ExperimentType, Hypothesis
 
 
 class TTestComparisonTemplate(TemplateBase):
@@ -44,13 +40,13 @@ class TTestComparisonTemplate(TemplateBase):
             experiment_type=ExperimentType.DATA_ANALYSIS,
             title="T-Test Comparison Template",
             description="Compare means between two groups using independent samples t-test. Based on proven statistical patterns.",
-            version="1.0.0"
+            version="1.0.0",
         )
         self.metadata.suitable_for = [
             "Two-group comparisons",
             "Mean difference testing",
             "Before/after comparisons",
-            "Treatment vs control"
+            "Treatment vs control",
         ]
         self.metadata.rigor_score = 0.85
 
@@ -60,15 +56,26 @@ class TTestComparisonTemplate(TemplateBase):
 
         # Look for comparison keywords
         comparison_keywords = [
-            "greater than", "less than", "higher than", "lower than",
-            "more than", "fewer than", "different from",
-            "compare", "versus", "vs", "between"
+            "greater than",
+            "less than",
+            "higher than",
+            "lower than",
+            "more than",
+            "fewer than",
+            "different from",
+            "compare",
+            "versus",
+            "vs",
+            "between",
         ]
 
         # Look for two-group indicators
         two_group_indicators = [
-            "two groups", "two conditions", "experimental and control",
-            "treatment and control", "before and after"
+            "two groups",
+            "two conditions",
+            "experimental and control",
+            "treatment and control",
+            "before and after",
         ]
 
         has_comparison = any(keyword in statement for keyword in comparison_keywords)
@@ -79,15 +86,11 @@ class TTestComparisonTemplate(TemplateBase):
 
         return (has_comparison or suggests_two_groups) and type_matches
 
-    def generate_protocol(
-        self,
-        params: TemplateCustomizationParams
-    ) -> ExperimentProtocol:
+    def generate_protocol(self, params: TemplateCustomizationParams) -> ExperimentProtocol:
         """Generate t-test comparison protocol."""
         hypothesis = params.hypothesis
 
         # Extract variable names from hypothesis (simplified)
-        statement = hypothesis.statement
         outcome_var = "outcome_variable"
         group_var = "group"
 
@@ -101,7 +104,7 @@ class TTestComparisonTemplate(TemplateBase):
                 expected_duration_minutes=15,
                 expected_output="Validated dataset with N samples",
                 validation_check="No missing values in key variables, N >= 20 per group",
-                library_imports=["pandas", "numpy"]
+                library_imports=["pandas", "numpy"],
             ),
             ProtocolStep(
                 step_number=2,
@@ -112,7 +115,7 @@ class TTestComparisonTemplate(TemplateBase):
                 requires_steps=[1],
                 expected_output="Descriptive stats table, distribution plots, assumption test results",
                 validation_check="Review assumption tests (normality, equal variances)",
-                library_imports=["pandas", "matplotlib", "seaborn", "scipy"]
+                library_imports=["pandas", "matplotlib", "seaborn", "scipy"],
             ),
             ProtocolStep(
                 step_number=3,
@@ -123,7 +126,7 @@ class TTestComparisonTemplate(TemplateBase):
                 requires_steps=[2],
                 expected_output="t-statistic, p-value, effect size, 95% CI for difference",
                 validation_check="All statistics calculated, degrees of freedom correct",
-                library_imports=["scipy", "numpy"]
+                library_imports=["scipy", "numpy"],
             ),
             ProtocolStep(
                 step_number=4,
@@ -134,7 +137,7 @@ class TTestComparisonTemplate(TemplateBase):
                 requires_steps=[3],
                 expected_output="Figure with group comparison (bar plot + error bars + p-value)",
                 validation_check="Plot shows means, error bars, sample sizes, significance level",
-                library_imports=["matplotlib", "seaborn"]
+                library_imports=["matplotlib", "seaborn"],
             ),
             ProtocolStep(
                 step_number=5,
@@ -145,7 +148,7 @@ class TTestComparisonTemplate(TemplateBase):
                 requires_steps=[4],
                 expected_output="Statistical summary report with interpretation",
                 validation_check="Conclusion directly addresses hypothesis, includes effect size and CI",
-                library_imports=[]
+                library_imports=[],
             ),
         ]
 
@@ -156,14 +159,14 @@ class TTestComparisonTemplate(TemplateBase):
                 type=VariableType.INDEPENDENT,
                 description="Group assignment (experimental vs control)",
                 values=["experimental", "control"],
-                unit="category"
+                unit="category",
             ),
             outcome_var: Variable(
                 name=outcome_var,
                 type=VariableType.DEPENDENT,
                 description="Measured outcome variable",
                 unit="TBD",
-                measurement_method="Continuous measurement"
+                measurement_method="Continuous measurement",
             ),
         }
 
@@ -174,7 +177,7 @@ class TTestComparisonTemplate(TemplateBase):
                 description="Baseline/control condition for comparison",
                 variables={group_var: "control"},
                 rationale="Required for hypothesis testing - provides baseline to compare experimental condition against",
-                sample_size=30
+                sample_size=30,
             )
         ]
 
@@ -189,7 +192,7 @@ class TTestComparisonTemplate(TemplateBase):
                 variables=[outcome_var],
                 groups=["experimental", "control"],
                 required_power=0.8,
-                expected_effect_size=0.5  # Medium effect
+                expected_effect_size=0.5,  # Medium effect
             )
         ]
 
@@ -238,12 +241,12 @@ class CorrelationAnalysisTemplate(TemplateBase):
             experiment_type=ExperimentType.DATA_ANALYSIS,
             title="Correlation Analysis Template",
             description="Analyze relationship strength between two continuous variables using Pearson or Spearman correlation.",
-            version="1.0.0"
+            version="1.0.0",
         )
         self.metadata.suitable_for = [
             "Relationship testing",
             "Continuous variable associations",
-            "Predictive relationships"
+            "Predictive relationships",
         ]
         self.metadata.rigor_score = 0.80
 
@@ -252,8 +255,13 @@ class CorrelationAnalysisTemplate(TemplateBase):
         statement = hypothesis.statement.lower()
 
         correlation_keywords = [
-            "correlat", "associat", "relationship", "related",
-            "linked to", "connected", "correspond"
+            "correlat",
+            "associat",
+            "relationship",
+            "related",
+            "linked to",
+            "connected",
+            "correspond",
         ]
 
         has_correlation = any(keyword in statement for keyword in correlation_keywords)
@@ -261,10 +269,7 @@ class CorrelationAnalysisTemplate(TemplateBase):
 
         return has_correlation and type_matches
 
-    def generate_protocol(
-        self,
-        params: TemplateCustomizationParams
-    ) -> ExperimentProtocol:
+    def generate_protocol(self, params: TemplateCustomizationParams) -> ExperimentProtocol:
         """Generate correlation analysis protocol."""
         hypothesis = params.hypothesis
 
@@ -277,7 +282,7 @@ class CorrelationAnalysisTemplate(TemplateBase):
                 expected_duration_minutes=20,
                 expected_output="Clean dataset with variables ready for analysis",
                 validation_check="No missing values, both variables continuous, N >= 30",
-                library_imports=["pandas", "numpy"]
+                library_imports=["pandas", "numpy"],
             ),
             ProtocolStep(
                 step_number=2,
@@ -288,7 +293,7 @@ class CorrelationAnalysisTemplate(TemplateBase):
                 requires_steps=[1],
                 expected_output="Assumption test results, scatterplot with fitted line",
                 validation_check="Determine if Pearson (parametric) or Spearman (non-parametric) appropriate",
-                library_imports=["scipy", "matplotlib", "seaborn"]
+                library_imports=["scipy", "matplotlib", "seaborn"],
             ),
             ProtocolStep(
                 step_number=3,
@@ -299,7 +304,7 @@ class CorrelationAnalysisTemplate(TemplateBase):
                 requires_steps=[2],
                 expected_output="Correlation coefficient (r), p-value, 95% CI, R²",
                 validation_check="All statistics calculated, interpretation note added",
-                library_imports=["scipy", "numpy"]
+                library_imports=["scipy", "numpy"],
             ),
             ProtocolStep(
                 step_number=4,
@@ -310,7 +315,7 @@ class CorrelationAnalysisTemplate(TemplateBase):
                 requires_steps=[3],
                 expected_output="Publication-quality scatterplot with statistics",
                 validation_check="Plot shows data points, trend line, CI band, r and p annotated",
-                library_imports=["matplotlib", "seaborn"]
+                library_imports=["matplotlib", "seaborn"],
             ),
             ProtocolStep(
                 step_number=5,
@@ -321,7 +326,7 @@ class CorrelationAnalysisTemplate(TemplateBase):
                 requires_steps=[4],
                 expected_output="Interpretation report with caveats",
                 validation_check="Conclusion addresses hypothesis, acknowledges limitations",
-                library_imports=[]
+                library_imports=[],
             ),
         ]
 
@@ -331,14 +336,14 @@ class CorrelationAnalysisTemplate(TemplateBase):
                 type=VariableType.INDEPENDENT,
                 description="First continuous variable",
                 unit="TBD",
-                measurement_method="Continuous measurement"
+                measurement_method="Continuous measurement",
             ),
             "variable_y": Variable(
                 name="variable_y",
                 type=VariableType.DEPENDENT,
                 description="Second continuous variable",
                 unit="TBD",
-                measurement_method="Continuous measurement"
+                measurement_method="Continuous measurement",
             ),
         }
 
@@ -351,7 +356,7 @@ class CorrelationAnalysisTemplate(TemplateBase):
                 alpha=0.05,
                 variables=["variable_x", "variable_y"],
                 required_power=0.8,
-                expected_effect_size=0.3  # Moderate correlation
+                expected_effect_size=0.3,  # Moderate correlation
             )
         ]
 
@@ -396,13 +401,13 @@ class RegressionAnalysisTemplate(TemplateBase):
             experiment_type=ExperimentType.DATA_ANALYSIS,
             title="Regression Analysis Template",
             description="Predict outcome variable from one or more predictors using linear regression.",
-            version="1.0.0"
+            version="1.0.0",
         )
         self.metadata.suitable_for = [
             "Prediction tasks",
             "Multiple predictor analysis",
             "Variance explained",
-            "Causal modeling"
+            "Causal modeling",
         ]
         self.metadata.rigor_score = 0.82
 
@@ -411,8 +416,13 @@ class RegressionAnalysisTemplate(TemplateBase):
         statement = hypothesis.statement.lower()
 
         regression_keywords = [
-            "predict", "explain", "account for", "variance",
-            "influence", "effect of", "impact of"
+            "predict",
+            "explain",
+            "account for",
+            "variance",
+            "influence",
+            "effect of",
+            "impact of",
         ]
 
         has_regression = any(keyword in statement for keyword in regression_keywords)
@@ -420,10 +430,7 @@ class RegressionAnalysisTemplate(TemplateBase):
 
         return has_regression and type_matches
 
-    def generate_protocol(
-        self,
-        params: TemplateCustomizationParams
-    ) -> ExperimentProtocol:
+    def generate_protocol(self, params: TemplateCustomizationParams) -> ExperimentProtocol:
         """Generate regression analysis protocol."""
         hypothesis = params.hypothesis
 
@@ -436,7 +443,7 @@ class RegressionAnalysisTemplate(TemplateBase):
                 expected_duration_minutes=30,
                 expected_output="Clean dataset with predictors and outcome ready",
                 validation_check="No missing data, VIF < 10 for all predictors, N >= 10*p (p=number of predictors)",
-                library_imports=["pandas", "numpy", "statsmodels"]
+                library_imports=["pandas", "numpy", "statsmodels"],
             ),
             ProtocolStep(
                 step_number=2,
@@ -447,7 +454,7 @@ class RegressionAnalysisTemplate(TemplateBase):
                 requires_steps=[1],
                 expected_output="Assumption diagnostic plots and tests",
                 validation_check="All major assumptions met or violations noted",
-                library_imports=["matplotlib", "seaborn", "scipy", "statsmodels"]
+                library_imports=["matplotlib", "seaborn", "scipy", "statsmodels"],
             ),
             ProtocolStep(
                 step_number=3,
@@ -458,7 +465,7 @@ class RegressionAnalysisTemplate(TemplateBase):
                 requires_steps=[2],
                 expected_output="Fitted model with coefficients, standard errors, p-values, R²",
                 validation_check="Model converged, all statistics calculated",
-                library_imports=["statsmodels"]
+                library_imports=["statsmodels"],
             ),
             ProtocolStep(
                 step_number=4,
@@ -469,7 +476,7 @@ class RegressionAnalysisTemplate(TemplateBase):
                 requires_steps=[3],
                 expected_output="Diagnostic plots, list of influential cases",
                 validation_check="Influential cases identified and evaluated",
-                library_imports=["statsmodels", "matplotlib"]
+                library_imports=["statsmodels", "matplotlib"],
             ),
             ProtocolStep(
                 step_number=5,
@@ -480,7 +487,7 @@ class RegressionAnalysisTemplate(TemplateBase):
                 requires_steps=[4],
                 expected_output="Comprehensive results summary with interpretation",
                 validation_check="All coefficients interpreted, hypothesis addressed",
-                library_imports=[]
+                library_imports=[],
             ),
         ]
 
@@ -490,13 +497,13 @@ class RegressionAnalysisTemplate(TemplateBase):
                 type=VariableType.DEPENDENT,
                 description="Outcome variable to predict",
                 unit="TBD",
-                measurement_method="Continuous measurement"
+                measurement_method="Continuous measurement",
             ),
             "predictor_1": Variable(
                 name="predictor_1",
                 type=VariableType.INDEPENDENT,
                 description="Primary predictor variable",
-                unit="TBD"
+                unit="TBD",
             ),
         }
 
@@ -509,7 +516,7 @@ class RegressionAnalysisTemplate(TemplateBase):
                 alpha=0.05,
                 variables=["outcome", "predictor_1"],
                 required_power=0.8,
-                expected_effect_size=0.15  # Medium f²
+                expected_effect_size=0.15,  # Medium f²
             )
         ]
 

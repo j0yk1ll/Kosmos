@@ -2,11 +2,12 @@
 Tests for kosmos.literature.semantic_scholar module.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
-from kosmos.literature.semantic_scholar import SemanticScholarClient
+import pytest
+
 from kosmos.literature.base_client import PaperMetadata, PaperSource
+from kosmos.literature.semantic_scholar import SemanticScholarClient
 
 
 @pytest.fixture
@@ -21,10 +22,10 @@ def mock_config():
 @pytest.fixture
 def s2_client(mock_config):
     """Create SemanticScholarClient instance for testing."""
-    with patch('kosmos.literature.semantic_scholar.get_config', return_value=mock_config):
-        with patch('kosmos.literature.semantic_scholar.get_cache') as mock_cache:
+    with patch("kosmos.literature.semantic_scholar.get_config", return_value=mock_config):
+        with patch("kosmos.literature.semantic_scholar.get_cache") as mock_cache:
             mock_cache.return_value = None  # Disable caching for tests
-            with patch('kosmos.literature.semantic_scholar.SemanticScholar'):
+            with patch("kosmos.literature.semantic_scholar.SemanticScholar"):
                 return SemanticScholarClient(api_key="test_api_key", cache_enabled=False)
 
 
@@ -44,10 +45,7 @@ def mock_s2_paper():
     paper.referenceCount = 42
     paper.influentialCitationCount = 5000
     paper.fieldsOfStudy = ["Computer Science", "Machine Learning"]
-    paper.externalIds = {
-        "ArXiv": "1706.03762",
-        "DOI": "10.5555/3295222.3295349"
-    }
+    paper.externalIds = {"ArXiv": "1706.03762", "DOI": "10.5555/3295222.3295349"}
     # Mock authors
     author1 = Mock()
     author1.name = "Ashish Vaswani"
@@ -67,17 +65,17 @@ class TestSemanticScholarInit:
 
     def test_init_with_api_key(self, mock_config):
         """Test initialization with API key."""
-        with patch('kosmos.literature.semantic_scholar.get_config', return_value=mock_config):
-            with patch('kosmos.literature.semantic_scholar.get_cache'):
-                with patch('kosmos.literature.semantic_scholar.SemanticScholar'):
+        with patch("kosmos.literature.semantic_scholar.get_config", return_value=mock_config):
+            with patch("kosmos.literature.semantic_scholar.get_cache"):
+                with patch("kosmos.literature.semantic_scholar.SemanticScholar"):
                     client = SemanticScholarClient(api_key="test_key")
                     assert client.api_key == "test_key"
 
     def test_init_without_api_key(self, mock_config):
         """Test initialization without API key."""
-        with patch('kosmos.literature.semantic_scholar.get_config', return_value=mock_config):
-            with patch('kosmos.literature.semantic_scholar.get_cache'):
-                with patch('kosmos.literature.semantic_scholar.SemanticScholar'):
+        with patch("kosmos.literature.semantic_scholar.get_config", return_value=mock_config):
+            with patch("kosmos.literature.semantic_scholar.get_cache"):
+                with patch("kosmos.literature.semantic_scholar.SemanticScholar"):
                     client = SemanticScholarClient()
                     assert client.api_key is None
 

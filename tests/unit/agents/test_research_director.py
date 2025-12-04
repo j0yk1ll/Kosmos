@@ -2,16 +2,17 @@
 Unit tests for ResearchDirectorAgent (Phase 7).
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
+from unittest.mock import Mock, patch
 
+import pytest
+
+from kosmos.agents.base import AgentMessage, AgentStatus, MessageType
 from kosmos.agents.research_director import ResearchDirectorAgent
-from kosmos.agents.base import AgentMessage, MessageType, AgentStatus
-from kosmos.core.workflow import WorkflowState, NextAction, ResearchPlan
+from kosmos.core.workflow import NextAction, WorkflowState
 
 
 # Fixtures
+
 
 @pytest.fixture
 def research_director():
@@ -22,8 +23,8 @@ def research_director():
         config={
             "max_iterations": 5,
             "mandatory_stopping_criteria": ["iteration_limit", "no_testable_hypotheses"],
-            "optional_stopping_criteria": ["novelty_decline", "diminishing_returns"]
-        }
+            "optional_stopping_criteria": ["novelty_decline", "diminishing_returns"],
+        },
     )
 
 
@@ -36,6 +37,7 @@ def mock_llm_client():
 
 
 # Test Initialization
+
 
 class TestResearchDirectorInitialization:
     """Test research director initialization."""
@@ -78,6 +80,7 @@ class TestResearchDirectorInitialization:
 
 # Test Lifecycle
 
+
 class TestResearchDirectorLifecycle:
     """Test research director lifecycle management."""
 
@@ -107,6 +110,7 @@ class TestResearchDirectorLifecycle:
 
 # Test Message Handling
 
+
 class TestMessageHandling:
     """Test message handling for different agent responses."""
 
@@ -116,11 +120,8 @@ class TestMessageHandling:
             type=MessageType.RESPONSE,
             from_agent="hypothesis_generator",
             to_agent=research_director.agent_id,
-            content={
-                "hypothesis_ids": ["hyp-1", "hyp-2", "hyp-3"],
-                "count": 3
-            },
-            metadata={"agent_type": "HypothesisGeneratorAgent"}
+            content={"hypothesis_ids": ["hyp-1", "hyp-2", "hyp-3"], "count": 3},
+            metadata={"agent_type": "HypothesisGeneratorAgent"},
         )
 
         # Mock decide_next_action and _execute_next_action to avoid recursion
@@ -145,11 +146,8 @@ class TestMessageHandling:
             type=MessageType.RESPONSE,
             from_agent="experiment_designer",
             to_agent=research_director.agent_id,
-            content={
-                "protocol_id": "proto-1",
-                "hypothesis_id": "hyp-1"
-            },
-            metadata={"agent_type": "ExperimentDesignerAgent"}
+            content={"protocol_id": "proto-1", "hypothesis_id": "hyp-1"},
+            metadata={"agent_type": "ExperimentDesignerAgent"},
         )
 
         research_director.decide_next_action = Mock(return_value=NextAction.EXECUTE_EXPERIMENT)
@@ -174,12 +172,8 @@ class TestMessageHandling:
             type=MessageType.RESPONSE,
             from_agent="executor",
             to_agent=research_director.agent_id,
-            content={
-                "result_id": "result-1",
-                "protocol_id": "proto-1",
-                "status": "SUCCESS"
-            },
-            metadata={"agent_type": "Executor"}
+            content={"result_id": "result-1", "protocol_id": "proto-1", "status": "SUCCESS"},
+            metadata={"agent_type": "Executor"},
         )
 
         research_director.decide_next_action = Mock(return_value=NextAction.ANALYZE_RESULT)
@@ -208,9 +202,9 @@ class TestMessageHandling:
             content={
                 "result_id": "result-1",
                 "hypothesis_id": "hyp-1",
-                "hypothesis_supported": True
+                "hypothesis_supported": True,
             },
-            metadata={"agent_type": "DataAnalystAgent"}
+            metadata={"agent_type": "DataAnalystAgent"},
         )
 
         research_director.decide_next_action = Mock(return_value=NextAction.REFINE_HYPOTHESIS)
@@ -236,9 +230,9 @@ class TestMessageHandling:
             content={
                 "result_id": "result-1",
                 "hypothesis_id": "hyp-1",
-                "hypothesis_supported": False
+                "hypothesis_supported": False,
             },
-            metadata={"agent_type": "DataAnalystAgent"}
+            metadata={"agent_type": "DataAnalystAgent"},
         )
 
         research_director.decide_next_action = Mock(return_value=NextAction.REFINE_HYPOTHESIS)
@@ -259,9 +253,9 @@ class TestMessageHandling:
             content={
                 "refined_hypothesis_ids": ["hyp-2", "hyp-3"],
                 "retired_hypothesis_ids": ["hyp-1"],
-                "action_taken": "REFINED"
+                "action_taken": "REFINED",
             },
-            metadata={"agent_type": "HypothesisRefiner"}
+            metadata={"agent_type": "HypothesisRefiner"},
         )
 
         research_director.decide_next_action = Mock(return_value=NextAction.DESIGN_EXPERIMENT)
@@ -284,12 +278,8 @@ class TestMessageHandling:
             type=MessageType.RESPONSE,
             from_agent="convergence_detector",
             to_agent=research_director.agent_id,
-            content={
-                "should_converge": True,
-                "reason": "Iteration limit reached",
-                "metrics": {}
-            },
-            metadata={"agent_type": "ConvergenceDetector"}
+            content={"should_converge": True, "reason": "Iteration limit reached", "metrics": {}},
+            metadata={"agent_type": "ConvergenceDetector"},
         )
 
         research_director._handle_convergence_detector_response(message)
@@ -312,12 +302,8 @@ class TestMessageHandling:
             type=MessageType.RESPONSE,
             from_agent="convergence_detector",
             to_agent=research_director.agent_id,
-            content={
-                "should_converge": False,
-                "reason": "",
-                "metrics": {}
-            },
-            metadata={"agent_type": "ConvergenceDetector"}
+            content={"should_converge": False, "reason": "", "metrics": {}},
+            metadata={"agent_type": "ConvergenceDetector"},
         )
 
         research_director._handle_convergence_detector_response(message)
@@ -331,6 +317,7 @@ class TestMessageHandling:
 
 # Test Message Sending
 
+
 class TestMessageSending:
     """Test sending messages to other agents."""
 
@@ -339,8 +326,7 @@ class TestMessageSending:
         research_director.register_agent("HypothesisGeneratorAgent", "hyp-gen-1")
 
         message = research_director._send_to_hypothesis_generator(
-            action="generate",
-            context={"max_hypotheses": 5}
+            action="generate", context={"max_hypotheses": 5}
         )
 
         assert message.type == MessageType.REQUEST
@@ -352,9 +338,7 @@ class TestMessageSending:
         """Test sending message to experiment designer."""
         research_director.register_agent("ExperimentDesignerAgent", "exp-des-1")
 
-        message = research_director._send_to_experiment_designer(
-            hypothesis_id="hyp-1"
-        )
+        message = research_director._send_to_experiment_designer(hypothesis_id="hyp-1")
 
         assert message.type == MessageType.REQUEST
         assert message.to_agent == "exp-des-1"
@@ -365,9 +349,7 @@ class TestMessageSending:
         """Test sending message to executor."""
         research_director.register_agent("Executor", "executor-1")
 
-        message = research_director._send_to_executor(
-            protocol_id="proto-1"
-        )
+        message = research_director._send_to_executor(protocol_id="proto-1")
 
         assert message.type == MessageType.REQUEST
         assert message.to_agent == "executor-1"
@@ -379,8 +361,7 @@ class TestMessageSending:
         research_director.register_agent("DataAnalystAgent", "analyst-1")
 
         message = research_director._send_to_data_analyst(
-            result_id="result-1",
-            hypothesis_id="hyp-1"
+            result_id="result-1", hypothesis_id="hyp-1"
         )
 
         assert message.type == MessageType.REQUEST
@@ -391,14 +372,17 @@ class TestMessageSending:
 
 # Test Research Planning
 
+
 class TestResearchPlanning:
     """Test research planning with Claude."""
 
-    @patch('kosmos.agents.research_director.get_client')
+    @patch("kosmos.agents.research_director.get_client")
     def test_generate_research_plan(self, mock_get_client, research_director):
         """Test generating research plan using Claude."""
         mock_client = Mock()
-        mock_client.generate.return_value = "Research plan: Generate hypotheses about sample size effects..."
+        mock_client.generate.return_value = (
+            "Research plan: Generate hypotheses about sample size effects..."
+        )
         mock_get_client.return_value = mock_client
 
         research_director.llm_client = mock_client
@@ -414,6 +398,7 @@ class TestResearchPlanning:
 
 
 # Test Decision Making
+
 
 class TestDecisionMaking:
     """Test decision-making logic."""
@@ -503,6 +488,7 @@ class TestDecisionMaking:
 
 # Test Strategy Adaptation
 
+
 class TestStrategyAdaptation:
     """Test strategy selection and adaptation."""
 
@@ -531,9 +517,7 @@ class TestStrategyAdaptation:
     def test_update_strategy_effectiveness_success(self, research_director):
         """Test updating strategy effectiveness on success."""
         research_director.update_strategy_effectiveness(
-            strategy="hypothesis_generation",
-            success=True,
-            cost=100.0
+            strategy="hypothesis_generation", success=True, cost=100.0
         )
 
         stats = research_director.strategy_stats["hypothesis_generation"]
@@ -544,9 +528,7 @@ class TestStrategyAdaptation:
     def test_update_strategy_effectiveness_failure(self, research_director):
         """Test updating strategy effectiveness on failure."""
         research_director.update_strategy_effectiveness(
-            strategy="experiment_design",
-            success=False,
-            cost=50.0
+            strategy="experiment_design", success=False, cost=50.0
         )
 
         stats = research_director.strategy_stats["experiment_design"]
@@ -556,6 +538,7 @@ class TestStrategyAdaptation:
 
 
 # Test Agent Registry
+
 
 class TestAgentRegistry:
     """Test agent registration and lookup."""
@@ -575,10 +558,11 @@ class TestAgentRegistry:
 
 # Test Execute
 
+
 class TestExecute:
     """Test execute method (BaseAgent interface)."""
 
-    @patch('kosmos.agents.research_director.get_client')
+    @patch("kosmos.agents.research_director.get_client")
     def test_execute_start_research(self, mock_get_client, research_director):
         """Test executing start_research action."""
         mock_client = Mock()
@@ -613,6 +597,7 @@ class TestExecute:
 
 
 # Test Status & Reporting
+
 
 class TestStatusReporting:
     """Test status and reporting methods."""

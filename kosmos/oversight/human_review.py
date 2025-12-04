@@ -9,15 +9,15 @@ Implements:
 - Human feedback integration
 """
 
-import logging
 import json
-import uuid
-from typing import Dict, List, Any, Optional, Callable
+import logging
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
+from typing import Any
 
 from kosmos.models.safety import ApprovalRequest, ApprovalStatus, RiskLevel
+
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +48,8 @@ class AuditEntry:
         action: str,
         user: str,
         request_id: str,
-        details: Dict[str, Any],
-        timestamp: Optional[datetime] = None
+        details: dict[str, Any],
+        timestamp: datetime | None = None,
     ):
         self.action = action
         self.user = user
@@ -57,14 +57,14 @@ class AuditEntry:
         self.details = details
         self.timestamp = timestamp or datetime.now()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "action": self.action,
             "user": self.user,
             "request_id": self.request_id,
             "details": self.details,
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
@@ -78,9 +78,9 @@ class HumanReviewWorkflow:
     def __init__(
         self,
         mode: ApprovalMode = ApprovalMode.BLOCKING,
-        audit_log_path: Optional[str] = None,
+        audit_log_path: str | None = None,
         auto_approve_low_risk: bool = True,
-        notification_callback: Optional[Callable] = None
+        notification_callback: Callable | None = None,
     ):
         """
         Initialize human review workflow.
@@ -97,24 +97,20 @@ class HumanReviewWorkflow:
         self.notification_callback = notification_callback
 
         # Pending approval requests (for queue mode)
-        self.pending_requests: Dict[str, ApprovalRequest] = {}
+        self.pending_requests: dict[str, ApprovalRequest] = {}
 
         # Approved/rejected requests cache
-        self.processed_requests: Dict[str, ApprovalRequest] = {}
+        self.processed_requests: dict[str, ApprovalRequest] = {}
 
         # Audit trail
-        self.audit_trail: List[AuditEntry] = []
+        self.audit_trail: list[AuditEntry] = []
 
         logger.info(
             f"HumanReviewWorkflow initialized (mode={mode.value}, "
             f"auto_approve_low_risk={auto_approve_low_risk})"
         )
 
-    def request_approval(
-        self,
-        request: ApprovalRequest,
-        user: str = "system"
-    ) -> ApprovalRequest:
+    def request_approval(self, request: ApprovalRequest, user: str = "system") -> ApprovalRequest:
         """
         Request human approval for an operation.
 
@@ -129,10 +125,12 @@ class HumanReviewWorkflow:
             RuntimeError: If approval is denied in blocking mode
         """
         # Log audit entry
-        self._audit("approval_requested", user, request.request_id, {
-            "operation": request.operation_type,
-            "risk_level": request.risk_level.value
-        })
+        self._audit(
+            "approval_requested",
+            user,
+            request.request_id,
+            {"operation": request.operation_type, "risk_level": request.risk_level.value},
+        )
 
         # Handle based on mode
         if self.mode == ApprovalMode.DISABLED:
@@ -150,25 +148,21 @@ class HumanReviewWorkflow:
 
         raise ValueError(f"Unknown approval mode: {self.mode}")
 
-    def _auto_approve(
-        self,
-        request: ApprovalRequest,
-        user: str
-    ) -> ApprovalRequest:
+    def _auto_approve(self, request: ApprovalRequest, user: str) -> ApprovalRequest:
         """Automatically approve request with logging."""
         # Auto-approve low risk if enabled
         if self.auto_approve_low_risk and request.risk_level == RiskLevel.LOW:
             request.approve("automatic")
-            self._audit("auto_approved", "automatic", request.request_id, {
-                "reason": "low_risk"
-            })
+            self._audit("auto_approved", "automatic", request.request_id, {"reason": "low_risk"})
         else:
             # Still approve but log for review
             request.approve("automatic")
-            self._audit("auto_approved", "automatic", request.request_id, {
-                "risk_level": request.risk_level.value,
-                "requires_review": True
-            })
+            self._audit(
+                "auto_approved",
+                "automatic",
+                request.request_id,
+                {"risk_level": request.risk_level.value, "requires_review": True},
+            )
 
             # Send notification if callback provided
             if self.notification_callback:
@@ -180,19 +174,14 @@ class HumanReviewWorkflow:
         self.processed_requests[request.request_id] = request
         return request
 
-    def _blocking_approval(
-        self,
-        request: ApprovalRequest,
-        user: str
-    ) -> ApprovalRequest:
+    def _blocking_approval(self, request: ApprovalRequest, user: str) -> ApprovalRequest:
         """Blocking approval - wait for user input."""
         # Check if should auto-approve
         if self.auto_approve_low_risk and request.risk_level == RiskLevel.LOW:
             return self._auto_approve(request, user)
 
         logger.info(
-            f"Approval required for {request.operation_type} "
-            f"(risk: {request.risk_level.value})"
+            f"Approval required for {request.operation_type} " f"(risk: {request.risk_level.value})"
         )
 
         # Display request details
@@ -213,11 +202,7 @@ class HumanReviewWorkflow:
             self.processed_requests[request.request_id] = request
             raise RuntimeError(f"Approval denied: {reason}")
 
-    def _queue_approval(
-        self,
-        request: ApprovalRequest,
-        user: str
-    ) -> ApprovalRequest:
+    def _queue_approval(self, request: ApprovalRequest, user: str) -> ApprovalRequest:
         """Queue approval - add to queue and continue."""
         # Check if should auto-approve
         if self.auto_approve_low_risk and request.risk_level == RiskLevel.LOW:
@@ -235,9 +220,7 @@ class HumanReviewWorkflow:
 
         # Send notification if callback provided
         if self.notification_callback:
-            self.notification_callback(
-                f"Approval required: {request.operation_description[:100]}"
-            )
+            self.notification_callback(f"Approval required: {request.operation_description[:100]}")
 
         return request
 
@@ -249,7 +232,7 @@ class HumanReviewWorkflow:
         print(f"Operation: {request.operation_type}")
         print(f"Risk Level: {request.risk_level.value}")
         print(f"Reason: {request.reason_for_approval}")
-        print(f"\nDescription:")
+        print("\nDescription:")
         print(request.operation_description)
         print("=" * 70)
 
@@ -264,10 +247,7 @@ class HumanReviewWorkflow:
             else:
                 print("Please enter 'yes' or 'no'")
 
-    def process_pending_requests(
-        self,
-        batch_size: int = 10
-    ) -> List[ApprovalRequest]:
+    def process_pending_requests(self, batch_size: int = 10) -> list[ApprovalRequest]:
         """
         Process pending approval requests in queue mode.
 
@@ -314,11 +294,7 @@ class HumanReviewWorkflow:
         return processed
 
     def override_decision(
-        self,
-        request_id: str,
-        user: str,
-        new_status: ApprovalStatus,
-        reason: str
+        self, request_id: str, user: str, new_status: ApprovalStatus, reason: str
     ):
         """
         Override a previous approval decision.
@@ -347,11 +323,12 @@ class HumanReviewWorkflow:
             request.reject(user, reason)
 
         # Log override
-        self._audit("override", user, request_id, {
-            "old_status": old_status.value,
-            "new_status": new_status.value,
-            "reason": reason
-        })
+        self._audit(
+            "override",
+            user,
+            request_id,
+            {"old_status": old_status.value, "new_status": new_status.value, "reason": reason},
+        )
 
         logger.warning(
             f"Approval decision overridden by {user}: {request_id} "
@@ -362,10 +339,7 @@ class HumanReviewWorkflow:
         """Get number of pending approval requests."""
         return len(self.pending_requests)
 
-    def get_pending_requests(
-        self,
-        risk_level: Optional[RiskLevel] = None
-    ) -> List[ApprovalRequest]:
+    def get_pending_requests(self, risk_level: RiskLevel | None = None) -> list[ApprovalRequest]:
         """
         Get pending approval requests.
 
@@ -382,36 +356,22 @@ class HumanReviewWorkflow:
 
         return requests
 
-    def _audit(
-        self,
-        action: str,
-        user: str,
-        request_id: str,
-        details: Dict[str, Any]
-    ):
+    def _audit(self, action: str, user: str, request_id: str, details: dict[str, Any]):
         """Add entry to audit trail."""
-        entry = AuditEntry(
-            action=action,
-            user=user,
-            request_id=request_id,
-            details=details
-        )
+        entry = AuditEntry(action=action, user=user, request_id=request_id, details=details)
 
         self.audit_trail.append(entry)
 
         # Write to file
         try:
-            with open(self.audit_log_path, 'a') as f:
-                f.write(json.dumps(entry.to_dict(), default=str) + '\n')
+            with open(self.audit_log_path, "a") as f:
+                f.write(json.dumps(entry.to_dict(), default=str) + "\n")
         except Exception as e:
             logger.error(f"Error writing to audit log: {e}")
 
     def get_audit_trail(
-        self,
-        request_id: Optional[str] = None,
-        user: Optional[str] = None,
-        limit: int = 100
-    ) -> List[AuditEntry]:
+        self, request_id: str | None = None, user: str | None = None, limit: int = 100
+    ) -> list[AuditEntry]:
         """
         Get audit trail entries.
 
@@ -434,7 +394,7 @@ class HumanReviewWorkflow:
         # Return most recent
         return entries[-limit:]
 
-    def get_approval_stats(self) -> Dict[str, Any]:
+    def get_approval_stats(self) -> dict[str, Any]:
         """
         Get approval statistics.
 
@@ -443,16 +403,13 @@ class HumanReviewWorkflow:
         """
         total_processed = len(self.processed_requests)
         approved = sum(
-            1 for r in self.processed_requests.values()
-            if r.status == ApprovalStatus.APPROVED
+            1 for r in self.processed_requests.values() if r.status == ApprovalStatus.APPROVED
         )
         rejected = sum(
-            1 for r in self.processed_requests.values()
-            if r.status == ApprovalStatus.REJECTED
+            1 for r in self.processed_requests.values() if r.status == ApprovalStatus.REJECTED
         )
         expired = sum(
-            1 for r in self.processed_requests.values()
-            if r.status == ApprovalStatus.EXPIRED
+            1 for r in self.processed_requests.values() if r.status == ApprovalStatus.EXPIRED
         )
 
         return {
@@ -462,5 +419,5 @@ class HumanReviewWorkflow:
             "approved": approved,
             "rejected": rejected,
             "expired": expired,
-            "approval_rate": approved / total_processed if total_processed > 0 else 0.0
+            "approval_rate": approved / total_processed if total_processed > 0 else 0.0,
         }

@@ -8,13 +8,16 @@ Note: Phase 5 has kosmos/execution/statistics.py for computational statistics.
 This module adds interpretive and reporting capabilities.
 """
 
+import logging
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Any, Tuple, Optional
-import logging
+
 
 try:
     from scipy import stats as sp_stats
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -26,7 +29,7 @@ class DescriptiveStats:
     """Descriptive statistics computation and reporting."""
 
     @staticmethod
-    def compute_full_descriptive(data: np.ndarray) -> Dict[str, float]:
+    def compute_full_descriptive(data: np.ndarray) -> dict[str, float]:
         """
         Compute comprehensive descriptive statistics.
 
@@ -43,31 +46,35 @@ class DescriptiveStats:
             return {"error": "All values are NaN"}
 
         stats_dict = {
-            'n': len(clean_data),
-            'n_missing': int(np.sum(np.isnan(data))),
-            'mean': float(np.mean(clean_data)),
-            'median': float(np.median(clean_data)),
-            'std': float(np.std(clean_data, ddof=1)),  # Sample std
-            'var': float(np.var(clean_data, ddof=1)),  # Sample variance
-            'min': float(np.min(clean_data)),
-            'max': float(np.max(clean_data)),
-            'range': float(np.max(clean_data) - np.min(clean_data)),
-            'q1': float(np.percentile(clean_data, 25)),
-            'q3': float(np.percentile(clean_data, 75)),
-            'iqr': float(np.percentile(clean_data, 75) - np.percentile(clean_data, 25)),
-            'skewness': float(sp_stats.skew(clean_data)) if HAS_SCIPY else None,
-            'kurtosis': float(sp_stats.kurtosis(clean_data)) if HAS_SCIPY else None,
-            'cv': float(np.std(clean_data, ddof=1) / np.mean(clean_data)) if np.mean(clean_data) != 0 else None
+            "n": len(clean_data),
+            "n_missing": int(np.sum(np.isnan(data))),
+            "mean": float(np.mean(clean_data)),
+            "median": float(np.median(clean_data)),
+            "std": float(np.std(clean_data, ddof=1)),  # Sample std
+            "var": float(np.var(clean_data, ddof=1)),  # Sample variance
+            "min": float(np.min(clean_data)),
+            "max": float(np.max(clean_data)),
+            "range": float(np.max(clean_data) - np.min(clean_data)),
+            "q1": float(np.percentile(clean_data, 25)),
+            "q3": float(np.percentile(clean_data, 75)),
+            "iqr": float(np.percentile(clean_data, 75) - np.percentile(clean_data, 25)),
+            "skewness": float(sp_stats.skew(clean_data)) if HAS_SCIPY else None,
+            "kurtosis": float(sp_stats.kurtosis(clean_data)) if HAS_SCIPY else None,
+            "cv": (
+                float(np.std(clean_data, ddof=1) / np.mean(clean_data))
+                if np.mean(clean_data) != 0
+                else None
+            ),
         }
 
         # Add percentiles
         for p in [5, 10, 90, 95]:
-            stats_dict[f'p{p}'] = float(np.percentile(clean_data, p))
+            stats_dict[f"p{p}"] = float(np.percentile(clean_data, p))
 
         return stats_dict
 
     @staticmethod
-    def generate_descriptive_report(data: Dict[str, np.ndarray]) -> str:
+    def generate_descriptive_report(data: dict[str, np.ndarray]) -> str:
         """
         Generate text report of descriptive statistics.
 
@@ -101,7 +108,7 @@ class DistributionAnalysis:
     """Distribution fitting and analysis."""
 
     @staticmethod
-    def test_normality(data: np.ndarray, alpha: float = 0.05) -> Dict[str, Any]:
+    def test_normality(data: np.ndarray, alpha: float = 0.05) -> dict[str, Any]:
         """
         Test if data is normally distributed.
 
@@ -124,24 +131,21 @@ class DistributionAnalysis:
         statistic, p_value = sp_stats.shapiro(clean_data)
 
         result = {
-            'test': 'Shapiro-Wilk',
-            'statistic': float(statistic),
-            'p_value': float(p_value),
-            'is_normal': p_value > alpha,
-            'alpha': alpha,
-            'interpretation': (
+            "test": "Shapiro-Wilk",
+            "statistic": float(statistic),
+            "p_value": float(p_value),
+            "is_normal": p_value > alpha,
+            "alpha": alpha,
+            "interpretation": (
                 f"Data {'appears' if p_value > alpha else 'does not appear'} "
                 f"normally distributed (p={p_value:.4f})"
-            )
+            ),
         }
 
         return result
 
     @staticmethod
-    def fit_distribution(
-        data: np.ndarray,
-        dist_names: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+    def fit_distribution(data: np.ndarray, dist_names: list[str] | None = None) -> dict[str, Any]:
         """
         Fit common distributions to data and find best fit.
 
@@ -161,7 +165,7 @@ class DistributionAnalysis:
             return {"error": "Insufficient data for distribution fitting"}
 
         if dist_names is None:
-            dist_names = ['norm', 'lognorm', 'expon']
+            dist_names = ["norm", "lognorm", "expon"]
 
         best_fit = None
         best_aic = np.inf
@@ -179,10 +183,10 @@ class DistributionAnalysis:
                 if aic < best_aic:
                     best_aic = aic
                     best_fit = {
-                        'distribution': dist_name,
-                        'parameters': params,
-                        'aic': aic,
-                        'log_likelihood': log_likelihood
+                        "distribution": dist_name,
+                        "parameters": params,
+                        "aic": aic,
+                        "log_likelihood": log_likelihood,
                     }
 
             except Exception as e:
@@ -190,7 +194,9 @@ class DistributionAnalysis:
                 continue
 
         if best_fit:
-            best_fit['interpretation'] = f"Best fit: {best_fit['distribution']} (AIC={best_fit['aic']:.2f})"
+            best_fit["interpretation"] = (
+                f"Best fit: {best_fit['distribution']} (AIC={best_fit['aic']:.2f})"
+            )
 
         return best_fit or {"error": "Could not fit any distribution"}
 
@@ -200,9 +206,8 @@ class CorrelationAnalysis:
 
     @staticmethod
     def correlation_matrix(
-        data: pd.DataFrame,
-        method: str = 'pearson'
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        data: pd.DataFrame, method: str = "pearson"
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Compute correlation matrix with p-values.
 
@@ -232,7 +237,7 @@ class CorrelationAnalysis:
                     y = data.iloc[:, j][mask]
 
                     if len(x) > 2:
-                        if method == 'pearson':
+                        if method == "pearson":
                             r, p = sp_stats.pearsonr(x, y)
                         else:
                             r, p = sp_stats.spearmanr(x, y)
@@ -250,9 +255,7 @@ class CorrelationAnalysis:
 
     @staticmethod
     def generate_correlation_report(
-        corr_matrix: pd.DataFrame,
-        p_matrix: pd.DataFrame,
-        alpha: float = 0.05
+        corr_matrix: pd.DataFrame, p_matrix: pd.DataFrame, alpha: float = 0.05
     ) -> str:
         """
         Generate text report of correlation analysis.
@@ -272,29 +275,28 @@ class CorrelationAnalysis:
 
         n = corr_matrix.shape[0]
         for i in range(n):
-            for j in range(i+1, n):
+            for j in range(i + 1, n):
                 r = corr_matrix.iloc[i, j]
                 p = p_matrix.iloc[i, j]
 
                 if not np.isnan(p) and p < alpha:
                     var1 = corr_matrix.index[i]
                     var2 = corr_matrix.columns[j]
-                    significant.append({
-                        'var1': var1,
-                        'var2': var2,
-                        'r': r,
-                        'p': p
-                    })
+                    significant.append({"var1": var1, "var2": var2, "r": r, "p": p})
 
         # Sort by absolute correlation
-        significant.sort(key=lambda x: abs(x['r']), reverse=True)
+        significant.sort(key=lambda x: abs(x["r"]), reverse=True)
 
         report += f"## Significant Correlations (α={alpha})\n\n"
 
         if significant:
             for item in significant:
-                strength = "strong" if abs(item['r']) > 0.7 else "moderate" if abs(item['r']) > 0.4 else "weak"
-                direction = "positive" if item['r'] > 0 else "negative"
+                strength = (
+                    "strong"
+                    if abs(item["r"]) > 0.7
+                    else "moderate" if abs(item["r"]) > 0.4 else "weak"
+                )
+                direction = "positive" if item["r"] > 0 else "negative"
 
                 report += f"- **{item['var1']} vs {item['var2']}**: "
                 report += f"r = {item['r']:.3f} (p = {item['p']:.4f}) - "
@@ -302,7 +304,7 @@ class CorrelationAnalysis:
         else:
             report += "No significant correlations found.\n"
 
-        report += f"\n## Correlation Matrix\n\n"
+        report += "\n## Correlation Matrix\n\n"
         report += corr_matrix.to_markdown() + "\n"
 
         return report
@@ -312,10 +314,7 @@ class RegressionAnalysis:
     """Regression analysis utilities."""
 
     @staticmethod
-    def simple_linear_regression(
-        x: np.ndarray,
-        y: np.ndarray
-    ) -> Dict[str, Any]:
+    def simple_linear_regression(x: np.ndarray, y: np.ndarray) -> dict[str, Any]:
         """
         Perform simple linear regression with diagnostics.
 
@@ -348,24 +347,24 @@ class RegressionAnalysis:
         residual_std = np.std(residuals)
 
         results = {
-            'slope': float(slope),
-            'intercept': float(intercept),
-            'r': float(r_value),
-            'r_squared': float(r_value ** 2),
-            'p_value': float(p_value),
-            'std_err': float(std_err),
-            'n': len(x_clean),
-            'equation': f'y = {slope:.3f}x + {intercept:.3f}',
-            'residuals': {
-                'mean': float(np.mean(residuals)),
-                'std': float(residual_std),
-                'min': float(np.min(residuals)),
-                'max': float(np.max(residuals))
+            "slope": float(slope),
+            "intercept": float(intercept),
+            "r": float(r_value),
+            "r_squared": float(r_value**2),
+            "p_value": float(p_value),
+            "std_err": float(std_err),
+            "n": len(x_clean),
+            "equation": f"y = {slope:.3f}x + {intercept:.3f}",
+            "residuals": {
+                "mean": float(np.mean(residuals)),
+                "std": float(residual_std),
+                "min": float(np.min(residuals)),
+                "max": float(np.max(residuals)),
             },
-            'interpretation': (
+            "interpretation": (
                 f"{'Significant' if p_value < 0.05 else 'Non-significant'} linear relationship "
                 f"(R² = {r_value**2:.3f}, p = {p_value:.4f})"
-            )
+            ),
         }
 
         return results
@@ -385,7 +384,7 @@ class StatisticalReporter:
         self,
         data: pd.DataFrame,
         include_correlations: bool = True,
-        include_distributions: bool = True
+        include_distributions: bool = True,
     ) -> str:
         """
         Generate comprehensive statistical report.
@@ -411,7 +410,7 @@ class StatisticalReporter:
             report += "\n# Distribution Analysis\n\n"
             for col in data.columns:
                 normality = self.distribution.test_normality(data[col].values)
-                if 'error' not in normality:
+                if "error" not in normality:
                     report += f"## {col}\n"
                     report += f"- {normality['interpretation']}\n\n"
 

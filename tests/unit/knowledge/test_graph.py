@@ -2,18 +2,18 @@
 Tests for kosmos.knowledge.graph module.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 
 from kosmos.knowledge.graph import KnowledgeGraph
-from kosmos.literature.base_client import PaperMetadata
 
 
 @pytest.fixture
 def knowledge_graph():
     """Create KnowledgeGraph instance with mocked Neo4j."""
-    with patch('py2neo.Graph'):
-        with patch('kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running'):
+    with patch("py2neo.Graph"):
+        with patch("kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running"):
             kg = KnowledgeGraph(auto_start_container=False, create_indexes=False)
             kg.graph = Mock()
             kg.node_matcher = Mock()
@@ -25,15 +25,15 @@ def knowledge_graph():
 class TestKnowledgeGraphInit:
     """Test knowledge graph initialization."""
 
-    @patch('py2neo.Graph')
-    @patch('kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running')
+    @patch("py2neo.Graph")
+    @patch("kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running")
     def test_init_default(self, mock_container, mock_graph):
         """Test default initialization."""
         kg = KnowledgeGraph(auto_start_container=False, create_indexes=False)
         assert kg.uri == "bolt://localhost:7687"
 
-    @patch('py2neo.Graph')
-    @patch('kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running')
+    @patch("py2neo.Graph")
+    @patch("kosmos.knowledge.graph.KnowledgeGraph._ensure_container_running")
     def test_init_custom_uri(self, mock_container, mock_graph):
         """Test initialization with custom URI."""
         kg = KnowledgeGraph(
@@ -117,9 +117,7 @@ class TestKnowledgeGraphConcepts:
 
     def test_get_concept_papers(self, knowledge_graph):
         """Test getting papers for a concept."""
-        mock_result = [
-            {"p.paper_id": "p1", "p.title": "Paper 1", "r.relevance": 0.9}
-        ]
+        mock_result = [{"p.paper_id": "p1", "p.title": "Paper 1", "r.relevance": 0.9}]
         knowledge_graph.graph.run.return_value.data.return_value = mock_result
 
         papers = knowledge_graph.get_concept_papers("Machine Learning")
@@ -147,9 +145,7 @@ class TestKnowledgeGraphCitations:
 
     def test_get_citations(self, knowledge_graph):
         """Test getting citations for a paper."""
-        mock_result = [
-            {"cited.paper_id": "c1", "cited.title": "Cited Paper 1"}
-        ]
+        mock_result = [{"cited.paper_id": "c1", "cited.title": "Cited Paper 1"}]
         knowledge_graph.graph.run.return_value.data.return_value = mock_result
 
         citations = knowledge_graph.get_citations("paper_123", depth=1)
@@ -159,9 +155,7 @@ class TestKnowledgeGraphCitations:
 
     def test_get_citing_papers(self, knowledge_graph):
         """Test getting papers that cite a given paper."""
-        mock_result = [
-            {"citing.paper_id": "c1", "citing.title": "Citing Paper 1"}
-        ]
+        mock_result = [{"citing.paper_id": "c1", "citing.title": "Citing Paper 1"}]
         knowledge_graph.graph.run.return_value.data.return_value = mock_result
 
         citing = knowledge_graph.get_citing_papers("paper_123")
@@ -198,9 +192,7 @@ class TestKnowledgeGraphAuthors:
 
     def test_get_author_papers(self, knowledge_graph):
         """Test getting papers by an author."""
-        mock_result = [
-            {"p.paper_id": "p1", "p.title": "Paper 1"}
-        ]
+        mock_result = [{"p.paper_id": "p1", "p.title": "Paper 1"}]
         knowledge_graph.graph.run.return_value.data.return_value = mock_result
 
         papers = knowledge_graph.get_author_papers("John Doe")
@@ -226,9 +218,7 @@ class TestKnowledgeGraphStats:
 
     def test_search_papers_by_title(self, knowledge_graph):
         """Test searching papers by title."""
-        mock_result = [
-            {"p.paper_id": "p1", "p.title": "Attention"}
-        ]
+        mock_result = [{"p.paper_id": "p1", "p.title": "Attention"}]
         knowledge_graph.graph.run.return_value.data.return_value = mock_result
 
         papers = knowledge_graph.search_papers("attention")

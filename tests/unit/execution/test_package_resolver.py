@@ -5,16 +5,18 @@ Tests package extraction, resolution, and installation logic
 without requiring actual Docker containers.
 """
 
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import Mock, MagicMock
+
 from kosmos.execution.package_resolver import (
-    PackageResolver,
-    PackageRequirement,
-    extract_imports_from_code,
-    resolve_package_name,
-    is_stdlib_module,
     IMPORT_TO_PIP,
     STDLIB_MODULES,
+    PackageRequirement,
+    PackageResolver,
+    extract_imports_from_code,
+    is_stdlib_module,
+    resolve_package_name,
 )
 
 
@@ -165,7 +167,7 @@ class TestPackageResolution:
         """Test that duplicate imports don't create duplicate packages."""
         resolver = PackageResolver(Mock(), "test-container")
         # Both would resolve to same pip package
-        imports = {"pandas", "pandas"}
+        imports = {"pandas"}
         packages = resolver.resolve_packages(imports)
 
         assert len(packages) == 1
@@ -195,11 +197,26 @@ class TestStdlibDetection:
     def test_stdlib_modules_set_is_comprehensive(self):
         """Test that STDLIB_MODULES contains expected modules."""
         expected_modules = [
-            "os", "sys", "json", "re", "math", "random",
-            "datetime", "time", "pathlib", "typing",
-            "collections", "itertools", "functools",
-            "subprocess", "multiprocessing", "threading",
-            "asyncio", "concurrent", "socket", "http"
+            "os",
+            "sys",
+            "json",
+            "re",
+            "math",
+            "random",
+            "datetime",
+            "time",
+            "pathlib",
+            "typing",
+            "collections",
+            "itertools",
+            "functools",
+            "subprocess",
+            "multiprocessing",
+            "threading",
+            "asyncio",
+            "concurrent",
+            "socket",
+            "http",
         ]
 
         for module in expected_modules:
@@ -257,8 +274,9 @@ class TestImportToPipMapping:
         ]
 
         for import_name, pip_name in mappings:
-            assert IMPORT_TO_PIP.get(import_name) == pip_name, \
-                f"Expected {import_name} -> {pip_name}"
+            assert (
+                IMPORT_TO_PIP.get(import_name) == pip_name
+            ), f"Expected {import_name} -> {pip_name}"
 
     def test_deep_learning_mappings(self):
         """Test deep learning framework mappings."""

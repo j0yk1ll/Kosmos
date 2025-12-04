@@ -2,19 +2,15 @@
 Unit tests for workflow state machine (Phase 7).
 """
 
-import pytest
 from datetime import datetime, timedelta
 
-from kosmos.core.workflow import (
-    WorkflowState,
-    WorkflowTransition,
-    ResearchPlan,
-    ResearchWorkflow,
-    NextAction
-)
+import pytest
+
+from kosmos.core.workflow import ResearchPlan, ResearchWorkflow, WorkflowState, WorkflowTransition
 
 
 # Test WorkflowTransition
+
 
 class TestWorkflowTransition:
     """Test workflow transition model."""
@@ -24,7 +20,7 @@ class TestWorkflowTransition:
         transition = WorkflowTransition(
             from_state=WorkflowState.INITIALIZING,
             to_state=WorkflowState.GENERATING_HYPOTHESES,
-            action="Start hypothesis generation"
+            action="Start hypothesis generation",
         )
 
         assert transition.from_state == WorkflowState.INITIALIZING
@@ -38,7 +34,7 @@ class TestWorkflowTransition:
             from_state=WorkflowState.EXECUTING,
             to_state=WorkflowState.ANALYZING,
             action="Execute experiment",
-            metadata={"protocol_id": "proto-1", "duration": 5.3}
+            metadata={"protocol_id": "proto-1", "duration": 5.3},
         )
 
         assert transition.metadata["protocol_id"] == "proto-1"
@@ -47,15 +43,14 @@ class TestWorkflowTransition:
 
 # Test ResearchPlan
 
+
 class TestResearchPlan:
     """Test research plan model."""
 
     def test_create_plan(self):
         """Test creating research plan."""
         plan = ResearchPlan(
-            research_question="Does X affect Y?",
-            domain="biology",
-            max_iterations=10
+            research_question="Does X affect Y?", domain="biology", max_iterations=10
         )
 
         assert plan.research_question == "Does X affect Y?"
@@ -213,6 +208,7 @@ class TestResearchPlan:
 
         # Wait a tiny bit
         import time
+
         time.sleep(0.01)
 
         plan.update_timestamp()
@@ -221,6 +217,7 @@ class TestResearchPlan:
 
 
 # Test ResearchWorkflow
+
 
 class TestResearchWorkflow:
     """Test workflow state machine."""
@@ -235,10 +232,7 @@ class TestResearchWorkflow:
     def test_create_workflow_with_plan(self):
         """Test creating workflow with research plan."""
         plan = ResearchPlan(research_question="Test?")
-        workflow = ResearchWorkflow(
-            initial_state=WorkflowState.INITIALIZING,
-            research_plan=plan
-        )
+        workflow = ResearchWorkflow(initial_state=WorkflowState.INITIALIZING, research_plan=plan)
 
         assert workflow.research_plan == plan
 
@@ -263,8 +257,7 @@ class TestResearchWorkflow:
         workflow = ResearchWorkflow(initial_state=WorkflowState.INITIALIZING)
 
         result = workflow.transition_to(
-            WorkflowState.GENERATING_HYPOTHESES,
-            action="Start generation"
+            WorkflowState.GENERATING_HYPOTHESES, action="Start generation"
         )
 
         assert result is True
@@ -286,10 +279,7 @@ class TestResearchWorkflow:
     def test_transition_updates_plan(self):
         """Test transition updates research plan state."""
         plan = ResearchPlan(research_question="Test?")
-        workflow = ResearchWorkflow(
-            initial_state=WorkflowState.INITIALIZING,
-            research_plan=plan
-        )
+        workflow = ResearchWorkflow(initial_state=WorkflowState.INITIALIZING, research_plan=plan)
 
         workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Test")
 
@@ -338,10 +328,7 @@ class TestResearchWorkflow:
     def test_reset_workflow(self):
         """Test resetting workflow to initial state."""
         plan = ResearchPlan(research_question="Test?")
-        workflow = ResearchWorkflow(
-            initial_state=WorkflowState.INITIALIZING,
-            research_plan=plan
-        )
+        workflow = ResearchWorkflow(initial_state=WorkflowState.INITIALIZING, research_plan=plan)
 
         workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Gen")
         workflow.transition_to(WorkflowState.DESIGNING_EXPERIMENTS, "Design")
@@ -399,6 +386,7 @@ class TestResearchWorkflow:
 
 
 # Test State Machine Transitions
+
 
 class TestStateMachineTransitions:
     """Test all valid and invalid state transitions."""

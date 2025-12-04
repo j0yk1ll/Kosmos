@@ -8,15 +8,16 @@ Provides:
 - Library export to multiple formats
 """
 
-import logging
-import json
-from typing import List, Dict, Any, Optional, Tuple, Set
-from pathlib import Path
-from difflib import SequenceMatcher
 import hashlib
+import json
+import logging
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Any
 
 from kosmos.literature.base_client import PaperMetadata
-from kosmos.literature.citations import CitationFormatter, papers_to_bibtex, papers_to_ris
+from kosmos.literature.citations import papers_to_bibtex, papers_to_ris
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +29,7 @@ class ReferenceManager:
     Provides storage, search, deduplication, and export capabilities.
     """
 
-    def __init__(
-        self,
-        storage_path: Optional[str] = None,
-        auto_deduplicate: bool = True
-    ):
+    def __init__(self, storage_path: str | None = None, auto_deduplicate: bool = True):
         """
         Initialize reference manager.
 
@@ -52,10 +49,10 @@ class ReferenceManager:
         self.auto_deduplicate = auto_deduplicate
 
         # Storage: ref_id -> PaperMetadata
-        self.references: Dict[str, PaperMetadata] = {}
+        self.references: dict[str, PaperMetadata] = {}
 
         # Citation relationships: citing_id -> [cited_ids]
-        self.citation_links: Dict[str, List[str]] = {}
+        self.citation_links: dict[str, list[str]] = {}
 
         # Deduplication engine
         self.dedup_engine = DeduplicationEngine()
@@ -102,7 +99,7 @@ class ReferenceManager:
         logger.debug(f"Added reference: {ref_id}")
         return ref_id
 
-    def add_references(self, papers: List[PaperMetadata]) -> List[str]:
+    def add_references(self, papers: list[PaperMetadata]) -> list[str]:
         """
         Batch add references.
 
@@ -127,7 +124,7 @@ class ReferenceManager:
         logger.info(f"Added {len(ref_ids)} references")
         return ref_ids
 
-    def get_reference(self, ref_id: str) -> Optional[PaperMetadata]:
+    def get_reference(self, ref_id: str) -> PaperMetadata | None:
         """
         Retrieve reference by ID.
 
@@ -139,11 +136,7 @@ class ReferenceManager:
         """
         return self.references.get(ref_id)
 
-    def search_references(
-        self,
-        query: str,
-        fields: List[str] = ["title", "authors", "abstract"]
-    ) -> List[PaperMetadata]:
+    def search_references(self, query: str, fields: list[str] = None) -> list[PaperMetadata]:
         """
         Search within reference collection.
 
@@ -162,6 +155,8 @@ class ReferenceManager:
             )
             ```
         """
+        if fields is None:
+            fields = ["title", "authors", "abstract"]
         query_lower = query.lower()
         matches = []
 
@@ -185,10 +180,7 @@ class ReferenceManager:
         logger.info(f"Search '{query}' found {len(matches)} results")
         return matches
 
-    def deduplicate_references(
-        self,
-        strategy: str = "comprehensive"
-    ) -> Dict[str, Any]:
+    def deduplicate_references(self, strategy: str = "comprehensive") -> dict[str, Any]:
         """
         Remove duplicate references.
 
@@ -214,8 +206,7 @@ class ReferenceManager:
             unique_papers, duplicate_groups = self.dedup_engine.deduplicate_by_doi(papers_list)
         elif strategy == "fuzzy":
             unique_papers, duplicate_groups = self.dedup_engine.deduplicate_by_title(
-                papers_list,
-                threshold=0.9
+                papers_list, threshold=0.9
             )
         else:  # comprehensive
             unique_papers, duplicate_groups = self.dedup_engine.comprehensive_deduplication(
@@ -239,18 +230,13 @@ class ReferenceManager:
             "unique_count": len(unique_papers),
             "duplicates_removed": duplicates_removed,
             "duplicate_groups": len(duplicate_groups),
-            "strategy": strategy
+            "strategy": strategy,
         }
 
         logger.info(f"Deduplication complete: removed {duplicates_removed} duplicates")
         return report
 
-    def merge_duplicates(
-        self,
-        ref_id1: str,
-        ref_id2: str,
-        keep_id: str
-    ):
+    def merge_duplicates(self, ref_id1: str, ref_id2: str, keep_id: str):
         """
         Manually merge two references.
 
@@ -298,11 +284,7 @@ class ReferenceManager:
 
         logger.info(f"Merged {discard_id} into {keep_id}")
 
-    def export_library(
-        self,
-        output_file: str,
-        format: str = "bibtex"
-    ):
+    def export_library(self, output_file: str, format: str = "bibtex"):
         """
         Export reference library.
 
@@ -332,7 +314,7 @@ class ReferenceManager:
 
         logger.info(f"Exported {len(papers)} references to {output_file}")
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """
         Get library statistics.
 
@@ -352,13 +334,15 @@ class ReferenceManager:
             "arxiv_count": sum(1 for p in self.references.values() if p.arxiv_id),
             "pubmed_count": sum(1 for p in self.references.values() if p.pubmed_id),
             "year_distribution": {},
-            "citation_links": len(self.citation_links)
+            "citation_links": len(self.citation_links),
         }
 
         # Year distribution
         for paper in self.references.values():
             if paper.year:
-                stats["year_distribution"][paper.year] = stats["year_distribution"].get(paper.year, 0) + 1
+                stats["year_distribution"][paper.year] = (
+                    stats["year_distribution"].get(paper.year, 0) + 1
+                )
 
         return stats
 
@@ -379,7 +363,7 @@ class ReferenceManager:
             title_hash = hashlib.md5(title.encode()).hexdigest()[:8]
             return f"ref_{title_hash}"
 
-    def _find_duplicate(self, paper: PaperMetadata) -> Optional[str]:
+    def _find_duplicate(self, paper: PaperMetadata) -> str | None:
         """Find if paper is a duplicate of existing reference."""
         for ref_id, existing_paper in self.references.items():
             if self.dedup_engine.is_duplicate(existing_paper, paper):
@@ -395,10 +379,7 @@ class ReferenceManager:
     def _save_to_storage(self):
         """Save references to disk."""
         try:
-            data = {
-                "references": {},
-                "citation_links": self.citation_links
-            }
+            data = {"references": {}, "citation_links": self.citation_links}
 
             # Serialize papers
             for ref_id, paper in self.references.items():
@@ -414,10 +395,10 @@ class ReferenceManager:
                     "pubmed_id": paper.pubmed_id,
                     "url": paper.url,
                     "journal": paper.journal,
-                    "citation_count": paper.citation_count
+                    "citation_count": paper.citation_count,
                 }
 
-            with open(self.storage_path, 'w') as f:
+            with open(self.storage_path, "w") as f:
                 json.dump(data, f, indent=2)
 
         except Exception as e:
@@ -426,11 +407,11 @@ class ReferenceManager:
     def _load_from_storage(self):
         """Load references from disk."""
         try:
-            with open(self.storage_path, 'r') as f:
+            with open(self.storage_path) as f:
                 data = json.load(f)
 
             # Deserialize papers
-            from kosmos.literature.base_client import PaperSource, Author
+            from kosmos.literature.base_client import Author, PaperSource
 
             for ref_id, paper_data in data.get("references", {}).items():
                 authors = [Author(name=a["name"]) for a in paper_data.get("authors", [])]
@@ -447,7 +428,7 @@ class ReferenceManager:
                     pubmed_id=paper_data.get("pubmed_id"),
                     url=paper_data.get("url"),
                     journal=paper_data.get("journal"),
-                    citation_count=paper_data.get("citation_count", 0)
+                    citation_count=paper_data.get("citation_count", 0),
                 )
 
                 self.references[ref_id] = paper
@@ -459,7 +440,7 @@ class ReferenceManager:
         except Exception as e:
             logger.error(f"Failed to load from storage: {e}")
 
-    def _export_json(self, papers: List[PaperMetadata], output_file: str):
+    def _export_json(self, papers: list[PaperMetadata], output_file: str):
         """Export to JSON format."""
         data = []
 
@@ -475,33 +456,35 @@ class ReferenceManager:
                 "arxiv_id": paper.arxiv_id,
                 "url": paper.url,
                 "journal": paper.journal,
-                "citation_count": paper.citation_count
+                "citation_count": paper.citation_count,
             }
             data.append(paper_dict)
 
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             json.dump(data, f, indent=2)
 
-    def _export_csv(self, papers: List[PaperMetadata], output_file: str):
+    def _export_csv(self, papers: list[PaperMetadata], output_file: str):
         """Export to CSV format."""
         import csv
 
-        with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['title', 'authors', 'year', 'journal', 'doi', 'citation_count']
+        with open(output_file, "w", newline="", encoding="utf-8") as csvfile:
+            fieldnames = ["title", "authors", "year", "journal", "doi", "citation_count"]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
             writer.writeheader()
             for paper in papers:
                 if paper is None:
                     continue
-                writer.writerow({
-                    'title': paper.title or '',
-                    'authors': "; ".join([a.name for a in (paper.authors or [])]),
-                    'year': paper.year or '',
-                    'journal': paper.journal or '',
-                    'doi': paper.doi or '',
-                    'citation_count': paper.citation_count
-                })
+                writer.writerow(
+                    {
+                        "title": paper.title or "",
+                        "authors": "; ".join([a.name for a in (paper.authors or [])]),
+                        "year": paper.year or "",
+                        "journal": paper.journal or "",
+                        "doi": paper.doi or "",
+                        "citation_count": paper.citation_count,
+                    }
+                )
 
 
 class DeduplicationEngine:
@@ -516,9 +499,8 @@ class DeduplicationEngine:
         logger.debug("Initialized DeduplicationEngine")
 
     def deduplicate_by_doi(
-        self,
-        papers: List[PaperMetadata]
-    ) -> Tuple[List[PaperMetadata], Dict[str, List[str]]]:
+        self, papers: list[PaperMetadata]
+    ) -> tuple[list[PaperMetadata], dict[str, list[str]]]:
         """
         Deduplicate by DOI.
 
@@ -552,10 +534,8 @@ class DeduplicationEngine:
         return unique_papers, duplicate_groups
 
     def deduplicate_by_title(
-        self,
-        papers: List[PaperMetadata],
-        threshold: float = 0.9
-    ) -> Tuple[List[PaperMetadata], Dict[str, List[str]]]:
+        self, papers: list[PaperMetadata], threshold: float = 0.9
+    ) -> tuple[list[PaperMetadata], dict[str, list[str]]]:
         """
         Deduplicate by fuzzy title matching.
 
@@ -575,7 +555,7 @@ class DeduplicationEngine:
                 continue
             is_duplicate = False
 
-            for i, existing_title in enumerate(processed_titles):
+            for _i, existing_title in enumerate(processed_titles):
                 similarity = self._title_similarity(paper.title, existing_title)
 
                 if similarity >= threshold:
@@ -594,9 +574,8 @@ class DeduplicationEngine:
         return unique_papers, duplicate_groups
 
     def comprehensive_deduplication(
-        self,
-        papers: List[PaperMetadata]
-    ) -> Tuple[List[PaperMetadata], Dict[str, List[str]]]:
+        self, papers: list[PaperMetadata]
+    ) -> tuple[list[PaperMetadata], dict[str, list[str]]]:
         """
         Multi-level deduplication.
 
@@ -671,10 +650,7 @@ class DeduplicationEngine:
 
         return unique_papers, duplicate_groups
 
-    def merge_paper_metadata(
-        self,
-        papers: List[PaperMetadata]
-    ) -> PaperMetadata:
+    def merge_paper_metadata(self, papers: list[PaperMetadata]) -> PaperMetadata:
         """
         Merge duplicate papers, keeping best data.
 
@@ -729,11 +705,7 @@ class DeduplicationEngine:
 
         return merged
 
-    def is_duplicate(
-        self,
-        paper1: PaperMetadata,
-        paper2: PaperMetadata
-    ) -> bool:
+    def is_duplicate(self, paper1: PaperMetadata, paper2: PaperMetadata) -> bool:
         """
         Check if two papers are duplicates.
 
@@ -777,13 +749,11 @@ class DeduplicationEngine:
 
 
 # Singleton instance
-_reference_manager: Optional[ReferenceManager] = None
+_reference_manager: ReferenceManager | None = None
 
 
 def get_reference_manager(
-    storage_path: Optional[str] = None,
-    auto_deduplicate: bool = True,
-    reset: bool = False
+    storage_path: str | None = None, auto_deduplicate: bool = True, reset: bool = False
 ) -> ReferenceManager:
     """
     Get or create the singleton reference manager instance.
@@ -799,8 +769,7 @@ def get_reference_manager(
     global _reference_manager
     if _reference_manager is None or reset:
         _reference_manager = ReferenceManager(
-            storage_path=storage_path,
-            auto_deduplicate=auto_deduplicate
+            storage_path=storage_path, auto_deduplicate=auto_deduplicate
         )
     return _reference_manager
 

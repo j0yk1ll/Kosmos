@@ -5,13 +5,12 @@ These tests validate sandbox execution, resource limits, error handling,
 and safety constraints for generated code execution.
 """
 
-import pytest
-import time
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-import sys
 import os
+import tempfile
+import time
+
+import pytest
+
 
 pytestmark = [
     pytest.mark.requirement("REQ-DAA-EXEC"),
@@ -38,7 +37,7 @@ result = os.listdir('/')  # Attempt to list root directory
     # Act & Assert: Sandbox should prevent file system access
     # or the validator should block this code
     try:
-        with pytest.raises((PermissionError, SecurityError, Exception)):
+        with pytest.raises((PermissionError, Exception)):
             result = sandbox.execute(dangerous_code)
             # If execution succeeds, check that it's restricted
             if result.success:
@@ -70,15 +69,13 @@ result = {"data": [1, 2, 3]}
         result = sandbox.execute(test_code)
 
         # Assert: All outputs captured
-        assert hasattr(result, 'stdout') or hasattr(result, 'output'), \
-            "Must capture stdout"
-        assert hasattr(result, 'stderr') or hasattr(result, 'error'), \
-            "Must capture stderr"
+        assert hasattr(result, "stdout") or hasattr(result, "output"), "Must capture stdout"
+        assert hasattr(result, "stderr") or hasattr(result, "error"), "Must capture stderr"
 
         if result.success:
-            stdout_content = str(result.stdout or result.output or '')
-            stderr_content = str(result.stderr or result.error or '')
-            assert 'stdout' in stdout_content.lower() or len(stdout_content) > 0
+            stdout_content = str(result.stdout or result.output or "")
+            str(result.stderr or result.error or "")
+            assert "stdout" in stdout_content.lower() or len(stdout_content) > 0
     except ImportError:
         pytest.skip("Sandbox not fully implemented")
 
@@ -122,14 +119,13 @@ result = "Should timeout"
     # Act & Assert
     try:
         # Memory test
-        result_mem = sandbox.execute(memory_hog_code, timeout=5)
+        sandbox.execute(memory_hog_code, timeout=5)
         # Should either fail or handle gracefully
 
         # CPU test
         result_cpu = sandbox.execute(cpu_hog_code, timeout=2)
         # Should timeout and return error
-        assert result_cpu.execution_time <= 3, \
-            "Execution should be terminated within timeout"
+        assert result_cpu.execution_time <= 3, "Execution should be terminated within timeout"
     except ImportError:
         pytest.skip("Sandbox not fully implemented")
 
@@ -159,10 +155,8 @@ result = "completed"
 
         # Assert
         assert elapsed < 4, "Should timeout within reasonable time after limit"
-        assert not result.success or result.timeout, \
-            "Should indicate timeout occurred"
-        assert hasattr(result, 'execution_time'), \
-            "Should record execution time"
+        assert not result.success or result.timeout, "Should indicate timeout occurred"
+        assert hasattr(result, "execution_time"), "Should record execution time"
     except ImportError:
         pytest.skip("Sandbox not fully implemented")
 
@@ -191,14 +185,13 @@ result = divide_by_zero()
 """
 
     # Test: Import error
-    import_error_code = "import nonexistent_module_xyz"
 
     # Act & Assert: Syntax error
     try:
         result_syntax = sandbox.execute(syntax_error_code)
         assert not result_syntax.success, "Should fail on syntax error"
-        error_msg = str(result_syntax.error or result_syntax.stderr or '')
-        assert 'syntax' in error_msg.lower() or 'invalid' in error_msg.lower()
+        error_msg = str(result_syntax.error or result_syntax.stderr or "")
+        assert "syntax" in error_msg.lower() or "invalid" in error_msg.lower()
     except ImportError:
         pytest.skip("Sandbox not fully implemented")
 
@@ -206,12 +199,13 @@ result = divide_by_zero()
     try:
         result_runtime = sandbox.execute(runtime_error_code)
         assert not result_runtime.success, "Should fail on runtime error"
-        error_msg = str(result_runtime.error or result_runtime.stderr or '')
-        assert 'zero' in error_msg.lower() or 'division' in error_msg.lower()
+        error_msg = str(result_runtime.error or result_runtime.stderr or "")
+        assert "zero" in error_msg.lower() or "division" in error_msg.lower()
 
         # Check for stack trace
-        assert 'traceback' in error_msg.lower() or 'line' in error_msg.lower(), \
-            "Should include stack trace"
+        assert (
+            "traceback" in error_msg.lower() or "line" in error_msg.lower()
+        ), "Should include stack trace"
     except ImportError:
         pytest.skip("Sandbox not fully implemented")
 
@@ -238,14 +232,10 @@ result = "done"
         result = sandbox.execute(timed_code)
 
         # Assert
-        assert hasattr(result, 'execution_time'), \
-            "Must record execution time"
-        assert result.execution_time >= 0.1, \
-            "Execution time should reflect actual runtime"
-        assert result.execution_time < 1.0, \
-            "Execution time should be reasonable"
-        assert isinstance(result.execution_time, (int, float)), \
-            "Execution time must be numeric"
+        assert hasattr(result, "execution_time"), "Must record execution time"
+        assert result.execution_time >= 0.1, "Execution time should reflect actual runtime"
+        assert result.execution_time < 1.0, "Execution time should be reasonable"
+        assert isinstance(result.execution_time, int | float), "Execution time must be numeric"
     except ImportError:
         pytest.skip("Sandbox not fully implemented")
 
@@ -260,7 +250,7 @@ def test_req_daa_exec_007_readonly_dataset_access():
     from kosmos.execution.sandbox import Sandbox
 
     # Arrange
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".csv") as f:
         f.write("a,b,c\n1,2,3\n4,5,6\n")
         temp_file = f.name
 
@@ -281,15 +271,13 @@ except:
 """
 
         # Act
-        result = sandbox.execute(modify_code)
+        sandbox.execute(modify_code)
 
         # Assert: Original file should be unchanged
-        with open(temp_file, 'r') as f:
+        with open(temp_file) as f:
             content = f.read()
-            assert 'd' not in content, \
-                "Original dataset should not be modified"
-            assert '1,2,3' in content, \
-                "Original data should be preserved"
+            assert "d" not in content, "Original dataset should not be modified"
+            assert "1,2,3" in content, "Original data should be preserved"
     except ImportError:
         pytest.skip("Sandbox not fully implemented")
     finally:
@@ -333,14 +321,12 @@ def test_req_daa_exec_009_no_arbitrary_shell():
     for code in shell_codes:
         # First, validator should catch it
         validation = validator.validate(code)
-        assert not validation.is_safe, \
-            f"Validator should block: {code}"
+        assert not validation.is_safe, f"Validator should block: {code}"
 
         # If it somehow gets through, sandbox should block
         try:
             result = sandbox.execute(code)
-            assert not result.success, \
-                f"Sandbox should prevent shell execution: {code}"
+            assert not result.success, f"Sandbox should prevent shell execution: {code}"
         except (ImportError, AttributeError):
             pytest.skip("Safety validator not fully implemented")
 
@@ -356,7 +342,7 @@ def test_req_daa_exec_010_no_env_modification():
 
     # Arrange
     sandbox = Sandbox()
-    original_path = os.environ.get('PATH', '')
+    original_path = os.environ.get("PATH", "")
 
     env_modify_code = """
 import os
@@ -367,13 +353,11 @@ result = "modified"
 
     # Act
     try:
-        result = sandbox.execute(env_modify_code)
+        sandbox.execute(env_modify_code)
 
         # Assert: Parent process environment unchanged
-        assert os.environ.get('PATH', '') == original_path, \
-            "Parent PATH should not be modified"
-        assert 'TEST_VAR_XYZ' not in os.environ, \
-            "Parent environment should not have new variables"
+        assert os.environ.get("PATH", "") == original_path, "Parent PATH should not be modified"
+        assert "TEST_VAR_XYZ" not in os.environ, "Parent environment should not have new variables"
     except ImportError:
         pytest.skip("Sandbox not fully implemented")
 
@@ -423,20 +407,20 @@ def test_req_daa_exec_012_self_correction_loop():
                 result = self._execute(code)
                 attempts.append(result)
 
-                if result['success']:
-                    return {'attempts': attempts, 'success': True}
+                if result["success"]:
+                    return {"attempts": attempts, "success": True}
 
                 if attempt < self.max_retries - 1 and error_handler:
                     # Analyze error and regenerate code
-                    code = error_handler(result['error'])
+                    code = error_handler(result["error"])
 
-            return {'attempts': attempts, 'success': False}
+            return {"attempts": attempts, "success": False}
 
         def _execute(self, code):
             # Mock execution
-            if 'correct_code' in code:
-                return {'success': True, 'error': None}
-            return {'success': False, 'error': 'NameError: undefined variable'}
+            if "correct_code" in code:
+                return {"success": True, "error": None}
+            return {"success": False, "error": "NameError: undefined variable"}
 
     # Arrange
     executor = MockSelfCorrectingExecutor(max_retries=3)
@@ -450,6 +434,6 @@ def test_req_daa_exec_012_self_correction_loop():
     result = executor.execute_with_retry(initial_code, error_handler)
 
     # Assert
-    assert len(result['attempts']) <= 3, "Should not exceed max retries"
-    assert len(result['attempts']) >= 1, "Should attempt at least once"
-    assert result['success'], "Should eventually succeed with correction"
+    assert len(result["attempts"]) <= 3, "Should not exceed max retries"
+    assert len(result["attempts"]) >= 1, "Should attempt at least once"
+    assert result["success"], "Should eventually succeed with correction"

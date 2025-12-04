@@ -5,14 +5,15 @@ Tests container pooling, lifecycle management, and health monitoring
 using mocks to avoid requiring actual Docker installation.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-import asyncio
-from unittest.mock import Mock, MagicMock, patch, AsyncMock
+
 from kosmos.execution.docker_manager import (
-    DockerManager,
     ContainerConfig,
     ContainerInstance,
     ContainerStatus,
+    DockerManager,
 )
 
 
@@ -37,7 +38,7 @@ class TestContainerConfig:
             memory_limit="8g",
             cpu_limit=4.0,
             timeout_seconds=1200,
-            network_mode="bridge"
+            network_mode="bridge",
         )
 
         assert config.image == "custom-image:v1"
@@ -61,6 +62,7 @@ class TestContainerInstance:
     def test_instance_creation(self):
         """Test container instance creation."""
         import time
+
         now = time.time()
 
         instance = ContainerInstance(
@@ -69,7 +71,7 @@ class TestContainerInstance:
             status=ContainerStatus.READY,
             created_at=now,
             last_used_at=now,
-            config=ContainerConfig()
+            config=ContainerConfig(),
         )
 
         assert instance.container_id == "abc123"
@@ -79,6 +81,7 @@ class TestContainerInstance:
     def test_instance_age(self):
         """Test age calculation."""
         import time
+
         old_time = time.time() - 100
 
         instance = ContainerInstance(
@@ -87,7 +90,7 @@ class TestContainerInstance:
             status=ContainerStatus.READY,
             created_at=old_time,
             last_used_at=old_time,
-            config=ContainerConfig()
+            config=ContainerConfig(),
         )
 
         assert instance.age_seconds >= 100
@@ -95,6 +98,7 @@ class TestContainerInstance:
     def test_instance_idle_time(self):
         """Test idle time calculation."""
         import time
+
         now = time.time()
         old_time = now - 50
 
@@ -104,7 +108,7 @@ class TestContainerInstance:
             status=ContainerStatus.READY,
             created_at=old_time,
             last_used_at=old_time,
-            config=ContainerConfig()
+            config=ContainerConfig(),
         )
 
         assert instance.idle_seconds >= 50
@@ -124,7 +128,7 @@ class TestContainerStatus:
 class TestDockerManagerInit:
     """Tests for DockerManager initialization."""
 
-    @patch('kosmos.execution.docker_manager.docker')
+    @patch("kosmos.execution.docker_manager.docker")
     def test_init_with_default_config(self, mock_docker):
         """Test initialization with default config."""
         mock_docker.from_env.return_value = Mock()
@@ -135,7 +139,7 @@ class TestDockerManagerInit:
         assert manager._pool_size == DockerManager.DEFAULT_POOL_SIZE
         assert not manager._initialized
 
-    @patch('kosmos.execution.docker_manager.docker')
+    @patch("kosmos.execution.docker_manager.docker")
     def test_init_with_custom_config(self, mock_docker):
         """Test initialization with custom config."""
         mock_docker.from_env.return_value = Mock()
@@ -146,9 +150,10 @@ class TestDockerManagerInit:
         assert manager.config.memory_limit == "16g"
         assert manager._pool_size == 5
 
-    @patch('kosmos.execution.docker_manager.docker')
+    @patch("kosmos.execution.docker_manager.docker")
     def test_init_docker_unavailable(self, mock_docker):
         """Test initialization when Docker is not available."""
+
         # Create a proper exception class that inherits from BaseException
         class MockDockerException(Exception):
             pass
@@ -163,7 +168,7 @@ class TestDockerManagerInit:
 class TestDockerManagerPoolStats:
     """Tests for pool statistics."""
 
-    @patch('kosmos.execution.docker_manager.docker')
+    @patch("kosmos.execution.docker_manager.docker")
     def test_get_pool_stats_empty(self, mock_docker):
         """Test pool stats when pool is empty."""
         mock_docker.from_env.return_value = Mock()
@@ -177,7 +182,7 @@ class TestDockerManagerPoolStats:
         assert stats["unhealthy"] == 0
         assert stats["target_size"] == manager._pool_size
 
-    @patch('kosmos.execution.docker_manager.docker')
+    @patch("kosmos.execution.docker_manager.docker")
     def test_get_pool_stats_with_containers(self, mock_docker):
         """Test pool stats with containers in pool."""
         mock_docker.from_env.return_value = Mock()
@@ -186,6 +191,7 @@ class TestDockerManagerPoolStats:
 
         # Add mock containers to pool
         import time
+
         now = time.time()
 
         manager._container_pool["c1"] = ContainerInstance(
@@ -194,7 +200,7 @@ class TestDockerManagerPoolStats:
             status=ContainerStatus.READY,
             created_at=now,
             last_used_at=now,
-            config=ContainerConfig()
+            config=ContainerConfig(),
         )
         manager._container_pool["c2"] = ContainerInstance(
             container_id="c2",
@@ -202,7 +208,7 @@ class TestDockerManagerPoolStats:
             status=ContainerStatus.IN_USE,
             created_at=now,
             last_used_at=now,
-            config=ContainerConfig()
+            config=ContainerConfig(),
         )
 
         stats = manager.get_pool_stats()
@@ -215,7 +221,7 @@ class TestDockerManagerPoolStats:
 class TestDockerManagerContainerHealth:
     """Tests for container health checking."""
 
-    @patch('kosmos.execution.docker_manager.docker')
+    @patch("kosmos.execution.docker_manager.docker")
     def test_healthy_container(self, mock_docker):
         """Test health check on healthy container."""
         mock_docker.from_env.return_value = Mock()
@@ -227,6 +233,7 @@ class TestDockerManagerContainerHealth:
         mock_container.reload = Mock()
 
         import time
+
         now = time.time()
 
         instance = ContainerInstance(
@@ -236,12 +243,12 @@ class TestDockerManagerContainerHealth:
             created_at=now,
             last_used_at=now,
             config=ContainerConfig(),
-            use_count=1
+            use_count=1,
         )
 
         assert manager._is_container_healthy(instance) is True
 
-    @patch('kosmos.execution.docker_manager.docker')
+    @patch("kosmos.execution.docker_manager.docker")
     def test_unhealthy_stopped_container(self, mock_docker):
         """Test health check on stopped container."""
         mock_docker.from_env.return_value = Mock()
@@ -253,6 +260,7 @@ class TestDockerManagerContainerHealth:
         mock_container.reload = Mock()
 
         import time
+
         now = time.time()
 
         instance = ContainerInstance(
@@ -261,12 +269,12 @@ class TestDockerManagerContainerHealth:
             status=ContainerStatus.READY,
             created_at=now,
             last_used_at=now,
-            config=ContainerConfig()
+            config=ContainerConfig(),
         )
 
         assert manager._is_container_healthy(instance) is False
 
-    @patch('kosmos.execution.docker_manager.docker')
+    @patch("kosmos.execution.docker_manager.docker")
     def test_unhealthy_old_container(self, mock_docker):
         """Test health check on container exceeding max age."""
         mock_docker.from_env.return_value = Mock()
@@ -278,6 +286,7 @@ class TestDockerManagerContainerHealth:
         mock_container.reload = Mock()
 
         import time
+
         # Created 2 hours ago (exceeds MAX_CONTAINER_AGE_SECONDS)
         old_time = time.time() - 7200
 
@@ -287,12 +296,12 @@ class TestDockerManagerContainerHealth:
             status=ContainerStatus.READY,
             created_at=old_time,
             last_used_at=old_time,
-            config=ContainerConfig()
+            config=ContainerConfig(),
         )
 
         assert manager._is_container_healthy(instance) is False
 
-    @patch('kosmos.execution.docker_manager.docker')
+    @patch("kosmos.execution.docker_manager.docker")
     def test_unhealthy_overused_container(self, mock_docker):
         """Test health check on container exceeding use limit."""
         mock_docker.from_env.return_value = Mock()
@@ -304,6 +313,7 @@ class TestDockerManagerContainerHealth:
         mock_container.reload = Mock()
 
         import time
+
         now = time.time()
 
         instance = ContainerInstance(
@@ -313,7 +323,7 @@ class TestDockerManagerContainerHealth:
             created_at=now,
             last_used_at=now,
             config=ContainerConfig(),
-            use_count=DockerManager.MAX_CONTAINER_USES + 1
+            use_count=DockerManager.MAX_CONTAINER_USES + 1,
         )
 
         assert manager._is_container_healthy(instance) is False
@@ -324,6 +334,7 @@ def docker_available():
     """Check if Docker daemon is available."""
     try:
         import docker
+
         client = docker.from_env()
         client.ping()
         return True
@@ -331,17 +342,14 @@ def docker_available():
         return False
 
 
-@pytest.mark.skipif(
-    not docker_available(),
-    reason="Docker daemon not available"
-)
+@pytest.mark.skipif(not docker_available(), reason="Docker daemon not available")
 class TestDockerManagerIntegration:
     """Integration tests requiring Docker daemon."""
 
     @pytest.mark.asyncio
     async def test_initialize_pool_no_image(self):
         """Test initialization fails gracefully without image."""
-        from kosmos.execution.docker_manager import DockerManager, ContainerConfig
+        from kosmos.execution.docker_manager import ContainerConfig, DockerManager
 
         config = ContainerConfig(image="nonexistent-image:latest")
         manager = DockerManager(config=config)

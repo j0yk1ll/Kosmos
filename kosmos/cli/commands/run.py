@@ -4,52 +4,55 @@ Run command for Kosmos CLI.
 Executes autonomous research with live progress visualization.
 """
 
+import logging
 import sys
 import time
-import logging
-from typing import Optional
 from datetime import datetime
 from pathlib import Path
 
 import typer
 from rich.live import Live
-from rich.table import Table
 from rich.panel import Panel
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
     TimeRemainingColumn,
 )
-from rich.layout import Layout
-from rich.text import Text
+from rich.table import Table
 
+from kosmos.cli.interactive import run_interactive_mode
 from kosmos.cli.utils import (
     console,
-    print_success,
-    print_error,
-    print_info,
-    get_icon,
-    format_timestamp,
     create_status_text,
+    format_timestamp,
+    get_icon,
+    print_error,
+    print_success,
 )
-from kosmos.cli.interactive import run_interactive_mode
 from kosmos.cli.views.results_viewer import ResultsViewer
 from kosmos.core.stage_tracker import get_stage_tracker
+
 
 logger = logging.getLogger(__name__)
 
 
 def run_research(
-    question: Optional[str] = typer.Argument(None, help="Research question to investigate"),
-    domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Research domain (biology, neuroscience, materials, etc.)"),
-    max_iterations: int = typer.Option(10, "--max-iterations", "-i", help="Maximum number of research iterations"),
-    budget: Optional[float] = typer.Option(None, "--budget", "-b", help="Budget limit in USD"),
+    question: str | None = typer.Argument(None, help="Research question to investigate"),
+    domain: str | None = typer.Option(
+        None, "--domain", "-d", help="Research domain (biology, neuroscience, materials, etc.)"
+    ),
+    max_iterations: int = typer.Option(
+        10, "--max-iterations", "-i", help="Maximum number of research iterations"
+    ),
+    budget: float | None = typer.Option(None, "--budget", "-b", help="Budget limit in USD"),
     no_cache: bool = typer.Option(False, "--no-cache", help="Disable caching"),
     interactive: bool = typer.Option(False, "--interactive", help="Use interactive mode"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save results to file (JSON or Markdown)"),
+    output: Path | None = typer.Option(
+        None, "--output", "-o", help="Save results to file (JSON or Markdown)"
+    ),
 ):
     """
     Run autonomous research on a scientific question.
@@ -92,11 +95,15 @@ def run_research(
     console.print()
     console.print(
         Panel(
-            f"[cyan]Starting autonomous research...[/cyan]\n\n"
-            f"**Question:** {question}\n"
-            f"**Domain:** {domain or 'auto-detect'}\n"
-            f"**Max Iterations:** {max_iterations}\n"
-            f"**Budget:** ${budget} USD" if budget else "**Budget:** No limit",
+            (
+                f"[cyan]Starting autonomous research...[/cyan]\n\n"
+                f"**Question:** {question}\n"
+                f"**Domain:** {domain or 'auto-detect'}\n"
+                f"**Max Iterations:** {max_iterations}\n"
+                f"**Budget:** ${budget} USD"
+                if budget
+                else "**Budget:** No limit"
+            ),
             title=f"[bright_blue]{get_icon('rocket')} Kosmos Research[/bright_blue]",
             border_style="bright_blue",
         )
@@ -133,14 +140,12 @@ def run_research(
             "min_novelty_score": config_obj.research.min_novelty_score,
             "enable_autonomous_iteration": config_obj.research.enable_autonomous_iteration,
             "budget_usd": config_obj.research.budget_usd,
-
             # Performance/concurrent operations settings
             "enable_concurrent_operations": config_obj.performance.enable_concurrent_operations,
             "max_parallel_hypotheses": config_obj.performance.max_parallel_hypotheses,
             "max_concurrent_experiments": config_obj.performance.max_concurrent_experiments,
             "max_concurrent_llm_calls": config_obj.performance.max_concurrent_llm_calls,
             "llm_rate_limit_per_minute": config_obj.performance.llm_rate_limit_per_minute,
-
             # LLM provider settings
             "llm_provider": config_obj.llm_provider,
             "enable_cache": cache_enabled,
@@ -148,9 +153,7 @@ def run_research(
 
         # Create research director
         director = ResearchDirectorAgent(
-            research_question=question,
-            domain=domain,
-            config=flat_config
+            research_question=question, domain=domain, config=flat_config
         )
 
         # Run research with live progress
@@ -178,13 +181,13 @@ def run_research(
 
     except KeyboardInterrupt:
         console.print("\n[warning]Research interrupted by user[/warning]")
-        raise typer.Exit(130)
+        raise typer.Exit(130) from None
 
     except Exception as e:
         print_error(f"Research failed: {str(e)}", title="Error")
         if "--debug" in sys.argv:
             raise
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def run_with_progress(director, question: str, max_iterations: int) -> dict:
@@ -258,7 +261,7 @@ def run_with_progress(director, question: str, max_iterations: int) -> dict:
                     print_error(
                         f"Research loop exceeded maximum runtime of {max_loop_duration}s. "
                         "This may indicate an infinite loop or hanging operation.",
-                        title="Timeout"
+                        title="Timeout",
                     )
                     break
 
@@ -280,6 +283,7 @@ def run_with_progress(director, question: str, max_iterations: int) -> dict:
 
                 # Update phase-specific progress based on workflow state
                 from kosmos.core.workflow import WorkflowState
+
                 workflow_state = status.get("workflow_state", WorkflowState.INITIALIZING.value)
 
                 if workflow_state == WorkflowState.GENERATING_HYPOTHESES.value:
@@ -297,7 +301,10 @@ def run_with_progress(director, question: str, max_iterations: int) -> dict:
                     logger.debug("Phase: Analyzing results")
                     progress.update(execution_task, completed=100)
                     progress.update(analysis_task, completed=50)
-                elif workflow_state in [WorkflowState.REFINING.value, WorkflowState.CONVERGED.value]:
+                elif workflow_state in [
+                    WorkflowState.REFINING.value,
+                    WorkflowState.CONVERGED.value,
+                ]:
                     logger.debug(f"Phase: {workflow_state}")
                     progress.update(analysis_task, completed=100)
 
@@ -321,11 +328,12 @@ def run_with_progress(director, question: str, max_iterations: int) -> dict:
                 loop_duration = time.time() - loop_iteration_start
                 logger.info(
                     "[ITER %d/%d] state=%s, hyps=%d, exps=%d, duration=%.2fs",
-                    iteration, max_iterations,
-                    status.get('workflow_state'),
-                    status.get('hypothesis_pool_size', 0),
-                    status.get('experiments_completed', 0),
-                    loop_duration
+                    iteration,
+                    max_iterations,
+                    status.get("workflow_state"),
+                    status.get("hypothesis_pool_size", 0),
+                    status.get("experiments_completed", 0),
+                    loop_duration,
                 )
 
                 # Small delay to allow UI updates
@@ -345,7 +353,7 @@ def run_with_progress(director, question: str, max_iterations: int) -> dict:
             # Build results from actual research
             # Fetch actual hypothesis and experiment objects from database
             from kosmos.db import get_session
-            from kosmos.db.operations import get_hypothesis, get_experiment
+            from kosmos.db.operations import get_experiment, get_hypothesis
 
             hypotheses_data = []
             experiments_data = []
@@ -359,18 +367,32 @@ def run_with_progress(director, question: str, max_iterations: int) -> dict:
                 else:
                     with get_session() as session:
                         # Fetch hypotheses from database using IDs
-                        if hasattr(director.research_plan, 'hypothesis_pool') and director.research_plan.hypothesis_pool:
+                        if (
+                            hasattr(director.research_plan, "hypothesis_pool")
+                            and director.research_plan.hypothesis_pool
+                        ):
                             for h_id in director.research_plan.hypothesis_pool:
                                 hypothesis = get_hypothesis(session, h_id)
                                 if hypothesis:
-                                    hypotheses_data.append(hypothesis.to_dict() if hasattr(hypothesis, 'to_dict') else str(hypothesis))
+                                    hypotheses_data.append(
+                                        hypothesis.to_dict()
+                                        if hasattr(hypothesis, "to_dict")
+                                        else str(hypothesis)
+                                    )
 
                         # Fetch experiments from database using IDs
-                        if hasattr(director.research_plan, 'completed_experiments') and director.research_plan.completed_experiments:
+                        if (
+                            hasattr(director.research_plan, "completed_experiments")
+                            and director.research_plan.completed_experiments
+                        ):
                             for e_id in director.research_plan.completed_experiments:
                                 experiment = get_experiment(session, e_id)
                                 if experiment:
-                                    experiments_data.append(experiment.to_dict() if hasattr(experiment, 'to_dict') else str(experiment))
+                                    experiments_data.append(
+                                        experiment.to_dict()
+                                        if hasattr(experiment, "to_dict")
+                                        else str(experiment)
+                                    )
             except Exception as e:
                 logger.warning(f"Could not fetch all objects from database: {e}")
                 # Fallback: use IDs as strings
@@ -389,9 +411,9 @@ def run_with_progress(director, question: str, max_iterations: int) -> dict:
                 "hypotheses": hypotheses_data,
                 "experiments": experiments_data,
                 "metrics": {
-                    "api_calls": getattr(director.llm_client, 'total_requests', 0),
-                    "cache_hits": getattr(director.llm_client, 'cache_hits', 0),
-                    "cache_misses": getattr(director.llm_client, 'cache_misses', 0),
+                    "api_calls": getattr(director.llm_client, "total_requests", 0),
+                    "cache_hits": getattr(director.llm_client, "cache_hits", 0),
+                    "cache_misses": getattr(director.llm_client, "cache_misses", 0),
                     "hypotheses_generated": final_status.get("hypothesis_pool_size", 0),
                     "hypotheses_tested": final_status.get("hypotheses_tested", 0),
                     "hypotheses_supported": final_status.get("hypotheses_supported", 0),

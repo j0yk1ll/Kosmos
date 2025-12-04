@@ -6,11 +6,13 @@ INITIALIZING → GENERATING_HYPOTHESES → DESIGNING_EXPERIMENTS → EXECUTING
 → ANALYZING → REFINING → (loop or CONVERGED)
 """
 
-from enum import Enum
-from typing import List, Dict, Optional, Any
-from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
 import logging
+from datetime import datetime
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +53,7 @@ class WorkflowTransition(BaseModel):
     to_state: WorkflowState
     action: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ResearchPlan(BaseModel):
@@ -60,22 +62,22 @@ class ResearchPlan(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
     research_question: str
-    domain: Optional[str] = None
+    domain: str | None = None
     initial_strategy: str = ""
     current_state: WorkflowState = WorkflowState.INITIALIZING
 
     # Hypothesis tracking
-    hypothesis_pool: List[str] = Field(default_factory=list)  # Hypothesis IDs
-    tested_hypotheses: List[str] = Field(default_factory=list)
-    supported_hypotheses: List[str] = Field(default_factory=list)
-    rejected_hypotheses: List[str] = Field(default_factory=list)
+    hypothesis_pool: list[str] = Field(default_factory=list)  # Hypothesis IDs
+    tested_hypotheses: list[str] = Field(default_factory=list)
+    supported_hypotheses: list[str] = Field(default_factory=list)
+    rejected_hypotheses: list[str] = Field(default_factory=list)
 
     # Experiment tracking
-    experiment_queue: List[str] = Field(default_factory=list)  # Protocol IDs
-    completed_experiments: List[str] = Field(default_factory=list)
+    experiment_queue: list[str] = Field(default_factory=list)  # Protocol IDs
+    completed_experiments: list[str] = Field(default_factory=list)
 
     # Results tracking
-    results: List[str] = Field(default_factory=list)  # Result IDs
+    results: list[str] = Field(default_factory=list)  # Result IDs
 
     # Iteration tracking
     iteration_count: int = 0
@@ -83,15 +85,15 @@ class ResearchPlan(BaseModel):
 
     # Convergence
     has_converged: bool = False
-    convergence_reason: Optional[str] = None
+    convergence_reason: str | None = None
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Additional metadata
-    success_criteria: Dict[str, Any] = Field(default_factory=dict)
-    resource_limits: Dict[str, Any] = Field(default_factory=dict)
+    success_criteria: dict[str, Any] = Field(default_factory=dict)
+    resource_limits: dict[str, Any] = Field(default_factory=dict)
 
     def update_timestamp(self):
         """Update the updated_at timestamp."""
@@ -146,7 +148,7 @@ class ResearchPlan(BaseModel):
         self.iteration_count += 1
         self.update_timestamp()
 
-    def get_untested_hypotheses(self) -> List[str]:
+    def get_untested_hypotheses(self) -> list[str]:
         """Get list of hypotheses that haven't been tested."""
         return [h for h in self.hypothesis_pool if h not in self.tested_hypotheses]
 
@@ -176,37 +178,37 @@ class ResearchWorkflow:
         WorkflowState.INITIALIZING: [
             WorkflowState.GENERATING_HYPOTHESES,
             WorkflowState.PAUSED,
-            WorkflowState.ERROR
+            WorkflowState.ERROR,
         ],
         WorkflowState.GENERATING_HYPOTHESES: [
             WorkflowState.DESIGNING_EXPERIMENTS,
             WorkflowState.CONVERGED,
             WorkflowState.PAUSED,
-            WorkflowState.ERROR
+            WorkflowState.ERROR,
         ],
         WorkflowState.DESIGNING_EXPERIMENTS: [
             WorkflowState.EXECUTING,
             WorkflowState.GENERATING_HYPOTHESES,  # If need more hypotheses
             WorkflowState.PAUSED,
-            WorkflowState.ERROR
+            WorkflowState.ERROR,
         ],
         WorkflowState.EXECUTING: [
             WorkflowState.ANALYZING,
             WorkflowState.ERROR,
-            WorkflowState.PAUSED
+            WorkflowState.PAUSED,
         ],
         WorkflowState.ANALYZING: [
             WorkflowState.REFINING,
             WorkflowState.DESIGNING_EXPERIMENTS,  # If need immediate retest
             WorkflowState.PAUSED,
-            WorkflowState.ERROR
+            WorkflowState.ERROR,
         ],
         WorkflowState.REFINING: [
             WorkflowState.GENERATING_HYPOTHESES,  # Generate new/refined hypotheses
             WorkflowState.DESIGNING_EXPERIMENTS,  # Design follow-up experiments
             WorkflowState.CONVERGED,  # Research complete
             WorkflowState.PAUSED,
-            WorkflowState.ERROR
+            WorkflowState.ERROR,
         ],
         WorkflowState.CONVERGED: [
             WorkflowState.GENERATING_HYPOTHESES,  # Restart if new question
@@ -217,19 +219,19 @@ class ResearchWorkflow:
             WorkflowState.EXECUTING,
             WorkflowState.ANALYZING,
             WorkflowState.REFINING,
-            WorkflowState.ERROR
+            WorkflowState.ERROR,
         ],
         WorkflowState.ERROR: [
             WorkflowState.INITIALIZING,  # Restart
             WorkflowState.GENERATING_HYPOTHESES,  # Resume from hypothesis gen
-            WorkflowState.PAUSED
-        ]
+            WorkflowState.PAUSED,
+        ],
     }
 
     def __init__(
         self,
         initial_state: WorkflowState = WorkflowState.INITIALIZING,
-        research_plan: Optional[ResearchPlan] = None
+        research_plan: ResearchPlan | None = None,
     ):
         """
         Initialize workflow state machine.
@@ -240,7 +242,7 @@ class ResearchWorkflow:
         """
         self.current_state = initial_state
         self.research_plan = research_plan
-        self.transition_history: List[WorkflowTransition] = []
+        self.transition_history: list[WorkflowTransition] = []
 
         logger.info(f"ResearchWorkflow initialized in state: {self.current_state}")
 
@@ -258,10 +260,7 @@ class ResearchWorkflow:
         return target_state in allowed
 
     def transition_to(
-        self,
-        target_state: WorkflowState,
-        action: str = "",
-        metadata: Optional[Dict[str, Any]] = None
+        self, target_state: WorkflowState, action: str = "", metadata: dict[str, Any] | None = None
     ) -> bool:
         """
         Transition to a new state.
@@ -296,7 +295,7 @@ class ResearchWorkflow:
             target_state.value,
             self.current_state.value,
             time_in_state,
-            action
+            action,
         )
 
         # Create transition record
@@ -304,7 +303,7 @@ class ResearchWorkflow:
             from_state=self.current_state,
             to_state=target_state,
             action=action or f"Transition to {target_state}",
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         # Update state
@@ -319,15 +318,15 @@ class ResearchWorkflow:
         logger.info(f"Transitioned to {target_state}: {action}")
         return True
 
-    def get_allowed_next_states(self) -> List[WorkflowState]:
+    def get_allowed_next_states(self) -> list[WorkflowState]:
         """Get list of states that can be transitioned to from current state."""
         return self.ALLOWED_TRANSITIONS.get(self.current_state, [])
 
-    def get_transition_history(self) -> List[WorkflowTransition]:
+    def get_transition_history(self) -> list[WorkflowTransition]:
         """Get full transition history."""
         return self.transition_history.copy()
 
-    def get_recent_transitions(self, n: int = 5) -> List[WorkflowTransition]:
+    def get_recent_transitions(self, n: int = 5) -> list[WorkflowTransition]:
         """Get N most recent transitions."""
         return self.transition_history[-n:]
 
@@ -340,7 +339,7 @@ class ResearchWorkflow:
             self.research_plan.update_timestamp()
         logger.info("ResearchWorkflow reset to INITIALIZING state")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Export workflow state to dictionary."""
         return {
             "current_state": self.current_state.value,
@@ -350,10 +349,10 @@ class ResearchWorkflow:
                     "from": t.from_state.value,
                     "to": t.to_state.value,
                     "action": t.action,
-                    "timestamp": t.timestamp.isoformat()
+                    "timestamp": t.timestamp.isoformat(),
                 }
                 for t in self.get_recent_transitions(5)
-            ]
+            ],
         }
 
     def get_state_duration(self, state: WorkflowState) -> float:
@@ -387,7 +386,7 @@ class ResearchWorkflow:
 
         return total_seconds
 
-    def get_state_statistics(self) -> Dict[str, Any]:
+    def get_state_statistics(self) -> dict[str, Any]:
         """Get statistics about state transitions."""
         state_counts = {}
         state_durations = {}
@@ -404,5 +403,5 @@ class ResearchWorkflow:
             "state_visit_counts": state_counts,
             "state_durations_seconds": state_durations,
             "total_transitions": len(self.transition_history),
-            "current_state": self.current_state.value
+            "current_state": self.current_state.value,
         }

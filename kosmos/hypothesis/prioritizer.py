@@ -9,13 +9,12 @@ Ranks hypotheses using multi-criteria scoring:
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 
-from kosmos.models.hypothesis import Hypothesis, PrioritizedHypothesis
+from kosmos.core.llm import get_client
 from kosmos.hypothesis.novelty_checker import NoveltyChecker
 from kosmos.hypothesis.testability import TestabilityAnalyzer
-from kosmos.core.llm import get_client
+from kosmos.models.hypothesis import Hypothesis, PrioritizedHypothesis
+
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +45,10 @@ class HypothesisPrioritizer:
 
     def __init__(
         self,
-        weights: Optional[Dict[str, float]] = None,
+        weights: dict[str, float] | None = None,
         use_novelty_checker: bool = True,
         use_testability_analyzer: bool = True,
-        use_impact_prediction: bool = True
+        use_impact_prediction: bool = True,
     ):
         """
         Initialize hypothesis prioritizer.
@@ -65,7 +64,7 @@ class HypothesisPrioritizer:
             "novelty": 0.30,
             "feasibility": 0.25,
             "impact": 0.25,
-            "testability": 0.20
+            "testability": 0.20,
         }
 
         # Validate weights
@@ -85,10 +84,8 @@ class HypothesisPrioritizer:
         logger.info(f"Initialized HypothesisPrioritizer with weights: {self.weights}")
 
     def prioritize(
-        self,
-        hypotheses: List[Hypothesis],
-        run_analysis: bool = True
-    ) -> List[PrioritizedHypothesis]:
+        self, hypotheses: list[Hypothesis], run_analysis: bool = True
+    ) -> list[PrioritizedHypothesis]:
         """
         Prioritize and rank a list of hypotheses.
 
@@ -131,10 +128,10 @@ class HypothesisPrioritizer:
 
                 # Calculate weighted priority score
                 priority_score = (
-                    self.weights["novelty"] * novelty_score +
-                    self.weights["feasibility"] * feasibility_score +
-                    self.weights["impact"] * impact_score +
-                    self.weights["testability"] * testability_score
+                    self.weights["novelty"] * novelty_score
+                    + self.weights["feasibility"] * feasibility_score
+                    + self.weights["impact"] * impact_score
+                    + self.weights["testability"] * testability_score
                 )
 
                 priority_score = max(0.0, min(1.0, priority_score))
@@ -153,7 +150,7 @@ class HypothesisPrioritizer:
                     impact_score=impact_score,
                     testability_score=testability_score,
                     weights=self.weights.copy(),
-                    priority_rationale=rationale
+                    priority_rationale=rationale,
                 )
 
                 prioritized.append(prioritized_hyp)
@@ -198,11 +195,13 @@ class HypothesisPrioritizer:
             try:
                 testability_report = self.testability_analyzer.analyze_testability(hypothesis)
                 hypothesis.testability_score = testability_report.testability_score
-                hypothesis.suggested_experiment_types = [exp["type"] for exp in testability_report.suggested_experiments[:2]]
+                hypothesis.suggested_experiment_types = [
+                    exp["type"] for exp in testability_report.suggested_experiments[:2]
+                ]
                 hypothesis.estimated_resources = {
                     "compute_hours": testability_report.estimated_compute_hours,
                     "cost_usd": testability_report.estimated_cost_usd,
-                    "duration_days": testability_report.estimated_duration_days
+                    "duration_days": testability_report.estimated_duration_days,
                 }
             except Exception as e:
                 logger.error(f"Error analyzing testability: {e}")
@@ -330,11 +329,13 @@ Provide a JSON response:
                 prompt=prompt,
                 schema={"impact_score": "float", "reasoning": "string"},
                 max_tokens=300,
-                temperature=0.5
+                temperature=0.5,
             )
 
             impact_score = response.get("impact_score", 0.5)
-            logger.debug(f"LLM impact score: {impact_score:.2f} - {response.get('reasoning', '')[:50]}")
+            logger.debug(
+                f"LLM impact score: {impact_score:.2f} - {response.get('reasoning', '')[:50]}"
+            )
 
             return max(0.0, min(1.0, impact_score))
 
@@ -358,8 +359,9 @@ Provide a JSON response:
         rationale = hypothesis.rationale.lower()
 
         # Quantitative predictions suggest higher impact
-        if any(term in statement for term in ["increase", "decrease", "improve", "reduce"]) and \
-           any(char in statement for char in ["%", "fold", "factor"]):
+        if any(term in statement for term in ["increase", "decrease", "improve", "reduce"]) and any(
+            char in statement for char in ["%", "fold", "factor"]
+        ):
             score += 0.15
 
         # Causal claims have higher potential impact
@@ -375,7 +377,9 @@ Provide a JSON response:
             score += 0.10
 
         # Fundamental questions
-        if any(term in statement for term in ["fundamental", "core", "key", "crucial", "essential"]):
+        if any(
+            term in statement for term in ["fundamental", "core", "key", "crucial", "essential"]
+        ):
             score += 0.10
 
         # Broad implications
@@ -393,7 +397,7 @@ Provide a JSON response:
         novelty_score: float,
         feasibility_score: float,
         impact_score: float,
-        testability_score: float
+        testability_score: float,
     ) -> str:
         """
         Generate human-readable priority rationale.
@@ -412,7 +416,7 @@ Provide a JSON response:
             "novelty": novelty_score,
             "feasibility": feasibility_score,
             "impact": impact_score,
-            "testability": testability_score
+            "testability": testability_score,
         }
 
         # Sort by score
@@ -435,10 +439,10 @@ Provide a JSON response:
 
         # Overall assessment
         priority_score = (
-            self.weights["novelty"] * novelty_score +
-            self.weights["feasibility"] * feasibility_score +
-            self.weights["impact"] * impact_score +
-            self.weights["testability"] * testability_score
+            self.weights["novelty"] * novelty_score
+            + self.weights["feasibility"] * feasibility_score
+            + self.weights["impact"] * impact_score
+            + self.weights["testability"] * testability_score
         )
 
         if priority_score >= 0.75:
@@ -511,9 +515,8 @@ class ImpactPredictor:
 
 
 def prioritize_hypotheses(
-    hypotheses: List[Hypothesis],
-    weights: Optional[Dict[str, float]] = None
-) -> List[PrioritizedHypothesis]:
+    hypotheses: list[Hypothesis], weights: dict[str, float] | None = None
+) -> list[PrioritizedHypothesis]:
     """
     Convenience function to prioritize hypotheses.
 

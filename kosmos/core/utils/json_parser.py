@@ -11,9 +11,10 @@ may produce, including:
 """
 
 import json
-import re
 import logging
-from typing import Any, Dict, Optional
+import re
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,8 @@ class JSONParseError(Exception):
 
 
 def parse_json_response(
-    response_text: str,
-    schema: Optional[Dict[str, Any]] = None,
-    strict: bool = False
-) -> Dict[str, Any]:
+    response_text: str, schema: dict[str, Any] | None = None, strict: bool = False
+) -> dict[str, Any]:
     """
     Parse JSON from model response with multiple fallback strategies.
 
@@ -65,17 +64,15 @@ def parse_json_response(
     attempts += 1
     try:
         return json.loads(text)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         if strict:
             raise JSONParseError(
-                f"JSON decode failed: {text[:100]}...",
-                response_text,
-                attempts
-            )
+                f"JSON decode failed: {text[:100]}...", response_text, attempts
+            ) from e
 
     # Strategy 2: Extract from ```json code blocks
     attempts += 1
-    json_block_match = re.search(r'```json\s*([\s\S]*?)\s*```', text)
+    json_block_match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
     if json_block_match:
         try:
             return json.loads(json_block_match.group(1).strip())
@@ -84,11 +81,11 @@ def parse_json_response(
 
     # Strategy 2b: Extract from unclosed ```json blocks (truncated responses)
     attempts += 1
-    unclosed_json_match = re.search(r'```json\s*([\s\S]+)', text)
+    unclosed_json_match = re.search(r"```json\s*([\s\S]+)", text)
     if unclosed_json_match and not json_block_match:
         # Try to find complete JSON object within the unclosed block
         block_content = unclosed_json_match.group(1).strip()
-        json_obj_in_block = re.search(r'(\{[\s\S]*\})', block_content)
+        json_obj_in_block = re.search(r"(\{[\s\S]*\})", block_content)
         if json_obj_in_block:
             try:
                 return json.loads(json_obj_in_block.group(1))
@@ -97,11 +94,13 @@ def parse_json_response(
 
     # Strategy 3: Extract from ``` code blocks (without json marker)
     attempts += 1
-    code_block_match = re.search(r'```\s*([\s\S]*?)\s*```', text)
+    code_block_match = re.search(r"```\s*([\s\S]*?)\s*```", text)
     if code_block_match:
         block_content = code_block_match.group(1).strip()
         # Skip if it looks like code (has common code markers)
-        if not any(marker in block_content for marker in ['def ', 'class ', 'import ', 'function ']):
+        if not any(
+            marker in block_content for marker in ["def ", "class ", "import ", "function "]
+        ):
             try:
                 return json.loads(block_content)
             except json.JSONDecodeError:
@@ -109,7 +108,7 @@ def parse_json_response(
 
     # Strategy 4: Extract JSON object using regex (find first {...})
     attempts += 1
-    json_obj_match = re.search(r'\{[\s\S]*\}', text)
+    json_obj_match = re.search(r"\{[\s\S]*\}", text)
     if json_obj_match:
         try:
             return json.loads(json_obj_match.group(0))
@@ -147,11 +146,7 @@ def parse_json_response(
     logger.warning(f"JSON parsing failed after {attempts} attempts")
     logger.debug(f"Original text: {text[:500]}...")
 
-    raise JSONParseError(
-        f"Could not parse JSON from response",
-        response_text,
-        attempts
-    )
+    raise JSONParseError("Could not parse JSON from response", response_text, attempts)
 
 
 def _clean_json_string(text: str) -> str:
@@ -182,16 +177,16 @@ def _clean_json_string(text: str) -> str:
     text = re.sub(r"(?<=[{,\[])\s*'([^']*?)'\s*(?=:)", r'"\1"', text)
 
     # Remove trailing commas before } or ]
-    text = re.sub(r',\s*}', '}', text)
-    text = re.sub(r',\s*]', ']', text)
+    text = re.sub(r",\s*}", "}", text)
+    text = re.sub(r",\s*]", "]", text)
 
     # Remove any control characters except newlines and tabs
-    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
 
     return text
 
 
-def extract_json_value(text: str, key: str) -> Optional[str]:
+def extract_json_value(text: str, key: str) -> str | None:
     """
     Extract a specific key's value from potentially malformed JSON.
 
@@ -205,11 +200,11 @@ def extract_json_value(text: str, key: str) -> Optional[str]:
         Value if found, None otherwise
     """
     patterns = [
-        rf'"{key}"\s*:\s*"([^"]*)"',      # "key": "value"
-        rf'"{key}"\s*:\s*(\d+\.?\d*)',     # "key": number
-        rf'"{key}"\s*:\s*(true|false)',    # "key": boolean
-        rf'{key}\s*:\s*"([^"]*)"',         # key: "value" (unquoted key)
-        rf'{key}\s*:\s*([^\n,}}]+)',       # key: value (loose)
+        rf'"{key}"\s*:\s*"([^"]*)"',  # "key": "value"
+        rf'"{key}"\s*:\s*(\d+\.?\d*)',  # "key": number
+        rf'"{key}"\s*:\s*(true|false)',  # "key": boolean
+        rf'{key}\s*:\s*"([^"]*)"',  # key: "value" (unquoted key)
+        rf"{key}\s*:\s*([^\n,}}]+)",  # key: value (loose)
     ]
 
     for pattern in patterns:

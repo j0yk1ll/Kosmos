@@ -7,23 +7,19 @@ Note: All async tests have explicit timeouts to prevent hanging.
 Integration tests are skipped by default (require real API keys).
 """
 
-import pytest
 import asyncio
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from kosmos.core.async_llm import (
-    AsyncClaudeClient,
-    BatchRequest,
-    BatchResponse,
-    RateLimiter
-)
+import pytest
+
+from kosmos.core.async_llm import AsyncClaudeClient, BatchRequest, BatchResponse, RateLimiter
 
 
 # Skip integration tests by default
 SKIP_INTEGRATION = pytest.mark.skipif(
     not os.getenv("RUN_INTEGRATION_TESTS"),
-    reason="Integration tests skipped (set RUN_INTEGRATION_TESTS=1 to run)"
+    reason="Integration tests skipped (set RUN_INTEGRATION_TESTS=1 to run)",
 )
 
 
@@ -37,7 +33,7 @@ class TestBatchRequest:
             prompt="Test prompt",
             system="Test system",
             temperature=0.7,
-            max_tokens=1000
+            max_tokens=1000,
         )
 
         assert req.id == "test-1"
@@ -51,11 +47,7 @@ class TestBatchResponse:
     def test_success_response(self):
         """Test successful response."""
         resp = BatchResponse(
-            id="test-1",
-            response="Test response",
-            success=True,
-            tokens_used=50,
-            latency_ms=500.0
+            id="test-1", response="Test response", success=True, tokens_used=50, latency_ms=500.0
         )
 
         assert resp.success is True
@@ -63,12 +55,7 @@ class TestBatchResponse:
 
     def test_error_response(self):
         """Test error response."""
-        resp = BatchResponse(
-            id="test-1",
-            response="",
-            success=False,
-            error="Rate limit exceeded"
-        )
+        resp = BatchResponse(id="test-1", response="", success=False, error="Rate limit exceeded")
 
         assert resp.success is False
         assert resp.error == "Rate limit exceeded"
@@ -98,6 +85,7 @@ class TestRateLimiter:
 
         # Next acquire should be quick (bucket not empty)
         import time
+
         start = time.time()
         await asyncio.wait_for(limiter.acquire(), timeout=5.0)
         elapsed = time.time() - start
@@ -113,7 +101,7 @@ class TestAsyncClaudeClient:
     @pytest.fixture
     def mock_client(self):
         """Create AsyncClaudeClient with mocked Anthropic client."""
-        with patch('kosmos.core.async_llm.AsyncAnthropic') as mock:
+        with patch("kosmos.core.async_llm.AsyncAnthropic") as mock:
             # Mock the async messages.create method
             mock_instance = MagicMock()
             mock.return_value = mock_instance
@@ -121,10 +109,7 @@ class TestAsyncClaudeClient:
             # Create mock response
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text="Test response")]
-            mock_response.usage = MagicMock(
-                input_tokens=10,
-                output_tokens=20
-            )
+            mock_response.usage = MagicMock(input_tokens=10, output_tokens=20)
 
             # Make messages.create return an awaitable
             async def mock_create(*args, **kwargs):
@@ -133,9 +118,7 @@ class TestAsyncClaudeClient:
             mock_instance.messages.create = mock_create
 
             client = AsyncClaudeClient(
-                api_key="test-key",
-                max_concurrent=5,
-                max_requests_per_minute=50
+                api_key="test-key", max_concurrent=5, max_requests_per_minute=50
             )
             client.client = mock_instance
 
@@ -143,10 +126,7 @@ class TestAsyncClaudeClient:
 
     async def test_generate_single(self, mock_client):
         """Test generating single response."""
-        response = await mock_client.generate(
-            prompt="Test prompt",
-            system="Test system"
-        )
+        response = await mock_client.generate(prompt="Test prompt", system="Test system")
 
         assert response == "Test response"
 
@@ -155,7 +135,7 @@ class TestAsyncClaudeClient:
         requests = [
             BatchRequest(id="1", prompt="Prompt 1", temperature=0.7),
             BatchRequest(id="2", prompt="Prompt 2", temperature=0.7),
-            BatchRequest(id="3", prompt="Prompt 3", temperature=0.7)
+            BatchRequest(id="3", prompt="Prompt 3", temperature=0.7),
         ]
 
         responses = await mock_client.batch_generate(requests)
@@ -166,7 +146,7 @@ class TestAsyncClaudeClient:
 
     async def test_batch_generate_with_errors(self):
         """Test batch generation with some failures."""
-        with patch('kosmos.core.async_llm.AsyncAnthropic') as mock:
+        with patch("kosmos.core.async_llm.AsyncAnthropic") as mock:
             mock_instance = MagicMock()
             mock.return_value = mock_instance
 
@@ -188,15 +168,13 @@ class TestAsyncClaudeClient:
             mock_instance.messages.create = mock_create
 
             client = AsyncClaudeClient(
-                api_key="test-key",
-                max_concurrent=5,
-                max_requests_per_minute=50
+                api_key="test-key", max_concurrent=5, max_requests_per_minute=50
             )
             client.client = mock_instance
 
             requests = [
                 BatchRequest(id="1", prompt="Prompt 1", temperature=0.7),
-                BatchRequest(id="2", prompt="Prompt 2", temperature=0.7)
+                BatchRequest(id="2", prompt="Prompt 2", temperature=0.7),
             ]
 
             responses = await client.batch_generate(requests)
@@ -210,8 +188,7 @@ class TestAsyncClaudeClient:
         """Test concurrent request limiting."""
         # Create more requests than max_concurrent
         requests = [
-            BatchRequest(id=str(i), prompt=f"Prompt {i}", temperature=0.7)
-            for i in range(15)
+            BatchRequest(id=str(i), prompt=f"Prompt {i}", temperature=0.7) for i in range(15)
         ]
 
         responses = await mock_client.batch_generate(requests)
@@ -222,7 +199,7 @@ class TestAsyncClaudeClient:
 
     async def test_timeout_handling(self):
         """Test request timeout handling."""
-        with patch('kosmos.core.async_llm.AsyncAnthropic') as mock:
+        with patch("kosmos.core.async_llm.AsyncAnthropic") as mock:
             mock_instance = MagicMock()
             mock.return_value = mock_instance
 
@@ -240,7 +217,7 @@ class TestAsyncClaudeClient:
                 api_key="test-key",
                 max_concurrent=5,
                 max_requests_per_minute=50,
-                timeout=1  # 1 second timeout
+                timeout=1,  # 1 second timeout
             )
             client.client = mock_instance
 
@@ -249,13 +226,12 @@ class TestAsyncClaudeClient:
             # Use asyncio.wait_for to prevent test from hanging
             try:
                 responses = await asyncio.wait_for(
-                    client.batch_generate(requests),
-                    timeout=10.0  # Overall test timeout
+                    client.batch_generate(requests), timeout=10.0  # Overall test timeout
                 )
                 # Should fail with timeout
                 assert responses[0].success is False
                 assert "timeout" in responses[0].error.lower()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # If batch_generate itself times out, that's also acceptable
                 pass
 
@@ -271,7 +247,7 @@ class TestAsyncClaudeClient:
         """Test token usage tracking."""
         requests = [
             BatchRequest(id="1", prompt="Prompt 1", temperature=0.7),
-            BatchRequest(id="2", prompt="Prompt 2", temperature=0.7)
+            BatchRequest(id="2", prompt="Prompt 2", temperature=0.7),
         ]
 
         responses = await mock_client.batch_generate(requests)
@@ -282,7 +258,7 @@ class TestAsyncClaudeClient:
 
     async def test_latency_tracking(self, mock_client):
         """Test latency measurement."""
-        response = await mock_client.generate(prompt="Test")
+        await mock_client.generate(prompt="Test")
 
         # Should have measured some latency
         # Note: In mock, latency will be very small but > 0
@@ -305,11 +281,7 @@ class TestAsyncClaudeClientIntegration:
         if not api_key or api_key.startswith("999"):
             pytest.skip("Real Anthropic API key not available")
 
-        return AsyncClaudeClient(
-            api_key=api_key,
-            max_concurrent=2,
-            max_requests_per_minute=10
-        )
+        return AsyncClaudeClient(api_key=api_key, max_concurrent=2, max_requests_per_minute=10)
 
     @pytest.mark.asyncio
     @pytest.mark.integration
@@ -319,9 +291,9 @@ class TestAsyncClaudeClientIntegration:
             real_client.generate(
                 prompt="Say 'test' and nothing else.",
                 system="You are a helpful assistant.",
-                max_tokens=10
+                max_tokens=10,
             ),
-            timeout=30.0
+            timeout=30.0,
         )
 
         assert len(response) > 0
@@ -337,15 +309,12 @@ class TestAsyncClaudeClientIntegration:
                 prompt=f"Count to {i+1}",
                 system="You are a helpful assistant.",
                 max_tokens=50,
-                temperature=0.7
+                temperature=0.7,
             )
             for i in range(3)
         ]
 
-        responses = await asyncio.wait_for(
-            real_client.batch_generate(requests),
-            timeout=60.0
-        )
+        responses = await asyncio.wait_for(real_client.batch_generate(requests), timeout=60.0)
 
         assert len(responses) == 3
         assert all(r.success for r in responses)
@@ -360,7 +329,7 @@ class TestErrorHandling:
 
     async def test_invalid_api_key(self):
         """Test handling of invalid API key."""
-        with patch('kosmos.core.async_llm.AsyncAnthropic') as mock:
+        with patch("kosmos.core.async_llm.AsyncAnthropic") as mock:
             mock_instance = MagicMock()
             mock.return_value = mock_instance
 
@@ -373,23 +342,18 @@ class TestErrorHandling:
             mock_instance.messages.create = mock_create
 
             client = AsyncClaudeClient(
-                api_key="invalid-key",
-                max_concurrent=5,
-                max_requests_per_minute=50
+                api_key="invalid-key", max_concurrent=5, max_requests_per_minute=50
             )
             client.client = mock_instance
 
-            with pytest.raises(Exception):
-                await asyncio.wait_for(
-                    client.generate(prompt="Test"),
-                    timeout=10.0
-                )
+            with pytest.raises((asyncio.TimeoutError, RuntimeError)):
+                await asyncio.wait_for(client.generate(prompt="Test"), timeout=10.0)
 
             await client.close()
 
     async def test_network_error_retry(self):
         """Test retry logic on network errors."""
-        with patch('kosmos.core.async_llm.AsyncAnthropic') as mock:
+        with patch("kosmos.core.async_llm.AsyncAnthropic") as mock:
             mock_instance = MagicMock()
             mock.return_value = mock_instance
 
@@ -411,18 +375,12 @@ class TestErrorHandling:
             mock_instance.messages.create = mock_create
 
             client = AsyncClaudeClient(
-                api_key="test-key",
-                max_concurrent=5,
-                max_requests_per_minute=50,
-                max_retries=3
+                api_key="test-key", max_concurrent=5, max_requests_per_minute=50, max_retries=3
             )
             client.client = mock_instance
 
             # Should eventually succeed after retries (with timeout)
-            response = await asyncio.wait_for(
-                client.generate(prompt="Test"),
-                timeout=30.0
-            )
+            response = await asyncio.wait_for(client.generate(prompt="Test"), timeout=30.0)
             assert response == "Success after retry"
 
             await client.close()

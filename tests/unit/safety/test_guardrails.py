@@ -4,24 +4,26 @@ Tests for safety guardrails.
 Tests emergency stop, resource limits, incident logging, and safety context.
 """
 
-import pytest
 import json
-import signal
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call
-from datetime import datetime
+from unittest.mock import Mock, patch
 
-from kosmos.safety.guardrails import SafetyGuardrails
+import pytest
+
 from kosmos.models.safety import (
-    SafetyReport, SafetyViolation, SafetyIncident,
-    ViolationType, RiskLevel, ResourceLimit, EmergencyStopStatus
+    ResourceLimit,
+    RiskLevel,
+    SafetyIncident,
+    SafetyViolation,
+    ViolationType,
 )
+from kosmos.safety.guardrails import SafetyGuardrails
 
 
 class TestSafetyGuardrailsInitialization:
     """Tests for SafetyGuardrails initialization."""
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_init_default_settings(self, mock_get_config):
         """Test initialization with default settings."""
         mock_config = Mock()
@@ -36,7 +38,7 @@ class TestSafetyGuardrailsInitialization:
         assert guardrails.emergency_stop.is_active is False
         assert guardrails.default_resource_limits.max_memory_mb == 2048
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_init_custom_incident_log_path(self, mock_get_config):
         """Test initialization with custom incident log path."""
         mock_config = Mock()
@@ -45,14 +47,13 @@ class TestSafetyGuardrailsInitialization:
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(
-            incident_log_path="/custom/path/incidents.log",
-            enable_signal_handlers=False
+            incident_log_path="/custom/path/incidents.log", enable_signal_handlers=False
         )
 
         assert guardrails.incident_log_path == "/custom/path/incidents.log"
 
-    @patch('kosmos.safety.guardrails.signal.signal')
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.signal.signal")
+    @patch("kosmos.safety.guardrails.get_config")
     def test_init_registers_signal_handlers(self, mock_get_config, mock_signal):
         """Test that signal handlers are registered."""
         mock_config = Mock()
@@ -60,12 +61,12 @@ class TestSafetyGuardrailsInitialization:
         mock_config.safety.max_execution_time = 300
         mock_get_config.return_value = mock_config
 
-        guardrails = SafetyGuardrails(enable_signal_handlers=True)
+        SafetyGuardrails(enable_signal_handlers=True)
 
         # Should register SIGTERM and SIGINT
         assert mock_signal.call_count >= 2
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_init_creates_resource_limits_from_config(self, mock_get_config):
         """Test that resource limits are created from config."""
         mock_config = Mock()
@@ -85,7 +86,7 @@ class TestSafetyGuardrailsInitialization:
 class TestCodeValidation:
     """Tests for code validation through guardrails."""
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_validate_code_passes_safe_code(self, mock_get_config):
         """Test that safe code passes validation."""
         mock_config = Mock()
@@ -101,7 +102,7 @@ class TestCodeValidation:
         assert report.passed
         assert len(report.violations) == 0
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_validate_code_blocks_dangerous_code(self, mock_get_config):
         """Test that dangerous code is blocked."""
         mock_config = Mock()
@@ -117,7 +118,7 @@ class TestCodeValidation:
         assert not report.passed
         assert len(report.violations) > 0
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_validate_code_logs_violations(self, mock_get_config, tmp_path):
         """Test that violations are logged as incidents."""
         mock_config = Mock()
@@ -127,18 +128,17 @@ class TestCodeValidation:
 
         incident_log = tmp_path / "incidents.jsonl"
         guardrails = SafetyGuardrails(
-            incident_log_path=str(incident_log),
-            enable_signal_handlers=False
+            incident_log_path=str(incident_log), enable_signal_handlers=False
         )
         code = "import os"
 
-        report = guardrails.validate_code(code)
+        guardrails.validate_code(code)
 
         # Should log incident
         assert len(guardrails.incidents) > 0
         assert incident_log.exists()
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_validate_code_raises_if_emergency_stop_active(self, mock_get_config):
         """Test that validation raises error if emergency stop is active."""
         mock_config = Mock()
@@ -147,15 +147,12 @@ class TestCodeValidation:
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
-        guardrails.trigger_emergency_stop(
-            triggered_by="test",
-            reason="Test stop"
-        )
+        guardrails.trigger_emergency_stop(triggered_by="test", reason="Test stop")
 
         with pytest.raises(RuntimeError, match="Emergency stop"):
             guardrails.validate_code("x = 1")
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_validate_code_includes_context(self, mock_get_config):
         """Test that context is passed to validator."""
         mock_config = Mock()
@@ -176,7 +173,7 @@ class TestCodeValidation:
 class TestResourceLimitEnforcement:
     """Tests for resource limit enforcement."""
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_enforce_uses_defaults_when_none_requested(self, mock_get_config):
         """Test that defaults are used when no limits requested."""
         mock_config = Mock()
@@ -191,7 +188,7 @@ class TestResourceLimitEnforcement:
         assert enforced.max_memory_mb == 2048
         assert enforced.max_execution_time_seconds == 300
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_enforce_caps_excessive_requests(self, mock_get_config):
         """Test that excessive requests are capped to defaults."""
         mock_config = Mock()
@@ -203,7 +200,7 @@ class TestResourceLimitEnforcement:
 
         requested = ResourceLimit(
             max_memory_mb=8192,  # Exceeds default
-            max_execution_time_seconds=1000  # Exceeds default
+            max_execution_time_seconds=1000,  # Exceeds default
         )
 
         enforced = guardrails.enforce_resource_limits(requested)
@@ -211,7 +208,7 @@ class TestResourceLimitEnforcement:
         assert enforced.max_memory_mb == 2048  # Capped
         assert enforced.max_execution_time_seconds == 300  # Capped
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_enforce_allows_within_limits_requests(self, mock_get_config):
         """Test that requests within limits are allowed."""
         mock_config = Mock()
@@ -222,8 +219,7 @@ class TestResourceLimitEnforcement:
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
 
         requested = ResourceLimit(
-            max_memory_mb=1024,  # Within default
-            max_execution_time_seconds=100  # Within default
+            max_memory_mb=1024, max_execution_time_seconds=100  # Within default  # Within default
         )
 
         enforced = guardrails.enforce_resource_limits(requested)
@@ -231,7 +227,7 @@ class TestResourceLimitEnforcement:
         assert enforced.max_memory_mb == 1024
         assert enforced.max_execution_time_seconds == 100
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_enforce_blocks_dangerous_permissions(self, mock_get_config):
         """Test that dangerous permissions are blocked."""
         mock_config = Mock()
@@ -242,9 +238,7 @@ class TestResourceLimitEnforcement:
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
 
         requested = ResourceLimit(
-            allow_network_access=True,
-            allow_file_write=True,
-            allow_subprocess=True
+            allow_network_access=True, allow_file_write=True, allow_subprocess=True
         )
 
         enforced = guardrails.enforce_resource_limits(requested)
@@ -258,7 +252,7 @@ class TestResourceLimitEnforcement:
 class TestEmergencyStopMechanism:
     """Tests for emergency stop mechanism."""
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_trigger_emergency_stop(self, mock_get_config):
         """Test triggering emergency stop."""
         mock_config = Mock()
@@ -268,16 +262,13 @@ class TestEmergencyStopMechanism:
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
 
-        guardrails.trigger_emergency_stop(
-            triggered_by="user",
-            reason="Manual stop requested"
-        )
+        guardrails.trigger_emergency_stop(triggered_by="user", reason="Manual stop requested")
 
         assert guardrails.emergency_stop.is_active is True
         assert guardrails.emergency_stop.triggered_by == "user"
         assert guardrails.emergency_stop.reason == "Manual stop requested"
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_trigger_creates_flag_file(self, mock_get_config, tmp_path):
         """Test that triggering creates stop flag file."""
         mock_config = Mock()
@@ -286,15 +277,13 @@ class TestEmergencyStopMechanism:
         mock_get_config.return_value = mock_config
 
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
 
             guardrails = SafetyGuardrails(enable_signal_handlers=False)
-            guardrails.trigger_emergency_stop(
-                triggered_by="test",
-                reason="Test"
-            )
+            guardrails.trigger_emergency_stop(triggered_by="test", reason="Test")
 
             flag_file = Path(".kosmos_emergency_stop")
             assert flag_file.exists()
@@ -307,7 +296,7 @@ class TestEmergencyStopMechanism:
         finally:
             os.chdir(original_cwd)
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_trigger_logs_incident(self, mock_get_config):
         """Test that triggering logs an incident."""
         mock_config = Mock()
@@ -317,16 +306,13 @@ class TestEmergencyStopMechanism:
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
 
-        guardrails.trigger_emergency_stop(
-            triggered_by="test",
-            reason="Test stop"
-        )
+        guardrails.trigger_emergency_stop(triggered_by="test", reason="Test stop")
 
         # Should log incident
         assert len(guardrails.incidents) > 0
         assert "emergency_stop" in guardrails.incidents[-1].incident_id
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_is_emergency_stop_active(self, mock_get_config):
         """Test checking if emergency stop is active."""
         mock_config = Mock()
@@ -338,14 +324,11 @@ class TestEmergencyStopMechanism:
 
         assert guardrails.is_emergency_stop_active() is False
 
-        guardrails.trigger_emergency_stop(
-            triggered_by="test",
-            reason="Test"
-        )
+        guardrails.trigger_emergency_stop(triggered_by="test", reason="Test")
 
         assert guardrails.is_emergency_stop_active() is True
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_check_emergency_stop_raises_if_active(self, mock_get_config):
         """Test that check raises error if stop is active."""
         mock_config = Mock()
@@ -354,15 +337,12 @@ class TestEmergencyStopMechanism:
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
-        guardrails.trigger_emergency_stop(
-            triggered_by="test",
-            reason="Test stop"
-        )
+        guardrails.trigger_emergency_stop(triggered_by="test", reason="Test stop")
 
         with pytest.raises(RuntimeError, match="Emergency stop active"):
             guardrails.check_emergency_stop()
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_reset_emergency_stop(self, mock_get_config, tmp_path):
         """Test resetting emergency stop."""
         mock_config = Mock()
@@ -371,15 +351,13 @@ class TestEmergencyStopMechanism:
         mock_get_config.return_value = mock_config
 
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
 
             guardrails = SafetyGuardrails(enable_signal_handlers=False)
-            guardrails.trigger_emergency_stop(
-                triggered_by="test",
-                reason="Test"
-            )
+            guardrails.trigger_emergency_stop(triggered_by="test", reason="Test")
 
             assert guardrails.is_emergency_stop_active() is True
 
@@ -391,7 +369,7 @@ class TestEmergencyStopMechanism:
         finally:
             os.chdir(original_cwd)
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_detects_flag_file(self, mock_get_config, tmp_path):
         """Test that flag file is detected."""
         mock_config = Mock()
@@ -400,6 +378,7 @@ class TestEmergencyStopMechanism:
         mock_get_config.return_value = mock_config
 
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -421,7 +400,7 @@ class TestEmergencyStopMechanism:
 class TestSafetyContext:
     """Tests for safety context manager."""
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_context_checks_before_and_after(self, mock_get_config):
         """Test that context checks emergency stop before and after."""
         mock_config = Mock()
@@ -437,7 +416,7 @@ class TestSafetyContext:
 
         assert executed
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_context_raises_if_stop_active_before(self, mock_get_config):
         """Test that context raises if stop active before execution."""
         mock_config = Mock()
@@ -446,16 +425,13 @@ class TestSafetyContext:
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
-        guardrails.trigger_emergency_stop(
-            triggered_by="test",
-            reason="Test"
-        )
+        guardrails.trigger_emergency_stop(triggered_by="test", reason="Test")
 
         with pytest.raises(RuntimeError, match="Emergency stop"):
             with guardrails.safety_context():
                 pass
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_context_propagates_other_exceptions(self, mock_get_config):
         """Test that context propagates non-stop exceptions."""
         mock_config = Mock()
@@ -473,7 +449,7 @@ class TestSafetyContext:
 class TestIncidentLogging:
     """Tests for safety incident logging."""
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_log_incident_to_memory(self, mock_get_config):
         """Test that incidents are logged to memory."""
         mock_config = Mock()
@@ -486,11 +462,9 @@ class TestIncidentLogging:
         incident = SafetyIncident(
             incident_id="test_123",
             violation=SafetyViolation(
-                type=ViolationType.DANGEROUS_CODE,
-                severity=RiskLevel.HIGH,
-                message="Test violation"
+                type=ViolationType.DANGEROUS_CODE, severity=RiskLevel.HIGH, message="Test violation"
             ),
-            action_taken="Blocked"
+            action_taken="Blocked",
         )
 
         guardrails._log_incident(incident)
@@ -498,7 +472,7 @@ class TestIncidentLogging:
         assert len(guardrails.incidents) == 1
         assert guardrails.incidents[0].incident_id == "test_123"
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_log_incident_to_file(self, mock_get_config, tmp_path):
         """Test that incidents are logged to file."""
         mock_config = Mock()
@@ -508,18 +482,15 @@ class TestIncidentLogging:
 
         incident_log = tmp_path / "incidents.jsonl"
         guardrails = SafetyGuardrails(
-            incident_log_path=str(incident_log),
-            enable_signal_handlers=False
+            incident_log_path=str(incident_log), enable_signal_handlers=False
         )
 
         incident = SafetyIncident(
             incident_id="test_123",
             violation=SafetyViolation(
-                type=ViolationType.DANGEROUS_CODE,
-                severity=RiskLevel.HIGH,
-                message="Test violation"
+                type=ViolationType.DANGEROUS_CODE, severity=RiskLevel.HIGH, message="Test violation"
             ),
-            action_taken="Blocked"
+            action_taken="Blocked",
         )
 
         guardrails._log_incident(incident)
@@ -528,13 +499,13 @@ class TestIncidentLogging:
         assert incident_log.exists()
 
         # Check content (JSONL format)
-        lines = incident_log.read_text().strip().split('\n')
+        lines = incident_log.read_text().strip().split("\n")
         assert len(lines) == 1
 
         logged_data = json.loads(lines[0])
         assert logged_data["incident_id"] == "test_123"
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_get_recent_incidents(self, mock_get_config):
         """Test retrieving recent incidents."""
         mock_config = Mock()
@@ -551,9 +522,9 @@ class TestIncidentLogging:
                 violation=SafetyViolation(
                     type=ViolationType.DANGEROUS_CODE,
                     severity=RiskLevel.LOW,
-                    message=f"Incident {i}"
+                    message=f"Incident {i}",
                 ),
-                action_taken="Blocked"
+                action_taken="Blocked",
             )
             guardrails._log_incident(incident)
 
@@ -563,7 +534,7 @@ class TestIncidentLogging:
         assert len(recent) == 10
         assert recent[-1].incident_id == "incident_14"  # Most recent
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_get_recent_incidents_filtered_by_severity(self, mock_get_config):
         """Test retrieving incidents filtered by severity."""
         mock_config = Mock()
@@ -578,11 +549,9 @@ class TestIncidentLogging:
             incident = SafetyIncident(
                 incident_id=f"incident_{severity.value}",
                 violation=SafetyViolation(
-                    type=ViolationType.DANGEROUS_CODE,
-                    severity=severity,
-                    message="Test"
+                    type=ViolationType.DANGEROUS_CODE, severity=severity, message="Test"
                 ),
-                action_taken="Blocked"
+                action_taken="Blocked",
             )
             guardrails._log_incident(incident)
 
@@ -592,7 +561,7 @@ class TestIncidentLogging:
         assert len(high_incidents) == 1
         assert high_incidents[0].violation.severity == RiskLevel.HIGH
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_get_incident_summary(self, mock_get_config):
         """Test getting incident summary statistics."""
         mock_config = Mock()
@@ -603,26 +572,28 @@ class TestIncidentLogging:
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
 
         # Add various incidents
-        guardrails._log_incident(SafetyIncident(
-            incident_id="inc_1",
-            violation=SafetyViolation(
-                type=ViolationType.DANGEROUS_CODE,
-                severity=RiskLevel.HIGH,
-                message="Test"
-            ),
-            action_taken="Blocked",
-            resolved=False
-        ))
-        guardrails._log_incident(SafetyIncident(
-            incident_id="inc_2",
-            violation=SafetyViolation(
-                type=ViolationType.ETHICAL_VIOLATION,
-                severity=RiskLevel.CRITICAL,
-                message="Test"
-            ),
-            action_taken="Blocked",
-            resolved=True
-        ))
+        guardrails._log_incident(
+            SafetyIncident(
+                incident_id="inc_1",
+                violation=SafetyViolation(
+                    type=ViolationType.DANGEROUS_CODE, severity=RiskLevel.HIGH, message="Test"
+                ),
+                action_taken="Blocked",
+                resolved=False,
+            )
+        )
+        guardrails._log_incident(
+            SafetyIncident(
+                incident_id="inc_2",
+                violation=SafetyViolation(
+                    type=ViolationType.ETHICAL_VIOLATION,
+                    severity=RiskLevel.CRITICAL,
+                    message="Test",
+                ),
+                action_taken="Blocked",
+                resolved=True,
+            )
+        )
 
         summary = guardrails.get_incident_summary()
 
@@ -633,7 +604,7 @@ class TestIncidentLogging:
         assert summary["by_severity"]["critical"] == 1
         assert summary["unresolved"] == 1
 
-    @patch('kosmos.safety.guardrails.get_config')
+    @patch("kosmos.safety.guardrails.get_config")
     def test_get_incident_summary_empty(self, mock_get_config):
         """Test incident summary with no incidents."""
         mock_config = Mock()

@@ -27,8 +27,7 @@ See: https://refactoring.guru/design-patterns/strategy
 """
 
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from kosmos.world_model.models import Annotation, Entity, Relationship
 
@@ -104,7 +103,7 @@ class WorldModelStorage(ABC):
         pass
 
     @abstractmethod
-    def get_entity(self, entity_id: str, project: Optional[str] = None) -> Optional[Entity]:
+    def get_entity(self, entity_id: str, project: str | None = None) -> Entity | None:
         """
         Retrieve entity by ID.
 
@@ -123,7 +122,7 @@ class WorldModelStorage(ABC):
         pass
 
     @abstractmethod
-    def update_entity(self, entity_id: str, updates: Dict[str, Any]) -> None:
+    def update_entity(self, entity_id: str, updates: dict[str, Any]) -> None:
         """
         Update entity properties.
 
@@ -196,7 +195,7 @@ class WorldModelStorage(ABC):
         pass
 
     @abstractmethod
-    def get_relationship(self, relationship_id: str) -> Optional[Relationship]:
+    def get_relationship(self, relationship_id: str) -> Relationship | None:
         """
         Retrieve relationship by ID.
 
@@ -212,10 +211,10 @@ class WorldModelStorage(ABC):
     def query_related_entities(
         self,
         entity_id: str,
-        relationship_type: Optional[str] = None,
+        relationship_type: str | None = None,
         direction: str = "outgoing",
         max_depth: int = 1,
-    ) -> List[Entity]:
+    ) -> list[Entity]:
         """
         Query entities related to a given entity.
 
@@ -239,7 +238,7 @@ class WorldModelStorage(ABC):
         pass
 
     @abstractmethod
-    def export_graph(self, filepath: str, project: Optional[str] = None) -> None:
+    def export_graph(self, filepath: str, project: str | None = None) -> None:
         """
         Export knowledge graph to file.
 
@@ -272,7 +271,7 @@ class WorldModelStorage(ABC):
         pass
 
     @abstractmethod
-    def import_graph(self, filepath: str, clear: bool = False, project: Optional[str] = None) -> None:
+    def import_graph(self, filepath: str, clear: bool = False, project: str | None = None) -> None:
         """
         Import knowledge graph from file.
 
@@ -294,7 +293,7 @@ class WorldModelStorage(ABC):
         pass
 
     @abstractmethod
-    def get_statistics(self, project: Optional[str] = None) -> Dict[str, Any]:
+    def get_statistics(self, project: str | None = None) -> dict[str, Any]:
         """
         Get knowledge graph statistics.
 
@@ -326,7 +325,7 @@ class WorldModelStorage(ABC):
         pass
 
     @abstractmethod
-    def reset(self, project: Optional[str] = None) -> None:
+    def reset(self, project: str | None = None) -> None:
         """
         Clear all knowledge graph data.
 
@@ -420,7 +419,7 @@ class EntityManager(ABC):
         pass
 
     @abstractmethod
-    def get_annotations(self, entity_id: str) -> List[Annotation]:
+    def get_annotations(self, entity_id: str) -> list[Annotation]:
         """
         Get all annotations for an entity.
 
@@ -467,10 +466,10 @@ class ProvenanceTracker(ABC):
     def record_derivation(
         self,
         entity_id: str,
-        sources: List[str],
+        sources: list[str],
         agent: str,
-        activity: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        activity: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Record entity derivation (PROV-O wasDerivedFrom).
@@ -494,7 +493,7 @@ class ProvenanceTracker(ABC):
         pass
 
     @abstractmethod
-    def get_provenance(self, entity_id: str) -> Dict[str, Any]:
+    def get_provenance(self, entity_id: str) -> dict[str, Any]:
         """
         Get provenance chain for an entity.
 

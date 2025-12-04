@@ -5,14 +5,14 @@ These tests validate error handling, recovery mechanisms, error state transition
 and graceful degradation for the Research Director orchestrator.
 """
 
-import pytest
-from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any
+from unittest.mock import Mock, patch
 
-from kosmos.core.workflow import WorkflowState, ResearchWorkflow, NextAction
+import pytest
+
+from kosmos.agents.base import AgentMessage, MessageType
 from kosmos.agents.research_director import ResearchDirectorAgent
-from kosmos.agents.base import AgentMessage, MessageType, AgentStatus
+from kosmos.core.workflow import NextAction, ResearchWorkflow, WorkflowState
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -77,7 +77,7 @@ class TestREQ_ORCH_ERR_001_ErrorStateTransition:
             WorkflowState.EXECUTING,
             WorkflowState.ANALYZING,
             WorkflowState.REFINING,
-            WorkflowState.PAUSED
+            WorkflowState.PAUSED,
         ]
 
         for state in states_to_test:
@@ -96,8 +96,9 @@ class TestREQ_ORCH_ERR_001_ErrorStateTransition:
                     workflow.transition_to(state)
 
             # Verify ERROR is accessible
-            assert workflow.can_transition_to(WorkflowState.ERROR), \
-                f"ERROR not accessible from {state}"
+            assert workflow.can_transition_to(
+                WorkflowState.ERROR
+            ), f"ERROR not accessible from {state}"
 
 
 @pytest.mark.requirement("REQ-ORCH-ERR-002")
@@ -108,8 +109,8 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
     agents without crashing, logging errors and updating error counter.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_error_counter_initialized(self, mock_wm, mock_llm):
         """Verify error counter is initialized."""
         mock_llm.return_value = Mock()
@@ -117,11 +118,11 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
 
         director = ResearchDirectorAgent(research_question="Test")
 
-        assert hasattr(director, 'errors_encountered')
+        assert hasattr(director, "errors_encountered")
         assert director.errors_encountered == 0
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_error_message_from_hypothesis_generator(self, mock_wm, mock_llm):
         """Verify error message from HypothesisGeneratorAgent is handled."""
         mock_llm.return_value = Mock()
@@ -134,7 +135,7 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
             to_agent=director.agent_id,
             type=MessageType.ERROR,
             content={"error": "Failed to generate hypotheses", "details": "LLM timeout"},
-            metadata={"agent_type": "HypothesisGeneratorAgent"}
+            metadata={"agent_type": "HypothesisGeneratorAgent"},
         )
 
         initial_errors = director.errors_encountered
@@ -145,8 +146,8 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
         # Verify error counted
         assert director.errors_encountered == initial_errors + 1
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_error_message_from_experiment_designer(self, mock_wm, mock_llm):
         """Verify error message from ExperimentDesignerAgent is handled."""
         mock_llm.return_value = Mock()
@@ -159,7 +160,7 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
             to_agent=director.agent_id,
             type=MessageType.ERROR,
             content={"error": "Failed to design experiment", "hypothesis_id": "hyp1"},
-            metadata={"agent_type": "ExperimentDesignerAgent"}
+            metadata={"agent_type": "ExperimentDesignerAgent"},
         )
 
         initial_errors = director.errors_encountered
@@ -168,8 +169,8 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
 
         assert director.errors_encountered == initial_errors + 1
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_error_message_from_executor(self, mock_wm, mock_llm):
         """Verify error message from Executor is handled."""
         mock_llm.return_value = Mock()
@@ -182,7 +183,7 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
             to_agent=director.agent_id,
             type=MessageType.ERROR,
             content={"error": "Experiment execution failed", "protocol_id": "exp1"},
-            metadata={"agent_type": "Executor"}
+            metadata={"agent_type": "Executor"},
         )
 
         initial_errors = director.errors_encountered
@@ -191,8 +192,8 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
 
         assert director.errors_encountered == initial_errors + 1
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_error_message_from_data_analyst(self, mock_wm, mock_llm):
         """Verify error message from DataAnalystAgent is handled."""
         mock_llm.return_value = Mock()
@@ -205,7 +206,7 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
             to_agent=director.agent_id,
             type=MessageType.ERROR,
             content={"error": "Analysis failed", "result_id": "res1"},
-            metadata={"agent_type": "DataAnalystAgent"}
+            metadata={"agent_type": "DataAnalystAgent"},
         )
 
         initial_errors = director.errors_encountered
@@ -214,8 +215,8 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
 
         assert director.errors_encountered == initial_errors + 1
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_multiple_errors_counted(self, mock_wm, mock_llm):
         """Verify multiple errors are counted correctly."""
         mock_llm.return_value = Mock()
@@ -230,7 +231,7 @@ class TestREQ_ORCH_ERR_002_ErrorMessageHandling:
                 to_agent=director.agent_id,
                 type=MessageType.ERROR,
                 content={"error": f"Error {i}"},
-                metadata={"agent_type": "HypothesisGeneratorAgent"}
+                metadata={"agent_type": "HypothesisGeneratorAgent"},
             )
             director._handle_hypothesis_generator_response(error_message)
 
@@ -307,14 +308,14 @@ class TestREQ_ORCH_ERR_004_ErrorActionDecisionMaking:
     in decide_next_action(), returning ERROR_RECOVERY action.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_error_recovery_action_defined(self, mock_wm, mock_llm):
         """Verify ERROR_RECOVERY action is defined."""
         assert NextAction.ERROR_RECOVERY in NextAction
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_decide_error_recovery_in_error_state(self, mock_wm, mock_llm):
         """Verify decide_next_action returns ERROR_RECOVERY in ERROR state."""
         mock_llm.return_value = Mock()
@@ -339,8 +340,8 @@ class TestREQ_ORCH_ERR_005_GracefulDegradation:
     reduced functionality when non-critical components fail (e.g., world model).
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_director_continues_without_world_model(self, mock_wm, mock_llm):
         """Verify director can operate without world model."""
         mock_llm.return_value = Mock()
@@ -357,8 +358,8 @@ class TestREQ_ORCH_ERR_005_GracefulDegradation:
 
         assert director.workflow.current_state == WorkflowState.GENERATING_HYPOTHESES
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_graph_persistence_fails_gracefully(self, mock_wm, mock_llm):
         """Verify graph persistence failures don't stop operation."""
         mock_llm.return_value = Mock()
@@ -374,8 +375,8 @@ class TestREQ_ORCH_ERR_005_GracefulDegradation:
         # Director should still be operational
         assert director.workflow.current_state == WorkflowState.INITIALIZING
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_llm_plan_generation_failure_handled(self, mock_wm, mock_llm):
         """Verify LLM failures for plan generation are handled gracefully."""
         mock_client = Mock()
@@ -400,8 +401,8 @@ class TestREQ_ORCH_ERR_006_ThreadSafety:
     concurrent access to shared state (research plan, workflow, strategy stats).
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_research_plan_lock_exists(self, mock_wm, mock_llm):
         """Verify research plan lock is initialized."""
         mock_llm.return_value = Mock()
@@ -409,11 +410,11 @@ class TestREQ_ORCH_ERR_006_ThreadSafety:
 
         director = ResearchDirectorAgent(research_question="Test")
 
-        assert hasattr(director, '_research_plan_lock')
+        assert hasattr(director, "_research_plan_lock")
         assert director._research_plan_lock is not None
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_strategy_stats_lock_exists(self, mock_wm, mock_llm):
         """Verify strategy stats lock is initialized."""
         mock_llm.return_value = Mock()
@@ -421,11 +422,11 @@ class TestREQ_ORCH_ERR_006_ThreadSafety:
 
         director = ResearchDirectorAgent(research_question="Test")
 
-        assert hasattr(director, '_strategy_stats_lock')
+        assert hasattr(director, "_strategy_stats_lock")
         assert director._strategy_stats_lock is not None
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_workflow_lock_exists(self, mock_wm, mock_llm):
         """Verify workflow lock is initialized."""
         mock_llm.return_value = Mock()
@@ -433,11 +434,11 @@ class TestREQ_ORCH_ERR_006_ThreadSafety:
 
         director = ResearchDirectorAgent(research_question="Test")
 
-        assert hasattr(director, '_workflow_lock')
+        assert hasattr(director, "_workflow_lock")
         assert director._workflow_lock is not None
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_research_plan_context_manager(self, mock_wm, mock_llm):
         """Verify research plan context manager provides thread-safe access."""
         mock_llm.return_value = Mock()
@@ -451,8 +452,8 @@ class TestREQ_ORCH_ERR_006_ThreadSafety:
 
         assert "hyp1" in director.research_plan.hypothesis_pool
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_strategy_stats_context_manager(self, mock_wm, mock_llm):
         """Verify strategy stats context manager provides thread-safe access."""
         mock_llm.return_value = Mock()
@@ -466,8 +467,8 @@ class TestREQ_ORCH_ERR_006_ThreadSafety:
 
         assert director.strategy_stats["hypothesis_generation"]["attempts"] == 1
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_workflow_context_manager(self, mock_wm, mock_llm):
         """Verify workflow context manager provides thread-safe access."""
         mock_llm.return_value = Mock()
@@ -490,9 +491,9 @@ class TestREQ_ORCH_ERR_007_ErrorLogging:
     including context, stack traces, and agent details for debugging.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
-    @patch('kosmos.agents.research_director.logger')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
+    @patch("kosmos.agents.research_director.logger")
     def test_error_message_logged(self, mock_logger, mock_wm, mock_llm):
         """Verify error messages are logged."""
         mock_llm.return_value = Mock()
@@ -505,7 +506,7 @@ class TestREQ_ORCH_ERR_007_ErrorLogging:
             to_agent=director.agent_id,
             type=MessageType.ERROR,
             content={"error": "Test error"},
-            metadata={"agent_type": "HypothesisGeneratorAgent"}
+            metadata={"agent_type": "HypothesisGeneratorAgent"},
         )
 
         director._handle_hypothesis_generator_response(error_message)
@@ -515,9 +516,9 @@ class TestREQ_ORCH_ERR_007_ErrorLogging:
         call_args = str(mock_logger.error.call_args)
         assert "failed" in call_args.lower() or "error" in call_args.lower()
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
-    @patch('kosmos.agents.research_director.logger')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
+    @patch("kosmos.agents.research_director.logger")
     def test_graph_persistence_error_logged(self, mock_logger, mock_wm, mock_llm):
         """Verify graph persistence errors are logged with warnings."""
         mock_llm.return_value = Mock()
@@ -541,8 +542,8 @@ class TestREQ_ORCH_ERR_008_ErrorMetrics:
     (error counts by type, error rates) for monitoring and diagnostics.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_error_counter_tracked(self, mock_wm, mock_llm):
         """Verify total error count is tracked."""
         mock_llm.return_value = Mock()
@@ -559,14 +560,14 @@ class TestREQ_ORCH_ERR_008_ErrorMetrics:
                 to_agent=director.agent_id,
                 type=MessageType.ERROR,
                 content={"error": f"Error {i}"},
-                metadata={"agent_type": "HypothesisGeneratorAgent"}
+                metadata={"agent_type": "HypothesisGeneratorAgent"},
             )
             director._handle_hypothesis_generator_response(error_message)
 
         assert director.errors_encountered == 3
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_error_count_in_status(self, mock_wm, mock_llm):
         """Verify error count is available in status."""
         mock_llm.return_value = Mock()
@@ -580,17 +581,17 @@ class TestREQ_ORCH_ERR_008_ErrorMetrics:
             to_agent=director.agent_id,
             type=MessageType.ERROR,
             content={"error": "Test error"},
-            metadata={"agent_type": "HypothesisGeneratorAgent"}
+            metadata={"agent_type": "HypothesisGeneratorAgent"},
         )
         director._handle_hypothesis_generator_response(error_message)
 
-        status = director.get_research_status()
+        director.get_research_status()
 
         # Error count should be trackable
         assert director.errors_encountered > 0
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_strategy_failure_tracking(self, mock_wm, mock_llm):
         """Verify strategy failures are tracked separately."""
         mock_llm.return_value = Mock()
@@ -610,4 +611,4 @@ class TestREQ_ORCH_ERR_008_ErrorMetrics:
 
         # Failure rate can be computed
         failure_rate = 1 - (stats["successes"] / stats["attempts"])
-        assert abs(failure_rate - 2/3) < 0.01  # ~66.7% failure rate
+        assert abs(failure_rate - 2 / 3) < 0.01  # ~66.7% failure rate

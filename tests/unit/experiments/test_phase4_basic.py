@@ -5,23 +5,25 @@ Tests core experiment design capabilities to verify the system works.
 """
 
 import pytest
-from unittest.mock import Mock, patch
-from datetime import datetime
 
-from kosmos.models.hypothesis import Hypothesis, ExperimentType
+from kosmos.experiments.resource_estimator import ComplexityLevel, ResourceEstimator
+from kosmos.experiments.statistical_power import PowerAnalyzer
+from kosmos.experiments.templates.base import (
+    TemplateBase,
+    TemplateCustomizationParams,
+    TemplateRegistry,
+)
+from kosmos.experiments.templates.data_analysis import TTestComparisonTemplate
+from kosmos.experiments.validator import ExperimentValidator
 from kosmos.models.experiment import (
+    ControlGroup,
     ExperimentProtocol,
     ProtocolStep,
+    ResourceRequirements,
     Variable,
     VariableType,
-    ResourceRequirements,
-    ControlGroup,
 )
-from kosmos.experiments.templates.base import TemplateBase, TemplateCustomizationParams, TemplateRegistry
-from kosmos.experiments.templates.data_analysis import TTestComparisonTemplate
-from kosmos.experiments.resource_estimator import ResourceEstimator, ComplexityLevel
-from kosmos.experiments.statistical_power import PowerAnalyzer
-from kosmos.experiments.validator import ExperimentValidator
+from kosmos.models.hypothesis import ExperimentType, Hypothesis
 
 
 class TestExperimentModels:
@@ -41,21 +43,19 @@ class TestExperimentModels:
                     step_number=1,
                     title="Step 1",
                     description="Description of step 1 with adequate detail",
-                    action="Perform action 1"
+                    action="Perform action 1",
                 )
             ],
             variables={
                 "var1": Variable(
                     name="var1",
                     type=VariableType.INDEPENDENT,
-                    description="Independent variable description"
+                    description="Independent variable description",
                 )
             },
             resource_requirements=ResourceRequirements(
-                compute_hours=2.0,
-                estimated_cost_usd=5.0,
-                estimated_duration_days=1.0
-            )
+                compute_hours=2.0, estimated_cost_usd=5.0, estimated_duration_days=1.0
+            ),
         )
 
         assert protocol.name == "Test Experiment"
@@ -76,7 +76,7 @@ class TestExperimentModels:
                 objective="Test",
                 steps=[],
                 variables={},
-                resource_requirements=ResourceRequirements()
+                resource_requirements=ResourceRequirements(),
             )
 
 
@@ -92,7 +92,7 @@ class TestTemplateSystem:
                 super().__init__(
                     name="test_template",
                     experiment_type=ExperimentType.DATA_ANALYSIS,
-                    title="Test Template"
+                    title="Test Template",
                 )
 
             def is_applicable(self, hypothesis):
@@ -106,9 +106,16 @@ class TestTemplateSystem:
                     domain="test",
                     description="Test protocol from template with sufficient length for validation",
                     objective="Test",
-                    steps=[ProtocolStep(step_number=1, title="Test", description="Test step description", action="Test")],
+                    steps=[
+                        ProtocolStep(
+                            step_number=1,
+                            title="Test",
+                            description="Test step description",
+                            action="Test",
+                        )
+                    ],
                     variables={},
-                    resource_requirements=ResourceRequirements()
+                    resource_requirements=ResourceRequirements(),
                 )
 
         template = TestTemplate()
@@ -127,7 +134,7 @@ class TestTemplateSystem:
             rationale="Based on prior research, we expect Group A to outperform Group B",
             domain="psychology",
             research_question="Do groups differ?",
-            suggested_experiment_types=[ExperimentType.DATA_ANALYSIS]
+            suggested_experiment_types=[ExperimentType.DATA_ANALYSIS],
         )
 
         assert template.is_applicable(hypothesis)
@@ -152,7 +159,7 @@ class TestResourceEstimator:
             experiment_type=ExperimentType.DATA_ANALYSIS,
             num_steps=5,
             sample_size=100,
-            complexity=ComplexityLevel.MODERATE
+            complexity=ComplexityLevel.MODERATE,
         )
 
         assert resources.compute_hours is not None
@@ -167,13 +174,11 @@ class TestResourceEstimator:
         estimator = ResourceEstimator()
 
         simple = estimator.estimate(
-            experiment_type=ExperimentType.COMPUTATIONAL,
-            complexity=ComplexityLevel.SIMPLE
+            experiment_type=ExperimentType.COMPUTATIONAL, complexity=ComplexityLevel.SIMPLE
         )
 
         complex = estimator.estimate(
-            experiment_type=ExperimentType.COMPUTATIONAL,
-            complexity=ComplexityLevel.VERY_COMPLEX
+            experiment_type=ExperimentType.COMPUTATIONAL, complexity=ComplexityLevel.VERY_COMPLEX
         )
 
         assert complex.compute_hours > simple.compute_hours
@@ -183,25 +188,16 @@ class TestResourceEstimator:
         """Test resource availability checking."""
         estimator = ResourceEstimator()
 
-        resources = ResourceRequirements(
-            estimated_cost_usd=100.0,
-            estimated_duration_days=5.0
-        )
+        resources = ResourceRequirements(estimated_cost_usd=100.0, estimated_duration_days=5.0)
 
         # Should be available
         result = estimator.check_availability(
-            resources,
-            available_budget=200.0,
-            available_time=10.0
+            resources, available_budget=200.0, available_time=10.0
         )
         assert result["available"] is True
 
         # Should not be available (exceeds budget)
-        result = estimator.check_availability(
-            resources,
-            available_budget=50.0,
-            available_time=10.0
-        )
+        result = estimator.check_availability(resources, available_budget=50.0, available_time=10.0)
         assert result["available"] is False
 
 
@@ -212,11 +208,7 @@ class TestStatisticalPower:
         """Test t-test sample size calculation."""
         analyzer = PowerAnalyzer()
 
-        n = analyzer.ttest_sample_size(
-            effect_size=0.5,  # Medium effect
-            power=0.8,
-            alpha=0.05
-        )
+        n = analyzer.ttest_sample_size(effect_size=0.5, power=0.8, alpha=0.05)  # Medium effect
 
         assert n > 0
         assert isinstance(n, int)
@@ -236,10 +228,7 @@ class TestStatisticalPower:
         analyzer = PowerAnalyzer()
 
         report = analyzer.generate_power_report(
-            test_type="t_test",
-            effect_size=0.5,
-            power=0.8,
-            alpha=0.05
+            test_type="t_test", effect_size=0.5, power=0.8, alpha=0.05
         )
 
         assert "test_type" in report
@@ -253,10 +242,7 @@ class TestExperimentValidator:
 
     def test_valid_protocol(self):
         """Test validation of a valid protocol."""
-        validator = ExperimentValidator(
-            require_control_group=True,
-            min_sample_size=20
-        )
+        validator = ExperimentValidator(require_control_group=True, min_sample_size=20)
 
         protocol = ExperimentProtocol(
             name="Valid Experiment",
@@ -266,11 +252,18 @@ class TestExperimentValidator:
             description="A comprehensive experiment protocol with detailed description that meets requirements",
             objective="Test validation",
             steps=[
-                ProtocolStep(step_number=i, title=f"Step {i}", description=f"Description for step {i}", action=f"Action {i}")
+                ProtocolStep(
+                    step_number=i,
+                    title=f"Step {i}",
+                    description=f"Description for step {i}",
+                    action=f"Action {i}",
+                )
                 for i in range(1, 6)
             ],
             variables={
-                "iv": Variable(name="iv", type=VariableType.INDEPENDENT, description="Independent var"),
+                "iv": Variable(
+                    name="iv", type=VariableType.INDEPENDENT, description="Independent var"
+                ),
                 "dv": Variable(name="dv", type=VariableType.DEPENDENT, description="Dependent var"),
             },
             control_groups=[
@@ -278,14 +271,14 @@ class TestExperimentValidator:
                     name="control",
                     description="Control group description",
                     variables={"iv": "baseline"},
-                    rationale="Standard control group for comparison with experimental condition"
+                    rationale="Standard control group for comparison with experimental condition",
                 )
             ],
             sample_size=60,
             power_analysis_performed=True,
             random_seed=42,
             reproducibility_notes="Complete reproducibility documentation",
-            resource_requirements=ResourceRequirements()
+            resource_requirements=ResourceRequirements(),
         )
 
         report = validator.validate(protocol)
@@ -306,12 +299,18 @@ class TestExperimentValidator:
             domain="test",
             description="Experiment without control group that has enough text for validation",
             objective="Test",
-            steps=[ProtocolStep(step_number=1, title="Step", description="Description", action="Action")],
+            steps=[
+                ProtocolStep(
+                    step_number=1, title="Step", description="Description", action="Action"
+                )
+            ],
             variables={
-                "iv": Variable(name="iv", type=VariableType.INDEPENDENT, description="Independent var"),
+                "iv": Variable(
+                    name="iv", type=VariableType.INDEPENDENT, description="Independent var"
+                ),
             },
             control_groups=[],  # No control group
-            resource_requirements=ResourceRequirements()
+            resource_requirements=ResourceRequirements(),
         )
 
         report = validator.validate(protocol)
@@ -330,10 +329,14 @@ class TestExperimentValidator:
             domain="test",
             description="Experiment with small sample size for validation testing purposes",
             objective="Test",
-            steps=[ProtocolStep(step_number=1, title="Step", description="Description", action="Action")],
+            steps=[
+                ProtocolStep(
+                    step_number=1, title="Step", description="Description", action="Action"
+                )
+            ],
             variables={},
             sample_size=10,  # Too small
-            resource_requirements=ResourceRequirements()
+            resource_requirements=ResourceRequirements(),
         )
 
         report = validator.validate(protocol)
@@ -353,17 +356,29 @@ class TestExperimentValidator:
             domain="test",
             description="Comprehensive high-quality protocol with detailed experimental procedures",
             objective="Test",
-            steps=[ProtocolStep(step_number=i, title=f"Step {i}", description=f"Desc {i}", action=f"Act {i}") for i in range(1, 6)],
+            steps=[
+                ProtocolStep(
+                    step_number=i, title=f"Step {i}", description=f"Desc {i}", action=f"Act {i}"
+                )
+                for i in range(1, 6)
+            ],
             variables={
                 "iv": Variable(name="iv", type=VariableType.INDEPENDENT, description="IV"),
                 "dv": Variable(name="dv", type=VariableType.DEPENDENT, description="DV"),
             },
-            control_groups=[ControlGroup(name="ctrl", description="Control", variables={}, rationale="Standard control comparison")],
+            control_groups=[
+                ControlGroup(
+                    name="ctrl",
+                    description="Control",
+                    variables={},
+                    rationale="Standard control comparison",
+                )
+            ],
             sample_size=100,
             power_analysis_performed=True,
             random_seed=42,
             reproducibility_notes="Full documentation",
-            resource_requirements=ResourceRequirements()
+            resource_requirements=ResourceRequirements(),
         )
 
         # Low quality protocol
@@ -378,7 +393,7 @@ class TestExperimentValidator:
             variables={},
             control_groups=[],
             sample_size=10,
-            resource_requirements=ResourceRequirements()
+            resource_requirements=ResourceRequirements(),
         )
 
         good_report = validator.validate(good_protocol)

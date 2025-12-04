@@ -7,20 +7,16 @@ multi-cycle autonomous research capability.
 """
 
 import asyncio
-import json
 import logging
 import sys
-from pathlib import Path
+
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # Suppress verbose logging from libraries
-for lib in ['kosmos.orchestration', 'kosmos.workflow', 'kosmos.agents']:
+for lib in ["kosmos.orchestration", "kosmos.workflow", "kosmos.agents"]:
     logging.getLogger(lib).setLevel(logging.WARNING)
 
 
@@ -36,7 +32,7 @@ async def run_verification(num_cycles: int = 5, tasks_per_cycle: int = 10):
     # Create workflow
     workflow = ResearchWorkflow(
         research_objective="Investigate KRAS mutations in pancreatic cancer drug resistance",
-        artifacts_dir="/tmp/kosmos_verification"
+        artifacts_dir="/tmp/kosmos_verification",
     )
 
     # Run multi-cycle workflow
@@ -50,26 +46,22 @@ async def run_verification(num_cycles: int = 5, tasks_per_cycle: int = 10):
 
     verifications = {
         # Gap 0: Context Compression
-        "Gap 0 - Context compression implemented": hasattr(workflow, 'context_compressor'),
-
+        "Gap 0 - Context compression implemented": hasattr(workflow, "context_compressor"),
         # Gap 1: State Manager
-        "Gap 1 - State manager initialized": hasattr(workflow, 'state_manager'),
+        "Gap 1 - State manager initialized": hasattr(workflow, "state_manager"),
         "Gap 1 - State persistence across cycles": len(workflow.past_tasks) > 0,
-
         # Gap 2: Task Orchestration
-        "Gap 2 - Multi-cycle management": result['cycles_completed'] == num_cycles,
-        "Gap 2 - Task generation": result['total_tasks_generated'] >= num_cycles * tasks_per_cycle,
+        "Gap 2 - Multi-cycle management": result["cycles_completed"] == num_cycles,
+        "Gap 2 - Task generation": result["total_tasks_generated"] >= num_cycles * tasks_per_cycle,
         "Gap 2 - Plan review process": all(
-            cr.get('plan_approved', True) for cr in workflow.cycle_results
+            cr.get("plan_approved", True) for cr in workflow.cycle_results
         ),
-        "Gap 2 - Novelty detection": hasattr(workflow, 'novelty_detector'),
-
+        "Gap 2 - Novelty detection": hasattr(workflow, "novelty_detector"),
         # Gap 3: Agent Integration
-        "Gap 3 - Skill loader initialized": hasattr(workflow, 'skill_loader'),
-
+        "Gap 3 - Skill loader initialized": hasattr(workflow, "skill_loader"),
         # Gap 5: Discovery Validation
-        "Gap 5 - ScholarEval implemented": hasattr(workflow, 'scholar_eval'),
-        "Gap 5 - Finding validation": result['validation_rate'] > 0,
+        "Gap 5 - ScholarEval implemented": hasattr(workflow, "scholar_eval"),
+        "Gap 5 - Finding validation": result["validation_rate"] > 0,
     }
 
     all_passed = True
@@ -85,9 +77,13 @@ async def run_verification(num_cycles: int = 5, tasks_per_cycle: int = 10):
     print("=" * 70)
     print(f"  Cycles completed: {result['cycles_completed']}")
     print(f"  Total tasks generated: {result['total_tasks_generated']}")
-    print(f"  Tasks completed: {result['total_tasks_completed']} ({result['task_completion_rate']*100:.0f}%)")
+    print(
+        f"  Tasks completed: {result['total_tasks_completed']} ({result['task_completion_rate']*100:.0f}%)"
+    )
     print(f"  Total findings: {result['total_findings']}")
-    print(f"  Validated findings: {result['validated_findings']} ({result['validation_rate']*100:.0f}%)")
+    print(
+        f"  Validated findings: {result['validated_findings']} ({result['validation_rate']*100:.0f}%)"
+    )
     print(f"  Total execution time: {result['total_time']:.2f}s")
 
     # Per-cycle breakdown

@@ -6,19 +6,20 @@ including report generation and all agent coordination.
 """
 
 import json
-from unittest.mock import Mock, patch, MagicMock
+
 import pytest
 
-from kosmos.agents.research_director import ResearchDirectorAgent, NextAction
-from kosmos.core.workflow import WorkflowState, ResearchWorkflow
+from kosmos.agents.research_director import ResearchDirectorAgent
 from kosmos.core.convergence import ConvergenceDetector, StoppingReason
-from kosmos.models.hypothesis import Hypothesis, HypothesisStatus
+from kosmos.core.workflow import WorkflowState
+from kosmos.models.hypothesis import Hypothesis
 from kosmos.models.result import ExperimentResult, ResultStatus
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def simple_research_question():
@@ -35,26 +36,31 @@ def complex_research_question():
 @pytest.fixture
 def mock_claude_for_simple_research(mock_llm_client):
     """Mock Claude responses for simple research cycle."""
+
     # Different responses for different prompts
     def mock_generate(prompt, **kwargs):
         if "research plan" in prompt.lower():
-            return json.dumps({
-                "strategy": "Test caffeine effects on memory",
-                "hypothesis_directions": ["Memory improvement", "Dose-response"],
-                "experiment_strategy": "Statistical analysis of performance data",
-                "success_criteria": "p < 0.05 with medium effect size",
-            })
+            return json.dumps(
+                {
+                    "strategy": "Test caffeine effects on memory",
+                    "hypothesis_directions": ["Memory improvement", "Dose-response"],
+                    "experiment_strategy": "Statistical analysis of performance data",
+                    "success_criteria": "p < 0.05 with medium effect size",
+                }
+            )
         elif "hypotheses" in prompt.lower() or "generate" in prompt.lower():
-            return json.dumps({
-                "hypotheses": [
-                    {
-                        "statement": "Caffeine (200mg) improves short-term memory recall by 15%",
-                        "rationale": "Stimulant effects enhance attention and encoding",
-                        "testability_score": 0.9,
-                        "novelty_score": 0.6,
-                    }
-                ]
-            })
+            return json.dumps(
+                {
+                    "hypotheses": [
+                        {
+                            "statement": "Caffeine (200mg) improves short-term memory recall by 15%",
+                            "rationale": "Stimulant effects enhance attention and encoding",
+                            "testability_score": 0.9,
+                            "novelty_score": 0.6,
+                        }
+                    ]
+                }
+            )
         else:
             return json.dumps({"result": "mocked response"})
 
@@ -66,6 +72,7 @@ def mock_claude_for_simple_research(mock_llm_client):
 # Test Class 1: Simple Research Cycle
 # ============================================================================
 
+
 class TestSimpleResearchCycle:
     """Test simple autonomous research cycle that converges quickly."""
 
@@ -76,7 +83,7 @@ class TestSimpleResearchCycle:
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 3}
+            config={"max_iterations": 3},
         )
 
         # Start research
@@ -92,7 +99,7 @@ class TestSimpleResearchCycle:
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 3}
+            config={"max_iterations": 3},
         )
 
         director.start()
@@ -109,7 +116,7 @@ class TestSimpleResearchCycle:
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 3}
+            config={"max_iterations": 3},
         )
 
         director.start()
@@ -131,7 +138,7 @@ class TestSimpleResearchCycle:
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 2}  # Low limit for quick convergence
+            config={"max_iterations": 2},  # Low limit for quick convergence
         )
 
         director.start()
@@ -154,7 +161,7 @@ class TestSimpleResearchCycle:
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 3}
+            config={"max_iterations": 3},
         )
 
         director.start()
@@ -171,6 +178,7 @@ class TestSimpleResearchCycle:
 # Test Class 2: Complex Research Cycle
 # ============================================================================
 
+
 class TestComplexResearchCycle:
     """Test complex multi-domain research cycle."""
 
@@ -178,17 +186,19 @@ class TestComplexResearchCycle:
         self, complex_research_question, mock_llm_client
     ):
         """Test complex cycle handles multi-domain research."""
-        mock_llm_client.generate.return_value = json.dumps({
-            "strategy": "Multi-domain analysis",
-            "hypothesis_directions": ["Cognitive", "Emotional", "Interaction"],
-            "experiment_strategy": "Factorial design",
-            "success_criteria": "Multiple significant effects",
-        })
+        mock_llm_client.generate.return_value = json.dumps(
+            {
+                "strategy": "Multi-domain analysis",
+                "hypothesis_directions": ["Cognitive", "Emotional", "Interaction"],
+                "experiment_strategy": "Factorial design",
+                "success_criteria": "Multiple significant effects",
+            }
+        )
 
         director = ResearchDirectorAgent(
             research_question=complex_research_question,
             domain="neuroscience",  # Primary domain
-            config={"max_iterations": 10}
+            config={"max_iterations": 10},
         )
 
         director.start()
@@ -196,16 +206,14 @@ class TestComplexResearchCycle:
         assert director.research_plan is not None
         assert director.research_question == complex_research_question
 
-    def test_complex_cycle_multiple_iterations(
-        self, complex_research_question, mock_llm_client
-    ):
+    def test_complex_cycle_multiple_iterations(self, complex_research_question, mock_llm_client):
         """Test complex cycle runs multiple iterations."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=complex_research_question,
             domain="neuroscience",
-            config={"max_iterations": 5}
+            config={"max_iterations": 5},
         )
 
         director.start()
@@ -225,16 +233,14 @@ class TestComplexResearchCycle:
         assert director.research_plan.iteration_count == 5
         assert len(director.research_plan.tested_hypotheses) == 5
 
-    def test_complex_cycle_hypothesis_refinement(
-        self, complex_research_question, mock_llm_client
-    ):
+    def test_complex_cycle_hypothesis_refinement(self, complex_research_question, mock_llm_client):
         """Test complex cycle refines hypotheses based on results."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=complex_research_question,
             domain="neuroscience",
-            config={"max_iterations": 10}
+            config={"max_iterations": 10},
         )
 
         director.start()
@@ -263,7 +269,7 @@ class TestComplexResearchCycle:
         director = ResearchDirectorAgent(
             research_question=complex_research_question,
             domain="neuroscience",
-            config={"max_iterations": 10}
+            config={"max_iterations": 10},
         )
 
         director.start()
@@ -281,23 +287,21 @@ class TestComplexResearchCycle:
 # Test Class 3: Convergence Scenarios
 # ============================================================================
 
+
 class TestConvergenceScenarios:
     """Test different convergence scenarios."""
 
-    def test_convergence_by_iteration_limit(
-        self, simple_research_question, mock_llm_client
-    ):
+    def test_convergence_by_iteration_limit(self, simple_research_question, mock_llm_client):
         """Test convergence triggered by iteration limit."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 3}
+            config={"max_iterations": 3},
         )
 
         # Create convergence detector
-        from kosmos.core.convergence import ConvergenceDetector
 
         detector = ConvergenceDetector()
 
@@ -317,19 +321,15 @@ class TestConvergenceScenarios:
         assert decision.should_stop is True
         assert decision.reason == StoppingReason.ITERATION_LIMIT
 
-    def test_convergence_by_hypothesis_exhaustion(
-        self, simple_research_question, mock_llm_client
-    ):
+    def test_convergence_by_hypothesis_exhaustion(self, simple_research_question, mock_llm_client):
         """Test convergence triggered by hypothesis exhaustion."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 10}
+            config={"max_iterations": 10},
         )
-
-        from kosmos.core.convergence import ConvergenceDetector
 
         detector = ConvergenceDetector()
 
@@ -367,19 +367,15 @@ class TestConvergenceScenarios:
         assert decision.should_stop is True
         assert decision.reason == StoppingReason.HYPOTHESIS_EXHAUSTION
 
-    def test_convergence_by_novelty_decline(
-        self, simple_research_question, mock_llm_client
-    ):
+    def test_convergence_by_novelty_decline(self, simple_research_question, mock_llm_client):
         """Test convergence triggered by novelty decline."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 10}
+            config={"max_iterations": 10},
         )
-
-        from kosmos.core.convergence import ConvergenceDetector
 
         detector = ConvergenceDetector()
 
@@ -407,19 +403,15 @@ class TestConvergenceScenarios:
         if decision.should_stop and decision.reason == StoppingReason.NOVELTY_DECLINE:
             assert decision.is_mandatory is False  # Optional criterion
 
-    def test_convergence_by_diminishing_returns(
-        self, simple_research_question, mock_llm_client
-    ):
+    def test_convergence_by_diminishing_returns(self, simple_research_question, mock_llm_client):
         """Test convergence triggered by diminishing returns."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 10}
+            config={"max_iterations": 10},
         )
-
-        from kosmos.core.convergence import ConvergenceDetector
 
         detector = ConvergenceDetector(config={"cost_threshold": 50.0})
 
@@ -442,22 +434,21 @@ class TestConvergenceScenarios:
 # Test Class 4: Report Generation
 # ============================================================================
 
+
 class TestReportGeneration:
     """Test convergence report generation."""
 
-    def test_report_generation_complete(
-        self, simple_research_question, mock_llm_client
-    ):
+    def test_report_generation_complete(self, simple_research_question, mock_llm_client):
         """Test complete convergence report is generated."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 3}
+            config={"max_iterations": 3},
         )
 
-        from kosmos.core.convergence import ConvergenceDetector, StoppingDecision, StoppingReason
+        from kosmos.core.convergence import StoppingDecision, StoppingReason
 
         detector = ConvergenceDetector()
 
@@ -514,19 +505,17 @@ class TestReportGeneration:
         assert report.hypotheses_tested == 3
         assert report.hypotheses_supported == 3
 
-    def test_report_markdown_export(
-        self, simple_research_question, mock_llm_client
-    ):
+    def test_report_markdown_export(self, simple_research_question, mock_llm_client):
         """Test convergence report exports to markdown."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 2}
+            config={"max_iterations": 2},
         )
 
-        from kosmos.core.convergence import ConvergenceDetector, StoppingDecision, StoppingReason
+        from kosmos.core.convergence import StoppingDecision, StoppingReason
 
         detector = ConvergenceDetector()
 
@@ -559,19 +548,17 @@ class TestReportGeneration:
         assert simple_research_question in markdown
         assert "## Summary" in markdown
 
-    def test_report_includes_all_sections(
-        self, simple_research_question, mock_llm_client
-    ):
+    def test_report_includes_all_sections(self, simple_research_question, mock_llm_client):
         """Test report includes all required sections."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 2}
+            config={"max_iterations": 2},
         )
 
-        from kosmos.core.convergence import ConvergenceDetector, StoppingDecision, StoppingReason
+        from kosmos.core.convergence import StoppingDecision, StoppingReason
 
         detector = ConvergenceDetector()
 
@@ -605,19 +592,17 @@ class TestReportGeneration:
         for section in required_sections:
             assert section in markdown, f"Missing section: {section}"
 
-    def test_report_includes_metrics(
-        self, simple_research_question, mock_llm_client
-    ):
+    def test_report_includes_metrics(self, simple_research_question, mock_llm_client):
         """Test report includes progress metrics."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 2}
+            config={"max_iterations": 2},
         )
 
-        from kosmos.core.convergence import ConvergenceDetector, StoppingDecision, StoppingReason
+        from kosmos.core.convergence import StoppingDecision, StoppingReason
 
         detector = ConvergenceDetector()
 
@@ -642,19 +627,17 @@ class TestReportGeneration:
         assert hasattr(report.final_metrics, "saturation_ratio")
         assert hasattr(report.final_metrics, "consistency_score")
 
-    def test_report_includes_recommendations(
-        self, simple_research_question, mock_llm_client
-    ):
+    def test_report_includes_recommendations(self, simple_research_question, mock_llm_client):
         """Test report includes next steps recommendations."""
         mock_llm_client.generate.return_value = json.dumps({"strategy": "test"})
 
         director = ResearchDirectorAgent(
             research_question=simple_research_question,
             domain="neuroscience",
-            config={"max_iterations": 2}
+            config={"max_iterations": 2},
         )
 
-        from kosmos.core.convergence import ConvergenceDetector, StoppingDecision, StoppingReason
+        from kosmos.core.convergence import StoppingDecision, StoppingReason
 
         detector = ConvergenceDetector()
 

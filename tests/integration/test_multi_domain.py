@@ -11,9 +11,9 @@ Coverage target: 15 integration tests across 4 test classes
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
-from kosmos.knowledge.domain_kb import DomainKnowledgeBase, Domain, CrossDomainMapping
+
 from kosmos.core.domain_router import DomainRouter
+from kosmos.knowledge.domain_kb import CrossDomainMapping, Domain, DomainKnowledgeBase
 from kosmos.models.domain import ScientificDomain
 
 
@@ -34,19 +34,19 @@ def template_registry():
     """Template registry instance (simple dict for testing)"""
     # Mock template registry with domain-specific templates
     registry = {
-        'biology': [
-            {'name': 'metabolomics_comparison', 'domain': 'biology'},
-            {'name': 'gwas_multimodal', 'domain': 'biology'}
+        "biology": [
+            {"name": "metabolomics_comparison", "domain": "biology"},
+            {"name": "gwas_multimodal", "domain": "biology"},
         ],
-        'neuroscience': [
-            {'name': 'connectome_scaling', 'domain': 'neuroscience'},
-            {'name': 'differential_expression', 'domain': 'neuroscience'}
+        "neuroscience": [
+            {"name": "connectome_scaling", "domain": "neuroscience"},
+            {"name": "differential_expression", "domain": "neuroscience"},
         ],
-        'materials': [
-            {'name': 'parameter_correlation', 'domain': 'materials'},
-            {'name': 'optimization', 'domain': 'materials'},
-            {'name': 'shap_analysis', 'domain': 'materials'}
-        ]
+        "materials": [
+            {"name": "parameter_correlation", "domain": "materials"},
+            {"name": "optimization", "domain": "materials"},
+            {"name": "shap_analysis", "domain": "materials"},
+        ],
     }
     return registry
 
@@ -54,6 +54,7 @@ def template_registry():
 # ============================================================================
 # Test Cross-Domain Concept Search
 # ============================================================================
+
 
 @pytest.mark.integration
 class TestCrossDomainConceptSearch:
@@ -86,13 +87,14 @@ class TestCrossDomainConceptSearch:
         # Should be CrossDomainMapping objects
         for mapping in mappings:
             assert isinstance(mapping, CrossDomainMapping)
-            assert hasattr(mapping, 'source_domain')
-            assert hasattr(mapping, 'target_domain')
-            assert hasattr(mapping, 'confidence')
+            assert hasattr(mapping, "source_domain")
+            assert hasattr(mapping, "target_domain")
+            assert hasattr(mapping, "confidence")
 
         # At least one mapping should connect to neuroscience
         neuroscience_mappings = [
-            m for m in mappings
+            m
+            for m in mappings
             if m.target_domain == Domain.NEUROSCIENCE or m.source_domain == Domain.NEUROSCIENCE
         ]
         assert len(neuroscience_mappings) > 0
@@ -119,6 +121,7 @@ class TestCrossDomainConceptSearch:
 # Test Domain Routing Integration
 # ============================================================================
 
+
 @pytest.mark.integration
 class TestDomainRoutingIntegration:
     """Test integrated domain routing."""
@@ -135,6 +138,7 @@ class TestDomainRoutingIntegration:
         assert classification.primary_domain == ScientificDomain.BIOLOGY
         # confidence is DomainConfidence enum, check it's not LOW
         from kosmos.models.domain import DomainConfidence
+
         assert classification.confidence != DomainConfidence.LOW
 
         # Route the question
@@ -153,6 +157,7 @@ class TestDomainRoutingIntegration:
         # Should identify neuroscience
         assert classification.primary_domain == ScientificDomain.NEUROSCIENCE
         from kosmos.models.domain import DomainConfidence
+
         assert classification.confidence != DomainConfidence.LOW
 
         # Route
@@ -169,6 +174,7 @@ class TestDomainRoutingIntegration:
         # Should identify materials science
         assert classification.primary_domain == ScientificDomain.MATERIALS
         from kosmos.models.domain import DomainConfidence
+
         assert classification.confidence != DomainConfidence.LOW
 
         # Route
@@ -186,22 +192,29 @@ class TestDomainRoutingIntegration:
         # Should identify multiple domains or multi-domain
         # Check supporting domains exist or strategy is multi-domain
         has_multi = (
-            (hasattr(classification, 'supporting_domains') and len(classification.supporting_domains) > 0) or
-            (hasattr(classification, 'is_multi_domain') and classification.is_multi_domain)
-        )
-        assert has_multi or classification.primary_domain in [ScientificDomain.BIOLOGY, ScientificDomain.NEUROSCIENCE]
+            hasattr(classification, "supporting_domains")
+            and len(classification.supporting_domains) > 0
+        ) or (hasattr(classification, "is_multi_domain") and classification.is_multi_domain)
+        assert has_multi or classification.primary_domain in [
+            ScientificDomain.BIOLOGY,
+            ScientificDomain.NEUROSCIENCE,
+        ]
 
         # Route
         routing = domain_router.route(question)
 
         # Should have valid domain routing
         assert len(routing.selected_domains) > 0
-        assert routing.selected_domains[0] in [ScientificDomain.BIOLOGY, ScientificDomain.NEUROSCIENCE]
+        assert routing.selected_domains[0] in [
+            ScientificDomain.BIOLOGY,
+            ScientificDomain.NEUROSCIENCE,
+        ]
 
 
 # ============================================================================
 # Test Template Discovery
 # ============================================================================
+
 
 @pytest.mark.integration
 class TestTemplateDiscovery:
@@ -216,48 +229,49 @@ class TestTemplateDiscovery:
         assert total_templates >= 7
 
         # Check each domain has templates
-        assert 'biology' in template_registry
-        assert 'neuroscience' in template_registry
-        assert 'materials' in template_registry
+        assert "biology" in template_registry
+        assert "neuroscience" in template_registry
+        assert "materials" in template_registry
 
     def test_template_registry_populated(self, template_registry):
         """Test template registry has all templates."""
         # Biology templates
-        bio_templates = template_registry['biology']
+        bio_templates = template_registry["biology"]
         assert len(bio_templates) >= 2
-        bio_names = [t['name'] for t in bio_templates]
-        assert 'metabolomics_comparison' in bio_names
-        assert 'gwas_multimodal' in bio_names
+        bio_names = [t["name"] for t in bio_templates]
+        assert "metabolomics_comparison" in bio_names
+        assert "gwas_multimodal" in bio_names
 
         # Neuroscience templates
-        neuro_templates = template_registry['neuroscience']
+        neuro_templates = template_registry["neuroscience"]
         assert len(neuro_templates) >= 2
-        neuro_names = [t['name'] for t in neuro_templates]
-        assert 'connectome_scaling' in neuro_names
-        assert 'differential_expression' in neuro_names
+        neuro_names = [t["name"] for t in neuro_templates]
+        assert "connectome_scaling" in neuro_names
+        assert "differential_expression" in neuro_names
 
         # Materials templates
-        materials_templates = template_registry['materials']
+        materials_templates = template_registry["materials"]
         assert len(materials_templates) >= 3
-        materials_names = [t['name'] for t in materials_templates]
-        assert 'parameter_correlation' in materials_names
-        assert 'optimization' in materials_names
-        assert 'shap_analysis' in materials_names
+        materials_names = [t["name"] for t in materials_templates]
+        assert "parameter_correlation" in materials_names
+        assert "optimization" in materials_names
+        assert "shap_analysis" in materials_names
 
     def test_domain_specific_template_retrieval(self, template_registry):
         """Test retrieving templates by domain."""
         # Get materials templates
-        materials_templates = template_registry.get('materials', [])
+        materials_templates = template_registry.get("materials", [])
         assert len(materials_templates) == 3
 
         # Each template should have correct domain
         for template in materials_templates:
-            assert template['domain'] == 'materials'
+            assert template["domain"] == "materials"
 
 
 # ============================================================================
 # Test End-to-End Multi-Domain
 # ============================================================================
+
 
 @pytest.mark.integration
 class TestEndToEndMultiDomain:
@@ -309,14 +323,18 @@ class TestEndToEndMultiDomain:
     def test_domain_expertise_assessment(self, domain_router):
         """Test domain expertise assessment integration."""
         # Assess expertise for each domain
-        for domain in [ScientificDomain.BIOLOGY, ScientificDomain.NEUROSCIENCE, ScientificDomain.MATERIALS]:
+        for domain in [
+            ScientificDomain.BIOLOGY,
+            ScientificDomain.NEUROSCIENCE,
+            ScientificDomain.MATERIALS,
+        ]:
             assessment = domain_router.assess_domain_expertise(domain)
 
             # Should return expertise assessment
             assert assessment is not None
-            assert hasattr(assessment, 'domain')
-            assert hasattr(assessment, 'available_tools')
-            assert hasattr(assessment, 'available_templates')
+            assert hasattr(assessment, "domain")
+            assert hasattr(assessment, "available_tools")
+            assert hasattr(assessment, "available_templates")
             assert len(assessment.available_tools) > 0
 
     def test_multi_modal_experiment_design(self, domain_router, template_registry):
@@ -329,14 +347,16 @@ class TestEndToEndMultiDomain:
         assert ScientificDomain.MATERIALS in routing.selected_domains
 
         # Get materials templates
-        materials_templates = template_registry.get('materials', [])
+        materials_templates = template_registry.get("materials", [])
 
         # Should have optimization and parameter correlation templates
-        template_names = [t['name'] for t in materials_templates]
-        assert 'optimization' in template_names
-        assert 'parameter_correlation' in template_names
+        template_names = [t["name"] for t in materials_templates]
+        assert "optimization" in template_names
+        assert "parameter_correlation" in template_names
 
-    def test_full_pipeline_question_to_experiment_protocol(self, domain_router, domain_kb, template_registry):
+    def test_full_pipeline_question_to_experiment_protocol(
+        self, domain_router, domain_kb, template_registry
+    ):
         """Test full pipeline from research question to experiment protocol."""
         # Complete end-to-end workflow
         question = "How does gene BRCA1 mutation affect breast cancer risk?"
@@ -360,7 +380,7 @@ class TestEndToEndMultiDomain:
         assert len(bio_ontology.concepts) > 0
 
         # Step 5: Get applicable templates
-        bio_templates = template_registry.get('biology', [])
+        bio_templates = template_registry.get("biology", [])
         assert len(bio_templates) >= 2
 
         # Step 6: Verify pipeline integration

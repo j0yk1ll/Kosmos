@@ -8,38 +8,35 @@ Tests:
 """
 
 import json
-import pytest
-from pathlib import Path
 from datetime import datetime
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock
 
-from kosmos.world_model.artifacts import (
-    Finding,
-    Hypothesis,
-    ArtifactStateManager
-)
+import pytest
+
+from kosmos.world_model.artifacts import ArtifactStateManager, Finding, Hypothesis
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def sample_finding_dict():
     """Sample finding as dictionary."""
     return {
-        'finding_id': 'cycle1_task1',
-        'cycle': 1,
-        'task_id': 1,
-        'summary': 'Found 42 differentially expressed genes',
-        'statistics': {'p_value': 0.001, 'n_genes': 42},
-        'methods': 'DESeq2 differential expression analysis',
-        'interpretation': 'Significant gene expression changes',
-        'evidence_type': 'data_analysis',
-        'notebook_path': '/path/to/notebook.ipynb',
-        'citations': [{'paper_id': 'paper_001'}],
-        'scholar_eval': {'overall_score': 0.82, 'passes_threshold': True},
-        'metadata': {'domain': 'genomics'}
+        "finding_id": "cycle1_task1",
+        "cycle": 1,
+        "task_id": 1,
+        "summary": "Found 42 differentially expressed genes",
+        "statistics": {"p_value": 0.001, "n_genes": 42},
+        "methods": "DESeq2 differential expression analysis",
+        "interpretation": "Significant gene expression changes",
+        "evidence_type": "data_analysis",
+        "notebook_path": "/path/to/notebook.ipynb",
+        "citations": [{"paper_id": "paper_001"}],
+        "scholar_eval": {"overall_score": 0.82, "passes_threshold": True},
+        "metadata": {"domain": "genomics"},
     }
 
 
@@ -47,14 +44,14 @@ def sample_finding_dict():
 def sample_hypothesis_dict():
     """Sample hypothesis as dictionary."""
     return {
-        'hypothesis_id': 'hyp_001',
-        'statement': 'KRAS mutations are associated with poor prognosis',
-        'status': 'supported',
-        'domain': 'oncology',
-        'confidence': 0.85,
-        'supporting_evidence': ['cycle1_task1', 'cycle2_task3'],
-        'refuting_evidence': [],
-        'metadata': {'source': 'literature_review'}
+        "hypothesis_id": "hyp_001",
+        "statement": "KRAS mutations are associated with poor prognosis",
+        "status": "supported",
+        "domain": "oncology",
+        "confidence": 0.85,
+        "supporting_evidence": ["cycle1_task1", "cycle2_task3"],
+        "refuting_evidence": [],
+        "metadata": {"source": "literature_review"},
     }
 
 
@@ -82,9 +79,9 @@ def populated_state_manager(state_manager, sample_finding_dict):
         for cycle in range(1, 4):
             for task_id in range(1, 4):
                 finding = sample_finding_dict.copy()
-                finding['finding_id'] = f'cycle{cycle}_task{task_id}'
-                finding['cycle'] = cycle
-                finding['task_id'] = task_id
+                finding["finding_id"] = f"cycle{cycle}_task{task_id}"
+                finding["cycle"] = cycle
+                finding["task_id"] = task_id
                 await state_manager.save_finding_artifact(cycle, task_id, finding)
 
     asyncio.get_event_loop().run_until_complete(populate())
@@ -95,6 +92,7 @@ def populated_state_manager(state_manager, sample_finding_dict):
 # Finding Dataclass Tests
 # ============================================================================
 
+
 class TestFinding:
     """Tests for Finding dataclass."""
 
@@ -102,54 +100,45 @@ class TestFinding:
         """Test Creating Finding from dictionary."""
         finding = Finding.from_dict(sample_finding_dict)
 
-        assert finding.finding_id == 'cycle1_task1'
+        assert finding.finding_id == "cycle1_task1"
         assert finding.cycle == 1
-        assert finding.summary == 'Found 42 differentially expressed genes'
-        assert finding.statistics['p_value'] == 0.001
+        assert finding.summary == "Found 42 differentially expressed genes"
+        assert finding.statistics["p_value"] == 0.001
 
     def test_to_dict(self, sample_finding_dict):
         """Test converting Finding to dictionary."""
         finding = Finding.from_dict(sample_finding_dict)
         result = finding.to_dict()
 
-        assert result['finding_id'] == 'cycle1_task1'
-        assert result['statistics']['n_genes'] == 42
+        assert result["finding_id"] == "cycle1_task1"
+        assert result["statistics"]["n_genes"] == 42
         # timestamp should be added
-        assert 'timestamp' in result
+        assert "timestamp" in result
 
     def test_minimal_finding(self):
         """Test creating minimal Finding."""
         finding = Finding(
-            finding_id='min_001',
-            cycle=1,
-            task_id=1,
-            summary='Minimal finding',
-            statistics={}
+            finding_id="min_001", cycle=1, task_id=1, summary="Minimal finding", statistics={}
         )
 
-        assert finding.finding_id == 'min_001'
+        assert finding.finding_id == "min_001"
         assert finding.methods is None
-        assert finding.evidence_type == 'data_analysis'
+        assert finding.evidence_type == "data_analysis"
 
     def test_finding_timestamp_auto_generated(self):
         """Test that timestamp is auto-generated if not provided."""
-        finding = Finding(
-            finding_id='test',
-            cycle=1,
-            task_id=1,
-            summary='Test',
-            statistics={}
-        )
+        finding = Finding(finding_id="test", cycle=1, task_id=1, summary="Test", statistics={})
         result = finding.to_dict()
 
-        assert 'timestamp' in result
+        assert "timestamp" in result
         # Should be valid ISO format
-        datetime.fromisoformat(result['timestamp'])
+        datetime.fromisoformat(result["timestamp"])
 
 
 # ============================================================================
 # Hypothesis Dataclass Tests
 # ============================================================================
+
 
 class TestHypothesis:
     """Tests for Hypothesis dataclass."""
@@ -158,9 +147,9 @@ class TestHypothesis:
         """Test creating Hypothesis from dictionary."""
         hypothesis = Hypothesis.from_dict(sample_hypothesis_dict)
 
-        assert hypothesis.hypothesis_id == 'hyp_001'
-        assert hypothesis.statement == 'KRAS mutations are associated with poor prognosis'
-        assert hypothesis.status == 'supported'
+        assert hypothesis.hypothesis_id == "hyp_001"
+        assert hypothesis.statement == "KRAS mutations are associated with poor prognosis"
+        assert hypothesis.status == "supported"
         assert hypothesis.confidence == 0.85
 
     def test_to_dict(self, sample_hypothesis_dict):
@@ -168,19 +157,17 @@ class TestHypothesis:
         hypothesis = Hypothesis.from_dict(sample_hypothesis_dict)
         result = hypothesis.to_dict()
 
-        assert result['hypothesis_id'] == 'hyp_001'
-        assert 'supporting_evidence' in result
-        assert len(result['supporting_evidence']) == 2
+        assert result["hypothesis_id"] == "hyp_001"
+        assert "supporting_evidence" in result
+        assert len(result["supporting_evidence"]) == 2
 
     def test_minimal_hypothesis(self):
         """Test creating minimal Hypothesis."""
         hypothesis = Hypothesis(
-            hypothesis_id='hyp_min',
-            statement='Test hypothesis',
-            status='unknown'
+            hypothesis_id="hyp_min", statement="Test hypothesis", status="unknown"
         )
 
-        assert hypothesis.hypothesis_id == 'hyp_min'
+        assert hypothesis.hypothesis_id == "hyp_min"
         assert hypothesis.confidence == 0.0
         assert hypothesis.supporting_evidence is None
 
@@ -188,6 +175,7 @@ class TestHypothesis:
 # ============================================================================
 # ArtifactStateManager Tests
 # ============================================================================
+
 
 class TestArtifactStateManager:
     """Tests for ArtifactStateManager class."""
@@ -209,7 +197,7 @@ class TestArtifactStateManager:
         manager = ArtifactStateManager(
             artifacts_dir=str(temp_dir / "artifacts"),
             world_model=mock_world_model,
-            vector_store=mock_vector_store
+            vector_store=mock_vector_store,
         )
 
         assert manager.world_model == mock_world_model
@@ -223,47 +211,42 @@ class TestArtifactStateManagerSaveLoad:
     async def test_save_finding_artifact(self, state_manager, sample_finding_dict, artifacts_dir):
         """Test saving finding artifact."""
         path = await state_manager.save_finding_artifact(
-            cycle=1,
-            task_id=1,
-            finding=sample_finding_dict
+            cycle=1, task_id=1, finding=sample_finding_dict
         )
 
         assert path.exists()
-        assert path.name == 'task_1_finding.json'
+        assert path.name == "task_1_finding.json"
 
         # Verify content
         with open(path) as f:
             saved = json.load(f)
-        assert saved['finding_id'] == 'cycle1_task1'
+        assert saved["finding_id"] == "cycle1_task1"
 
     @pytest.mark.asyncio
     async def test_save_finding_auto_generates_id(self, state_manager):
         """Test that finding_id is auto-generated if not provided."""
-        finding = {
-            'summary': 'Test finding',
-            'statistics': {}
-        }
+        finding = {"summary": "Test finding", "statistics": {}}
 
         await state_manager.save_finding_artifact(cycle=5, task_id=3, finding=finding)
 
         # Check cache
-        assert 'cycle5_task3' in state_manager._findings_cache
+        assert "cycle5_task3" in state_manager._findings_cache
 
     @pytest.mark.asyncio
     async def test_save_finding_caches(self, state_manager, sample_finding_dict):
         """Test that saved findings are cached."""
         await state_manager.save_finding_artifact(1, 1, sample_finding_dict)
 
-        assert 'cycle1_task1' in state_manager._findings_cache
-        cached = state_manager._findings_cache['cycle1_task1']
-        assert cached.summary == 'Found 42 differentially expressed genes'
+        assert "cycle1_task1" in state_manager._findings_cache
+        cached = state_manager._findings_cache["cycle1_task1"]
+        assert cached.summary == "Found 42 differentially expressed genes"
 
     @pytest.mark.asyncio
     async def test_save_hypothesis(self, state_manager, sample_hypothesis_dict, artifacts_dir):
         """Test saving hypothesis."""
         hyp_id = await state_manager.save_hypothesis(sample_hypothesis_dict)
 
-        assert hyp_id == 'hyp_001'
+        assert hyp_id == "hyp_001"
 
         # Check file exists
         hyp_path = artifacts_dir / "hypotheses" / "hyp_001.json"
@@ -273,12 +256,12 @@ class TestArtifactStateManagerSaveLoad:
         """Test retrieving finding from cache."""
         # Add to cache manually
         finding = Finding.from_dict(sample_finding_dict)
-        state_manager._findings_cache['cycle1_task1'] = finding
+        state_manager._findings_cache["cycle1_task1"] = finding
 
-        result = state_manager.get_finding('cycle1_task1')
+        result = state_manager.get_finding("cycle1_task1")
 
         assert result is not None
-        assert result.finding_id == 'cycle1_task1'
+        assert result.finding_id == "cycle1_task1"
 
     @pytest.mark.asyncio
     async def test_get_finding_from_file(self, state_manager, sample_finding_dict):
@@ -290,14 +273,14 @@ class TestArtifactStateManagerSaveLoad:
         state_manager._findings_cache.clear()
 
         # Should load from file
-        result = state_manager.get_finding('cycle1_task1')
+        result = state_manager.get_finding("cycle1_task1")
 
         assert result is not None
-        assert result.summary == 'Found 42 differentially expressed genes'
+        assert result.summary == "Found 42 differentially expressed genes"
 
     def test_get_finding_not_found(self, state_manager):
         """Test get_finding returns None for non-existent finding."""
-        result = state_manager.get_finding('nonexistent')
+        result = state_manager.get_finding("nonexistent")
 
         assert result is None
 
@@ -311,8 +294,8 @@ class TestArtifactStateManagerCycleOperations:
         # Save multiple findings in cycle 2
         for task_id in range(1, 4):
             finding = sample_finding_dict.copy()
-            finding['finding_id'] = f'cycle2_task{task_id}'
-            finding['task_id'] = task_id
+            finding["finding_id"] = f"cycle2_task{task_id}"
+            finding["task_id"] = task_id
             await state_manager.save_finding_artifact(2, task_id, finding)
 
         findings = state_manager.get_all_cycle_findings(2)
@@ -332,8 +315,8 @@ class TestArtifactStateManagerCycleOperations:
         # Save findings in multiple cycles
         for cycle in range(1, 4):
             finding = sample_finding_dict.copy()
-            finding['finding_id'] = f'cycle{cycle}_task1'
-            finding['cycle'] = cycle
+            finding["finding_id"] = f"cycle{cycle}_task1"
+            finding["cycle"] = cycle
             await state_manager.save_finding_artifact(cycle, 1, finding)
 
         all_findings = state_manager.get_all_findings()
@@ -345,30 +328,30 @@ class TestArtifactStateManagerCycleOperations:
         """Test retrieving only validated findings."""
         # Save validated finding
         validated = {
-            'finding_id': 'validated_001',
-            'cycle': 1,
-            'task_id': 1,
-            'summary': 'Validated finding',
-            'statistics': {},
-            'scholar_eval': {'overall_score': 0.85, 'passes_threshold': True}
+            "finding_id": "validated_001",
+            "cycle": 1,
+            "task_id": 1,
+            "summary": "Validated finding",
+            "statistics": {},
+            "scholar_eval": {"overall_score": 0.85, "passes_threshold": True},
         }
         await state_manager.save_finding_artifact(1, 1, validated)
 
         # Save non-validated finding
         unvalidated = {
-            'finding_id': 'unvalidated_001',
-            'cycle': 1,
-            'task_id': 2,
-            'summary': 'Unvalidated finding',
-            'statistics': {},
-            'scholar_eval': {'overall_score': 0.5, 'passes_threshold': False}
+            "finding_id": "unvalidated_001",
+            "cycle": 1,
+            "task_id": 2,
+            "summary": "Unvalidated finding",
+            "statistics": {},
+            "scholar_eval": {"overall_score": 0.5, "passes_threshold": False},
         }
         await state_manager.save_finding_artifact(1, 2, unvalidated)
 
         validated_findings = state_manager.get_validated_findings()
 
         assert len(validated_findings) == 1
-        assert validated_findings[0].finding_id == 'validated_001'
+        assert validated_findings[0].finding_id == "validated_001"
 
 
 class TestArtifactStateManagerContext:
@@ -380,18 +363,18 @@ class TestArtifactStateManagerContext:
         # Save some findings
         for cycle in range(1, 4):
             finding = sample_finding_dict.copy()
-            finding['finding_id'] = f'cycle{cycle}_task1'
-            finding['cycle'] = cycle
-            finding['scholar_eval'] = {'passes_threshold': True}
+            finding["finding_id"] = f"cycle{cycle}_task1"
+            finding["cycle"] = cycle
+            finding["scholar_eval"] = {"passes_threshold": True}
             await state_manager.save_finding_artifact(cycle, 1, finding)
 
         context = state_manager.get_cycle_context(cycle=3, lookback=2)
 
-        assert context['cycle'] == 3
-        assert 'findings_count' in context
-        assert 'recent_findings' in context
-        assert 'validated_discoveries' in context
-        assert 'statistics' in context
+        assert context["cycle"] == 3
+        assert "findings_count" in context
+        assert "recent_findings" in context
+        assert "validated_discoveries" in context
+        assert "statistics" in context
 
     @pytest.mark.asyncio
     async def test_get_cycle_context_statistics(self, state_manager, sample_finding_dict):
@@ -399,16 +382,16 @@ class TestArtifactStateManagerContext:
         # Save findings
         for i in range(5):
             finding = sample_finding_dict.copy()
-            finding['finding_id'] = f'cycle1_task{i}'
-            finding['task_id'] = i
-            finding['scholar_eval'] = {'passes_threshold': i % 2 == 0}  # Half validated
+            finding["finding_id"] = f"cycle1_task{i}"
+            finding["task_id"] = i
+            finding["scholar_eval"] = {"passes_threshold": i % 2 == 0}  # Half validated
             await state_manager.save_finding_artifact(1, i, finding)
 
         context = state_manager.get_cycle_context(cycle=2, lookback=2)
 
-        assert context['statistics']['total_findings'] == 5
+        assert context["statistics"]["total_findings"] == 5
         # Should have 3 validated (0, 2, 4)
-        assert context['statistics']['validated_findings'] == 3
+        assert context["statistics"]["validated_findings"] == 3
 
 
 class TestArtifactStateManagerSummary:
@@ -420,16 +403,16 @@ class TestArtifactStateManagerSummary:
         # Save findings with validation
         for task_id in range(1, 4):
             finding = sample_finding_dict.copy()
-            finding['finding_id'] = f'cycle1_task{task_id}'
-            finding['task_id'] = task_id
-            finding['scholar_eval'] = {'passes_threshold': True}
+            finding["finding_id"] = f"cycle1_task{task_id}"
+            finding["task_id"] = task_id
+            finding["scholar_eval"] = {"passes_threshold": True}
             await state_manager.save_finding_artifact(1, task_id, finding)
 
         summary = await state_manager.generate_cycle_summary(1)
 
-        assert '# Cycle 1 Summary' in summary
-        assert 'Total Findings' in summary
-        assert 'Validated Findings' in summary
+        assert "# Cycle 1 Summary" in summary
+        assert "Total Findings" in summary
+        assert "Validated Findings" in summary
 
         # Check file was saved
         summary_path = artifacts_dir / "cycle_1" / "summary.md"
@@ -440,8 +423,8 @@ class TestArtifactStateManagerSummary:
         """Test generating summary for empty cycle."""
         summary = await state_manager.generate_cycle_summary(99)
 
-        assert '# Cycle 99 Summary' in summary
-        assert 'Total Findings**: 0' in summary
+        assert "# Cycle 99 Summary" in summary
+        assert "Total Findings**: 0" in summary
 
 
 class TestArtifactStateManagerExport:
@@ -453,7 +436,7 @@ class TestArtifactStateManagerExport:
         # Save some findings
         for i in range(3):
             finding = sample_finding_dict.copy()
-            finding['finding_id'] = f'finding_{i}'
+            finding["finding_id"] = f"finding_{i}"
             await state_manager.save_finding_artifact(1, i, finding)
 
         export_path = temp_dir / "export.json"
@@ -464,9 +447,9 @@ class TestArtifactStateManagerExport:
         with open(export_path) as f:
             exported = json.load(f)
 
-        assert 'findings' in exported
-        assert len(exported['findings']) == 3
-        assert 'export_timestamp' in exported
+        assert "findings" in exported
+        assert len(exported["findings"]) == 3
+        assert "export_timestamp" in exported
 
     @pytest.mark.asyncio
     async def test_get_statistics(self, state_manager, sample_finding_dict):
@@ -474,17 +457,17 @@ class TestArtifactStateManagerExport:
         # Save some findings
         for cycle in range(1, 3):
             finding = sample_finding_dict.copy()
-            finding['finding_id'] = f'cycle{cycle}_task1'
-            finding['cycle'] = cycle
-            finding['scholar_eval'] = {'passes_threshold': True}
+            finding["finding_id"] = f"cycle{cycle}_task1"
+            finding["cycle"] = cycle
+            finding["scholar_eval"] = {"passes_threshold": True}
             await state_manager.save_finding_artifact(cycle, 1, finding)
 
         stats = state_manager.get_statistics()
 
-        assert stats['total_findings'] == 2
-        assert stats['validated_findings'] == 2
-        assert stats['validation_rate'] == 1.0
-        assert stats['cycles_completed'] == 2
+        assert stats["total_findings"] == 2
+        assert stats["validated_findings"] == 2
+        assert stats["validation_rate"] == 1.0
+        assert stats["cycles_completed"] == 2
 
 
 class TestArtifactStateManagerConflictDetection:
@@ -499,12 +482,13 @@ class TestArtifactStateManagerConflictDetection:
         assert result is True
 
         # Finding should be saved
-        assert 'cycle1_task1' in state_manager._findings_cache
+        assert "cycle1_task1" in state_manager._findings_cache
 
 
 # ============================================================================
 # Edge Cases and Error Handling
 # ============================================================================
+
 
 class TestArtifactEdgeCases:
     """Tests for edge cases and error handling."""
@@ -513,13 +497,13 @@ class TestArtifactEdgeCases:
     async def test_save_finding_with_none_values(self, state_manager):
         """Test saving finding with None values."""
         finding = {
-            'finding_id': 'null_test',
-            'cycle': 1,
-            'task_id': 1,
-            'summary': 'Test',
-            'statistics': {},
-            'methods': None,
-            'interpretation': None
+            "finding_id": "null_test",
+            "cycle": 1,
+            "task_id": 1,
+            "summary": "Test",
+            "statistics": {},
+            "methods": None,
+            "interpretation": None,
         }
 
         path = await state_manager.save_finding_artifact(1, 1, finding)
@@ -533,7 +517,9 @@ class TestArtifactEdgeCases:
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_save_finding_creates_cycle_directory(self, state_manager, sample_finding_dict, artifacts_dir):
+    async def test_save_finding_creates_cycle_directory(
+        self, state_manager, sample_finding_dict, artifacts_dir
+    ):
         """Test that saving creates cycle directory."""
         await state_manager.save_finding_artifact(10, 1, sample_finding_dict)
 
@@ -547,8 +533,8 @@ class TestArtifactEdgeCases:
 
         async def save_finding(task_id):
             finding = sample_finding_dict.copy()
-            finding['finding_id'] = f'concurrent_{task_id}'
-            finding['task_id'] = task_id
+            finding["finding_id"] = f"concurrent_{task_id}"
+            finding["task_id"] = task_id
             await state_manager.save_finding_artifact(1, task_id, finding)
 
         await asyncio.gather(*[save_finding(i) for i in range(5)])

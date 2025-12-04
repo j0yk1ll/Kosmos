@@ -5,19 +5,18 @@ These tests validate timing constraints including hypothesis generation,
 iteration completion, and database query performance.
 """
 
-import pytest
-import time
 import asyncio
-from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
-from typing import Dict, Any, List
+import time
+from unittest.mock import Mock, patch
 
-from kosmos.agents.research_director import ResearchDirectorAgent
+import pytest
+
 from kosmos.agents.hypothesis_generator import HypothesisGeneratorAgent
-from kosmos.core.workflow import ResearchPlan
-from kosmos.world_model import get_world_model
-from kosmos.monitoring.metrics import MetricsCollector
+from kosmos.agents.research_director import ResearchDirectorAgent
 from kosmos.core.metrics import get_metrics
+from kosmos.monitoring.metrics import MetricsCollector
+from kosmos.world_model import get_world_model
+
 
 # Test markers for requirements traceability
 pytestmark = [
@@ -34,14 +33,16 @@ class TestREQ_PERF_TIME_001_HypothesisGenerationTime:
     (typically 3-5 hypotheses) in less than 5 minutes.
     """
 
-    @patch('kosmos.agents.hypothesis_generator.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.hypothesis_generator.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_hypothesis_generation_under_five_minutes(self, mock_wm, mock_llm):
         """Verify hypothesis generation completes within 5 minutes."""
         # Mock LLM to return quickly
         mock_client = Mock()
         mock_response = Mock()
-        mock_response.content = [Mock(text='{"hypotheses": ["H1: Test", "H2: Test", "H3: Test"],"reasoning": "Test"}')]
+        mock_response.content = [
+            Mock(text='{"hypotheses": ["H1: Test", "H2: Test", "H3: Test"],"reasoning": "Test"}')
+        ]
         mock_client.messages.create.return_value = mock_response
         mock_llm.return_value = mock_client
 
@@ -55,26 +56,27 @@ class TestREQ_PERF_TIME_001_HypothesisGenerationTime:
         hypotheses = generator.generate_hypotheses(
             research_question="What is the effect of X on Y?",
             literature_context="Previous studies show...",
-            num_hypotheses=5
+            num_hypotheses=5,
         )
 
         duration = time.time() - start_time
 
         # Verify completed within 5 minutes (300 seconds)
-        assert duration < 300, \
-            f"Hypothesis generation took {duration:.1f}s, exceeds 5 minute limit"
+        assert duration < 300, f"Hypothesis generation took {duration:.1f}s, exceeds 5 minute limit"
 
         # Verify hypotheses were generated
         assert len(hypotheses) > 0, "Should generate at least some hypotheses"
 
-    @patch('kosmos.agents.hypothesis_generator.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.hypothesis_generator.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_batch_hypothesis_generation_performance(self, mock_wm, mock_llm):
         """Verify batch generation performance is consistent."""
         # Mock fast LLM responses
         mock_client = Mock()
         mock_response = Mock()
-        mock_response.content = [Mock(text='{"hypotheses": ["H1", "H2", "H3"],"reasoning": "Test"}')]
+        mock_response.content = [
+            Mock(text='{"hypotheses": ["H1", "H2", "H3"],"reasoning": "Test"}')
+        ]
         mock_client.messages.create.return_value = mock_response
         mock_llm.return_value = mock_client
 
@@ -88,29 +90,27 @@ class TestREQ_PERF_TIME_001_HypothesisGenerationTime:
         for batch in range(5):
             start_time = time.time()
 
-            hypotheses = generator.generate_hypotheses(
+            generator.generate_hypotheses(
                 research_question=f"Research question {batch}",
                 literature_context="Context",
-                num_hypotheses=5
+                num_hypotheses=5,
             )
 
             duration = time.time() - start_time
             batch_durations.append(duration)
 
             # Each batch should be under 5 minutes
-            assert duration < 300, \
-                f"Batch {batch} took {duration:.1f}s, exceeds limit"
+            assert duration < 300, f"Batch {batch} took {duration:.1f}s, exceeds limit"
 
         # Verify consistent performance (no degradation)
         avg_first_half = sum(batch_durations[:3]) / 3
         avg_second_half = sum(batch_durations[3:]) / 2
 
         slowdown = (avg_second_half / avg_first_half) if avg_first_half > 0 else 1.0
-        assert slowdown < 1.5, \
-            f"Performance degraded {slowdown:.1f}x across batches"
+        assert slowdown < 1.5, f"Performance degraded {slowdown:.1f}x across batches"
 
-    @patch('kosmos.agents.hypothesis_generator.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.hypothesis_generator.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_hypothesis_generation_timeout_handling(self, mock_wm, mock_llm):
         """Verify system handles slow hypothesis generation gracefully."""
         # Mock slow LLM
@@ -132,9 +132,7 @@ class TestREQ_PERF_TIME_001_HypothesisGenerationTime:
 
         # Should complete even if LLM is slow
         hypotheses = generator.generate_hypotheses(
-            research_question="Test question",
-            literature_context="Context",
-            num_hypotheses=3
+            research_question="Test question", literature_context="Context", num_hypotheses=3
         )
 
         duration = time.time() - start_time
@@ -150,7 +148,7 @@ class TestREQ_PERF_TIME_001_HypothesisGenerationTime:
         # Simulate hypothesis generation with timing
         start_time = time.time()
         time.sleep(0.1)  # Simulate work
-        duration = time.time() - start_time
+        time.time() - start_time
 
         metrics.track_hypothesis_generated(domain="test", strategy="literature")
 
@@ -168,8 +166,8 @@ class TestREQ_PERF_TIME_002_IterationCompletionTime:
     in less than 30 minutes under normal conditions.
     """
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_iteration_completes_under_thirty_minutes(self, mock_wm, mock_llm):
         """Verify single iteration completes within 30 minutes."""
         # Mock fast LLM responses
@@ -182,8 +180,7 @@ class TestREQ_PERF_TIME_002_IterationCompletionTime:
         mock_wm.return_value = None
 
         director = ResearchDirectorAgent(
-            research_question="Test iteration timing",
-            config={"max_iterations": 1}
+            research_question="Test iteration timing", config={"max_iterations": 1}
         )
 
         start_time = time.time()
@@ -213,15 +210,14 @@ class TestREQ_PERF_TIME_002_IterationCompletionTime:
 
         # Verify under 30 minutes (1800 seconds)
         # In reality this will be much faster since we're not doing actual work
-        assert duration < 1800, \
-            f"Iteration took {duration:.1f}s, exceeds 30 minute limit"
+        assert duration < 1800, f"Iteration took {duration:.1f}s, exceeds 30 minute limit"
 
         # Verify iteration was completed
         assert director.research_plan.iteration_count == 1
         assert len(director.research_plan.results) == 2
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_iteration_phase_timing_breakdown(self, mock_wm, mock_llm):
         """Verify each phase of iteration completes within reasonable time."""
         mock_client = Mock()
@@ -233,8 +229,7 @@ class TestREQ_PERF_TIME_002_IterationCompletionTime:
         mock_wm.return_value = None
 
         director = ResearchDirectorAgent(
-            research_question="Test phase timing",
-            config={"max_iterations": 1}
+            research_question="Test phase timing", config={"max_iterations": 1}
         )
 
         phase_timings = {}
@@ -243,40 +238,37 @@ class TestREQ_PERF_TIME_002_IterationCompletionTime:
         start = time.time()
         for i in range(5):
             director.research_plan.add_hypothesis(f"hyp{i}")
-        phase_timings['hypothesis_generation'] = time.time() - start
+        phase_timings["hypothesis_generation"] = time.time() - start
 
         # Phase 2: Experiment design (target: < 5 minutes)
         start = time.time()
         for i in range(5):
             director.research_plan.add_experiment(f"exp{i}")
-        phase_timings['experiment_design'] = time.time() - start
+        phase_timings["experiment_design"] = time.time() - start
 
         # Phase 3: Execution (target: < 15 minutes)
         start = time.time()
         for i in range(5):
             director.research_plan.mark_experiment_complete(f"exp{i}")
             director.research_plan.add_result(f"res{i}")
-        phase_timings['execution'] = time.time() - start
+        phase_timings["execution"] = time.time() - start
 
         # Phase 4: Analysis & Refinement (target: < 5 minutes)
         start = time.time()
         director.research_plan.increment_iteration()
-        phase_timings['refinement'] = time.time() - start
+        phase_timings["refinement"] = time.time() - start
 
         # Verify phase timings
-        assert phase_timings['hypothesis_generation'] < 300, \
-            "Hypothesis generation should be < 5 minutes"
-        assert phase_timings['experiment_design'] < 300, \
-            "Experiment design should be < 5 minutes"
-        assert phase_timings['execution'] < 900, \
-            "Execution should be < 15 minutes"
-        assert phase_timings['refinement'] < 300, \
-            "Refinement should be < 5 minutes"
+        assert (
+            phase_timings["hypothesis_generation"] < 300
+        ), "Hypothesis generation should be < 5 minutes"
+        assert phase_timings["experiment_design"] < 300, "Experiment design should be < 5 minutes"
+        assert phase_timings["execution"] < 900, "Execution should be < 15 minutes"
+        assert phase_timings["refinement"] < 300, "Refinement should be < 5 minutes"
 
         # Total should be under 30 minutes
         total_time = sum(phase_timings.values())
-        assert total_time < 1800, \
-            f"Total iteration time {total_time:.1f}s exceeds 30 minutes"
+        assert total_time < 1800, f"Total iteration time {total_time:.1f}s exceeds 30 minutes"
 
     def test_iteration_timing_with_concurrent_operations(self):
         """Verify concurrent operations improve iteration timing."""
@@ -301,11 +293,12 @@ class TestREQ_PERF_TIME_002_IterationCompletionTime:
 
         # Concurrent should be faster (or at least not slower)
         # Note: This is a simplified test; real concurrency would show more speedup
-        assert concurrent_time <= sequential_time * 1.5, \
-            "Concurrent execution should not be significantly slower"
+        assert (
+            concurrent_time <= sequential_time * 1.5
+        ), "Concurrent execution should not be significantly slower"
 
-    @patch('kosmos.agents.research_director.get_client')
-    @patch('kosmos.world_model.get_world_model')
+    @patch("kosmos.agents.research_director.get_client")
+    @patch("kosmos.world_model.get_world_model")
     def test_multiple_iterations_average_time(self, mock_wm, mock_llm):
         """Verify average iteration time across multiple iterations."""
         mock_client = Mock()
@@ -317,8 +310,7 @@ class TestREQ_PERF_TIME_002_IterationCompletionTime:
         mock_wm.return_value = None
 
         director = ResearchDirectorAgent(
-            research_question="Test average timing",
-            config={"max_iterations": 5}
+            research_question="Test average timing", config={"max_iterations": 5}
         )
 
         iteration_times = []
@@ -338,8 +330,7 @@ class TestREQ_PERF_TIME_002_IterationCompletionTime:
 
         # Verify average time
         avg_time = sum(iteration_times) / len(iteration_times)
-        assert avg_time < 1800, \
-            f"Average iteration time {avg_time:.1f}s exceeds 30 minutes"
+        assert avg_time < 1800, f"Average iteration time {avg_time:.1f}s exceeds 30 minutes"
 
         # Verify no significant slowdown over time
         if len(iteration_times) >= 2:
@@ -347,8 +338,7 @@ class TestREQ_PERF_TIME_002_IterationCompletionTime:
             second_half_avg = sum(iteration_times[3:]) / 2
             slowdown = second_half_avg / first_half_avg if first_half_avg > 0 else 1.0
 
-            assert slowdown < 2.0, \
-                f"Performance degraded {slowdown:.1f}x across iterations"
+            assert slowdown < 2.0, f"Performance degraded {slowdown:.1f}x across iterations"
 
 
 @pytest.mark.requirement("REQ-PERF-TIME-003")
@@ -369,13 +359,12 @@ class TestREQ_PERF_TIME_003_DatabaseQueryPerformance:
             start_time = time.time()
 
             # Perform read query
-            hypotheses = wm.get_all_hypotheses()
+            wm.get_all_hypotheses()
 
             duration = time.time() - start_time
 
             # Should complete within 1 second
-            assert duration < 1.0, \
-                f"Read query took {duration:.3f}s, exceeds 1 second limit"
+            assert duration < 1.0, f"Read query took {duration:.3f}s, exceeds 1 second limit"
 
         except Exception as e:
             pytest.skip(f"World model not available: {e}")
@@ -394,19 +383,18 @@ class TestREQ_PERF_TIME_003_DatabaseQueryPerformance:
             wm.add_hypothesis(
                 hypothesis_id=hypothesis_id,
                 content="Test hypothesis for performance",
-                research_question="Test"
+                research_question="Test",
             )
 
             duration = time.time() - start_time
 
             # Should complete within 1 second
-            assert duration < 1.0, \
-                f"Write query took {duration:.3f}s, exceeds 1 second limit"
+            assert duration < 1.0, f"Write query took {duration:.3f}s, exceeds 1 second limit"
 
             # Cleanup
             try:
                 wm.delete_hypothesis(hypothesis_id)
-            except:
+            except Exception:
                 pass
 
         except Exception as e:
@@ -432,34 +420,32 @@ class TestREQ_PERF_TIME_003_DatabaseQueryPerformance:
                 wm.add_hypothesis(
                     hypothesis_id=hyp_id,
                     content=f"Hypothesis {hyp_id}",
-                    research_question="Bulk test"
+                    research_question="Bulk test",
                 )
 
             write_duration = time.time() - start_time
 
             # Each write should average < 1 second
             avg_write_time = write_duration / len(hypothesis_ids)
-            assert avg_write_time < 1.0, \
-                f"Average write time {avg_write_time:.3f}s exceeds limit"
+            assert avg_write_time < 1.0, f"Average write time {avg_write_time:.3f}s exceeds limit"
 
             # Bulk read
             start_time = time.time()
 
             for hyp_id in hypothesis_ids:
-                hyp = wm.get_hypothesis(hyp_id)
+                wm.get_hypothesis(hyp_id)
 
             read_duration = time.time() - start_time
 
             # Each read should average < 1 second
             avg_read_time = read_duration / len(hypothesis_ids)
-            assert avg_read_time < 1.0, \
-                f"Average read time {avg_read_time:.3f}s exceeds limit"
+            assert avg_read_time < 1.0, f"Average read time {avg_read_time:.3f}s exceeds limit"
 
             # Cleanup
             for hyp_id in hypothesis_ids:
                 try:
                     wm.delete_hypothesis(hyp_id)
-                except:
+                except Exception:
                     pass
 
         except Exception as e:
@@ -476,32 +462,28 @@ class TestREQ_PERF_TIME_003_DatabaseQueryPerformance:
 
             # Perform complex query (e.g., get all supported hypotheses)
             try:
-                supported_hyps = wm.get_hypotheses_by_status("supported")
+                wm.get_hypotheses_by_status("supported")
             except AttributeError:
                 # Fallback if method doesn't exist
                 all_hyps = wm.get_all_hypotheses()
-                supported_hyps = [h for h in all_hyps if getattr(h, 'status', '') == 'supported']
+                [h for h in all_hyps if getattr(h, "status", "") == "supported"]
 
             duration = time.time() - start_time
 
             # Should complete within 1 second
-            assert duration < 1.0, \
-                f"Complex query took {duration:.3f}s, exceeds 1 second limit"
+            assert duration < 1.0, f"Complex query took {duration:.3f}s, exceeds 1 second limit"
 
         except Exception as e:
             pytest.skip(f"World model not available: {e}")
 
     def test_database_query_metrics_tracking(self):
         """Verify database query metrics are tracked."""
-        metrics = MetricsCollector() if hasattr(MetricsCollector, '__init__') else None
+        metrics = MetricsCollector() if hasattr(MetricsCollector, "__init__") else None
 
-        if metrics and hasattr(metrics, 'track_database_query'):
+        if metrics and hasattr(metrics, "track_database_query"):
             # Track a query
             metrics.track_database_query(
-                operation="select",
-                table="hypotheses",
-                status="success",
-                duration=0.05
+                operation="select", table="hypotheses", status="success", duration=0.05
             )
 
             # Verify it can be tracked without error
@@ -519,7 +501,7 @@ class TestREQ_PERF_TIME_003_DatabaseQueryPerformance:
             # Simulate load with rapid queries
             query_times = []
 
-            for i in range(20):
+            for _i in range(20):
                 start_time = time.time()
 
                 # Rapid fire queries
@@ -530,21 +512,18 @@ class TestREQ_PERF_TIME_003_DatabaseQueryPerformance:
 
             # Verify all queries completed within limit
             max_time = max(query_times)
-            assert max_time < 1.0, \
-                f"Query under load took {max_time:.3f}s, exceeds limit"
+            assert max_time < 1.0, f"Query under load took {max_time:.3f}s, exceeds limit"
 
             # Verify average performance
             avg_time = sum(query_times) / len(query_times)
-            assert avg_time < 0.5, \
-                f"Average query time {avg_time:.3f}s too high under load"
+            assert avg_time < 0.5, f"Average query time {avg_time:.3f}s too high under load"
 
             # Verify no significant degradation
             first_5_avg = sum(query_times[:5]) / 5
             last_5_avg = sum(query_times[-5:]) / 5
             slowdown = last_5_avg / first_5_avg if first_5_avg > 0 else 1.0
 
-            assert slowdown < 2.0, \
-                f"Query performance degraded {slowdown:.1f}x under load"
+            assert slowdown < 2.0, f"Query performance degraded {slowdown:.1f}x under load"
 
         except Exception as e:
             pytest.skip(f"World model not available: {e}")
@@ -562,7 +541,7 @@ class TestREQ_PERF_TIME_003_DatabaseQueryPerformance:
 
             # Simulate multiple concurrent queries
             tasks = []
-            for i in range(10):
+            for _i in range(10):
                 # If world model supports async, use it
                 # Otherwise, wrap synchronous calls
                 async def query():
@@ -579,8 +558,7 @@ class TestREQ_PERF_TIME_003_DatabaseQueryPerformance:
 
             # Concurrent queries should be faster than sequential
             # (or at least not take 10x as long)
-            assert duration < 10.0, \
-                f"10 concurrent queries took {duration:.1f}s, should be faster"
+            assert duration < 10.0, f"10 concurrent queries took {duration:.1f}s, should be faster"
 
         except Exception as e:
             pytest.skip(f"Async queries not supported: {e}")

@@ -11,10 +11,10 @@ Prerequisites:
 Run this test to verify Ollama integration works correctly.
 """
 
-import os
-import sys
 import subprocess
+import sys
 from pathlib import Path
+
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -30,12 +30,7 @@ def check_ollama_installed():
     print("=" * 70)
 
     try:
-        result = subprocess.run(
-            ["ollama", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        result = subprocess.run(["ollama", "--version"], capture_output=True, text=True, timeout=5)
         version = result.stdout.strip()
         print(f"✓ Ollama installed: {version}")
         return True
@@ -58,6 +53,7 @@ def check_ollama_running():
 
     try:
         import requests
+
         response = requests.get("http://localhost:11434/api/tags", timeout=5)
 
         if response.status_code == 200:
@@ -85,12 +81,7 @@ def list_ollama_models():
     print("=" * 70)
 
     try:
-        result = subprocess.run(
-            ["ollama", "list"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
 
         if result.returncode == 0:
             print("✓ Available models:")
@@ -123,15 +114,10 @@ def detect_model():
     print("=" * 70)
 
     try:
-        result = subprocess.run(
-            ["ollama", "list"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
 
         if result.returncode == 0:
-            lines = result.stdout.strip().split('\n')[1:]  # Skip header
+            lines = result.stdout.strip().split("\n")[1:]  # Skip header
 
             for line in lines:
                 parts = line.split()
@@ -158,11 +144,11 @@ def test_ollama_generation(model):
 
     try:
         config = {
-            'api_key': 'ollama',  # Dummy key
-            'base_url': 'http://localhost:11434/v1',
-            'model': model,
-            'max_tokens': 100,
-            'temperature': 0.0
+            "api_key": "ollama",  # Dummy key
+            "base_url": "http://localhost:11434/v1",
+            "model": model,
+            "max_tokens": 100,
+            "temperature": 0.0,
         }
 
         provider = get_provider("openai", config)
@@ -176,9 +162,7 @@ def test_ollama_generation(model):
         # Test simple generation
         print("\nGenerating response...")
         response = provider.generate(
-            prompt="Say 'Hello from Ollama' and nothing else",
-            max_tokens=50,
-            temperature=0.0
+            prompt="Say 'Hello from Ollama' and nothing else", max_tokens=50, temperature=0.0
         )
 
         print(f"✓ Response: {response.content}")
@@ -193,6 +177,7 @@ def test_ollama_generation(model):
     except Exception as e:
         print(f"✗ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -205,30 +190,27 @@ def test_ollama_structured(model):
 
     try:
         config = {
-            'api_key': 'ollama',
-            'base_url': 'http://localhost:11434/v1',
-            'model': model,
-            'max_tokens': 200
+            "api_key": "ollama",
+            "base_url": "http://localhost:11434/v1",
+            "model": model,
+            "max_tokens": 200,
         }
 
         provider = get_provider("openai", config)
 
-        schema = {
-            "city": "string",
-            "country": "string",
-            "population": "integer"
-        }
+        schema = {"city": "string", "country": "string", "population": "integer"}
 
         print("\nGenerating structured output...")
         result = provider.generate_structured(
             prompt="Tell me about Tokyo. Return JSON with: city (str), country (str), population (int).",
             schema=schema,
             max_tokens=150,
-            temperature=0.0
+            temperature=0.0,
         )
 
-        print(f"✓ JSON result:")
+        print("✓ JSON result:")
         import json
+
         print(json.dumps(result, indent=2))
 
         # Verify structure
@@ -243,6 +225,7 @@ def test_ollama_structured(model):
         print(f"✗ Error: {e}")
         print("  (Some local models struggle with structured output)")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -255,10 +238,10 @@ def test_ollama_multi_turn(model):
 
     try:
         config = {
-            'api_key': 'ollama',
-            'base_url': 'http://localhost:11434/v1',
-            'model': model,
-            'max_tokens': 100
+            "api_key": "ollama",
+            "base_url": "http://localhost:11434/v1",
+            "model": model,
+            "max_tokens": 100,
         }
 
         provider = get_provider("openai", config)
@@ -269,14 +252,12 @@ def test_ollama_multi_turn(model):
             Message(role="system", content="You are a helpful assistant."),
             Message(role="user", content="What is 10 + 5?"),
             Message(role="assistant", content="10 + 5 equals 15."),
-            Message(role="user", content="What is that multiplied by 2?")
+            Message(role="user", content="What is that multiplied by 2?"),
         ]
 
         print("\nGenerating multi-turn response...")
         response = provider.generate_with_messages(
-            messages=messages,
-            max_tokens=50,
-            temperature=0.0
+            messages=messages, max_tokens=50, temperature=0.0
         )
 
         print(f"✓ Response: {response.content}")
@@ -285,13 +266,14 @@ def test_ollama_multi_turn(model):
         if "30" in response.content:
             print("✓ Correct answer (30) found")
         else:
-            print(f"⚠ Response may not contain expected answer")
+            print("⚠ Response may not contain expected answer")
 
         return True
 
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -326,9 +308,9 @@ def main():
     # Run tests
     results = {}
 
-    results['generation'] = test_ollama_generation(model)
-    results['structured'] = test_ollama_structured(model)
-    results['multi_turn'] = test_ollama_multi_turn(model)
+    results["generation"] = test_ollama_generation(model)
+    results["structured"] = test_ollama_structured(model)
+    results["multi_turn"] = test_ollama_multi_turn(model)
 
     # Summary
     print("\n" + "=" * 70)

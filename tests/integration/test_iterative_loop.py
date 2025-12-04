@@ -6,19 +6,21 @@ message passing, and feedback integration.
 """
 
 import json
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
+
 import pytest
 
-from kosmos.agents.research_director import ResearchDirectorAgent, NextAction
-from kosmos.core.workflow import WorkflowState, ResearchWorkflow, ResearchPlan
-from kosmos.models.hypothesis import Hypothesis, HypothesisStatus
-from kosmos.models.result import ExperimentResult, ResultStatus
+from kosmos.agents.research_director import ResearchDirectorAgent
+from kosmos.core.workflow import WorkflowState
 from kosmos.models.experiment import ExperimentProtocol
+from kosmos.models.hypothesis import Hypothesis
+from kosmos.models.result import ExperimentResult, ResultStatus
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_agents():
@@ -39,7 +41,7 @@ def director(mock_llm_client):
     return ResearchDirectorAgent(
         research_question="Does caffeine improve cognitive performance?",
         domain="neuroscience",
-        config={"max_iterations": 5}
+        config={"max_iterations": 5},
     )
 
 
@@ -47,18 +49,21 @@ def director(mock_llm_client):
 # Test Class 1: Single Iteration
 # ============================================================================
 
+
 class TestSingleIteration:
     """Test a single complete research iteration."""
 
     def test_complete_single_iteration(self, director, mock_llm_client):
         """Test one complete cycle: hypothesis → experiment → result → analysis."""
         # Mock Claude responses for research planning
-        mock_llm_client.generate.return_value = json.dumps({
-            "strategy": "Generate and test caffeine hypotheses",
-            "hypothesis_directions": ["Memory", "Attention"],
-            "experiment_strategy": "Computational analysis",
-            "success_criteria": "p < 0.05",
-        })
+        mock_llm_client.generate.return_value = json.dumps(
+            {
+                "strategy": "Generate and test caffeine hypotheses",
+                "hypothesis_directions": ["Memory", "Attention"],
+                "experiment_strategy": "Computational analysis",
+                "success_criteria": "p < 0.05",
+            }
+        )
 
         # Start director
         director.start()
@@ -89,7 +94,8 @@ class TestSingleIteration:
         assert director.workflow.current_state == WorkflowState.DESIGNING_EXPERIMENTS
 
         # Simulate experiment design
-        from kosmos.models.experiment import ResourceRequirements, ProtocolStep, Variable
+        from kosmos.models.experiment import ProtocolStep, ResourceRequirements, Variable
+
         protocol = ExperimentProtocol(
             id="protocol_001",
             name="Caffeine Cognitive Performance Test Protocol",
@@ -98,18 +104,21 @@ class TestSingleIteration:
             domain="neuroscience",
             description="Comprehensive statistical analysis protocol to test the effects of caffeine on cognitive performance metrics including memory, attention, and reaction time.",
             objective="Validate caffeine effects on cognitive performance through statistical analysis",
-            steps=[ProtocolStep(
-                step_number=1,
-                description="Run statistical analysis on caffeine performance data",
-                expected_duration_minutes=5
-            )],
-            variables={"caffeine_dose": Variable(name="caffeine_dose", description="Caffeine dose in milligrams", unit="mg")},
+            steps=[
+                ProtocolStep(
+                    step_number=1,
+                    description="Run statistical analysis on caffeine performance data",
+                    expected_duration_minutes=5,
+                )
+            ],
+            variables={
+                "caffeine_dose": Variable(
+                    name="caffeine_dose", description="Caffeine dose in milligrams", unit="mg"
+                )
+            },
             resource_requirements=ResourceRequirements(
-                estimated_runtime_seconds=300,
-                cpu_cores=1,
-                memory_gb=1,
-                storage_gb=0.1
-            )
+                estimated_runtime_seconds=300, cpu_cores=1, memory_gb=1, storage_gb=0.1
+            ),
         )
 
         director.research_plan.add_experiment(protocol.id)
@@ -159,7 +168,6 @@ class TestSingleIteration:
         director.start()
 
         # Record states visited
-        states_visited = [director.workflow.current_state]
 
         # Simulate state transitions
         expected_states = [
@@ -197,17 +205,20 @@ class TestSingleIteration:
 # Test Class 2: Multiple Iterations
 # ============================================================================
 
+
 class TestMultipleIterations:
     """Test multiple research iterations."""
 
     def test_two_iterations_complete(self, director, mock_llm_client):
         """Test two complete iterations."""
-        mock_llm_client.generate.return_value = json.dumps({
-            "strategy": "Test strategy",
-            "hypothesis_directions": ["Test"],
-            "experiment_strategy": "Computational",
-            "success_criteria": "p < 0.05",
-        })
+        mock_llm_client.generate.return_value = json.dumps(
+            {
+                "strategy": "Test strategy",
+                "hypothesis_directions": ["Test"],
+                "experiment_strategy": "Computational",
+                "success_criteria": "p < 0.05",
+            }
+        )
 
         director.start()
 
@@ -295,6 +306,7 @@ class TestMultipleIterations:
 # Test Class 3: Message Passing
 # ============================================================================
 
+
 class TestMessagePassing:
     """Test message passing between agents."""
 
@@ -371,12 +383,16 @@ class TestMessagePassing:
 
         # Check it's tracked
         assert message.correlation_id in director.pending_requests
-        assert director.pending_requests[message.correlation_id]["target_agent"] == "hypothesis_generator"
+        assert (
+            director.pending_requests[message.correlation_id]["target_agent"]
+            == "hypothesis_generator"
+        )
 
 
 # ============================================================================
 # Test Class 4: State Transitions
 # ============================================================================
+
 
 class TestStateTransitions:
     """Test workflow state transitions."""
@@ -438,7 +454,9 @@ class TestStateTransitions:
         # Can transition to ERROR from any state
         workflow.current_state = WorkflowState.EXECUTING
 
-        workflow.transition_to(WorkflowState.ERROR, action="error_occurred", metadata={"error": "Test error"})
+        workflow.transition_to(
+            WorkflowState.ERROR, action="error_occurred", metadata={"error": "Test error"}
+        )
         assert workflow.current_state == WorkflowState.ERROR
 
     def test_convergence_transition(self, director):
@@ -468,7 +486,7 @@ class TestStateTransitions:
         workflow.current_state = states_sequence[0]
 
         for i in range(len(states_sequence) - 1):
-            current = states_sequence[i]
+            states_sequence[i]
             next_state = states_sequence[i + 1]
 
             assert workflow.can_transition_to(next_state) is True
@@ -500,6 +518,7 @@ class TestStateTransitions:
 # Test Class 5: Feedback Integration
 # ============================================================================
 
+
 class TestFeedbackIntegration:
     """Test feedback loop integration during iterations."""
 
@@ -508,7 +527,7 @@ class TestFeedbackIntegration:
         # Create feedback loop if not exists
         from kosmos.core.feedback import FeedbackLoop
 
-        if not hasattr(director, 'feedback_loop'):
+        if not hasattr(director, "feedback_loop"):
             director.feedback_loop = FeedbackLoop()
 
         hypothesis = Hypothesis(
@@ -539,7 +558,7 @@ class TestFeedbackIntegration:
         """Test feedback loop processes failed results."""
         from kosmos.core.feedback import FeedbackLoop
 
-        if not hasattr(director, 'feedback_loop'):
+        if not hasattr(director, "feedback_loop"):
             director.feedback_loop = FeedbackLoop()
 
         hypothesis = Hypothesis(
@@ -569,7 +588,7 @@ class TestFeedbackIntegration:
         """Test memory system prevents duplicate experiments."""
         from kosmos.core.memory import MemoryStore
 
-        if not hasattr(director, 'memory'):
+        if not hasattr(director, "memory"):
             director.memory = MemoryStore()
 
         hypothesis = Hypothesis(
@@ -611,13 +630,16 @@ class TestFeedbackIntegration:
 
         # Strategy selection should favor successful strategy
         # (This would be tested in select_next_strategy if implemented)
-        assert director.strategy_stats["hypothesis_generation"]["successes"] > initial_stats["hypothesis_generation"]["successes"]
+        assert (
+            director.strategy_stats["hypothesis_generation"]["successes"]
+            > initial_stats["hypothesis_generation"]["successes"]
+        )
 
     def test_convergence_detection_integration(self, director):
         """Test convergence detector integrates with research loop."""
         from kosmos.core.convergence import ConvergenceDetector
 
-        if not hasattr(director, 'convergence_detector'):
+        if not hasattr(director, "convergence_detector"):
             director.convergence_detector = ConvergenceDetector()
 
         # Set up scenario for convergence

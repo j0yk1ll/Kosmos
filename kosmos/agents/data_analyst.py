@@ -5,16 +5,18 @@ Claude-powered agent for interpreting experiment results, detecting patterns,
 identifying anomalies, and generating scientific insights.
 """
 
-import logging
 import json
-from typing import List, Dict, Any, Optional, Tuple
+import logging
 from datetime import datetime
+from typing import Any
+
 import numpy as np
 
-from kosmos.agents.base import BaseAgent, AgentMessage, MessageType, AgentStatus
+from kosmos.agents.base import AgentStatus, BaseAgent
 from kosmos.core.llm import get_client
-from kosmos.models.result import ExperimentResult, ResultStatus, StatisticalTestResult
 from kosmos.models.hypothesis import Hypothesis
+from kosmos.models.result import ExperimentResult
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +27,19 @@ class ResultInterpretation:
     def __init__(
         self,
         experiment_id: str,
-        hypothesis_supported: Optional[bool],
+        hypothesis_supported: bool | None,
         confidence: float,
         summary: str,
-        key_findings: List[str],
+        key_findings: list[str],
         significance_interpretation: str,
-        biological_significance: Optional[str],
-        comparison_to_prior_work: Optional[str],
-        potential_confounds: List[str],
-        follow_up_experiments: List[str],
-        anomalies_detected: List[str],
-        patterns_detected: List[str],
+        biological_significance: str | None,
+        comparison_to_prior_work: str | None,
+        potential_confounds: list[str],
+        follow_up_experiments: list[str],
+        anomalies_detected: list[str],
+        patterns_detected: list[str],
         overall_assessment: str,
-        created_at: Optional[datetime] = None
+        created_at: datetime | None = None,
     ):
         """
         Initialize result interpretation.
@@ -73,7 +75,7 @@ class ResultInterpretation:
         self.overall_assessment = overall_assessment
         self.created_at = created_at or datetime.utcnow()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "experiment_id": self.experiment_id,
@@ -89,7 +91,7 @@ class ResultInterpretation:
             "anomalies_detected": self.anomalies_detected,
             "patterns_detected": self.patterns_detected,
             "overall_assessment": self.overall_assessment,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }
 
 
@@ -126,9 +128,9 @@ class DataAnalystAgent(BaseAgent):
 
     def __init__(
         self,
-        agent_id: Optional[str] = None,
-        agent_type: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None
+        agent_id: str | None = None,
+        agent_type: str | None = None,
+        config: dict[str, Any] | None = None,
     ):
         """
         Initialize Data Analyst Agent.
@@ -146,18 +148,20 @@ class DataAnalystAgent(BaseAgent):
         self.anomaly_detection_enabled = self.config.get("anomaly_detection_enabled", True)
         self.pattern_detection_enabled = self.config.get("pattern_detection_enabled", True)
         self.significance_threshold_strict = self.config.get("significance_threshold_strict", 0.01)
-        self.significance_threshold_relaxed = self.config.get("significance_threshold_relaxed", 0.05)
+        self.significance_threshold_relaxed = self.config.get(
+            "significance_threshold_relaxed", 0.05
+        )
         self.effect_size_threshold = self.config.get("effect_size_threshold", 0.3)
 
         # Components
         self.llm_client = get_client()
 
         # State: Store interpretations for pattern detection
-        self.interpretation_history: List[ResultInterpretation] = []
+        self.interpretation_history: list[ResultInterpretation] = []
 
         logger.info(f"Initialized DataAnalystAgent {self.agent_id}")
 
-    def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         """
         Execute agent task.
 
@@ -182,28 +186,19 @@ class DataAnalystAgent(BaseAgent):
 
                 interpretation = self.interpret_results(result, hypothesis, literature_context)
 
-                return {
-                    "success": True,
-                    "interpretation": interpretation.to_dict()
-                }
+                return {"success": True, "interpretation": interpretation.to_dict()}
 
             elif action == "detect_patterns":
                 results = task["results"]
                 patterns = self.detect_patterns_across_results(results)
 
-                return {
-                    "success": True,
-                    "patterns": patterns
-                }
+                return {"success": True, "patterns": patterns}
 
             elif action == "detect_anomalies":
                 result = task["result"]
                 anomalies = self.detect_anomalies(result)
 
-                return {
-                    "success": True,
-                    "anomalies": anomalies
-                }
+                return {"success": True, "anomalies": anomalies}
 
             else:
                 raise ValueError(f"Unknown action: {action}")
@@ -211,20 +206,17 @@ class DataAnalystAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Error executing task in DataAnalystAgent: {e}")
             self.errors_encountered += 1
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
         finally:
             self.status = AgentStatus.IDLE
             self.tasks_completed += 1
 
     def analyze(
         self,
-        results: List[ExperimentResult],
-        hypothesis: Optional[Hypothesis] = None,
-        literature_context: Optional[str] = None
-    ) -> Dict[str, Any]:
+        results: list[ExperimentResult],
+        hypothesis: Hypothesis | None = None,
+        literature_context: str | None = None,
+    ) -> dict[str, Any]:
         """
         Analyze multiple experiment results and synthesize findings.
 
@@ -259,9 +251,7 @@ class DataAnalystAgent(BaseAgent):
         for result in results:
             try:
                 interpretation = self.interpret_results(
-                    result=result,
-                    hypothesis=hypothesis,
-                    literature_context=literature_context
+                    result=result, hypothesis=hypothesis, literature_context=literature_context
                 )
                 individual_analyses.append(interpretation)
 
@@ -285,13 +275,11 @@ class DataAnalystAgent(BaseAgent):
             "individual_analyses": individual_analyses,
             "synthesis": synthesis,
             "patterns": patterns,
-            "anomalies": all_anomalies
+            "anomalies": all_anomalies,
         }
 
     def _generate_synthesis(
-        self,
-        analyses: List['ResultInterpretation'],
-        patterns: List[str]
+        self, analyses: list["ResultInterpretation"], patterns: list[str]
     ) -> str:
         """Generate a synthesis of multiple analyses."""
         if not analyses:
@@ -302,7 +290,11 @@ class DataAnalystAgent(BaseAgent):
 
         synthesis_parts = [
             f"Analyzed {total_count} experiment results.",
-            f"{supported_count}/{total_count} results support the hypothesis." if total_count > 0 else "",
+            (
+                f"{supported_count}/{total_count} results support the hypothesis."
+                if total_count > 0
+                else ""
+            ),
         ]
 
         if patterns:
@@ -311,7 +303,7 @@ class DataAnalystAgent(BaseAgent):
         # Aggregate key findings
         all_findings = []
         for a in analyses:
-            if hasattr(a, 'key_findings'):
+            if hasattr(a, "key_findings"):
                 all_findings.extend(a.key_findings[:2])  # Top 2 findings per analysis
 
         if all_findings:
@@ -326,8 +318,8 @@ class DataAnalystAgent(BaseAgent):
     def interpret_results(
         self,
         result: ExperimentResult,
-        hypothesis: Optional[Hypothesis] = None,
-        literature_context: Optional[str] = None
+        hypothesis: Hypothesis | None = None,
+        literature_context: str | None = None,
     ) -> ResultInterpretation:
         """
         Interpret experiment results using Claude.
@@ -346,23 +338,21 @@ class DataAnalystAgent(BaseAgent):
         result_summary = self._extract_result_summary(result)
 
         # Build interpretation prompt
-        prompt = self._build_interpretation_prompt(
-            result_summary, hypothesis, literature_context
-        )
+        prompt = self._build_interpretation_prompt(result_summary, hypothesis, literature_context)
 
         # Get Claude interpretation
         try:
             response = self.llm_client.generate(
                 prompt=prompt,
                 system="You are an expert scientific data analyst. Provide nuanced, "
-                       "evidence-based interpretations of experimental results. Focus on "
-                       "scientific meaning, not just statistical significance.",
+                "evidence-based interpretations of experimental results. Focus on "
+                "scientific meaning, not just statistical significance.",
                 max_tokens=2000,
-                temperature=0.3  # Lower temperature for more focused analysis
+                temperature=0.3,  # Lower temperature for more focused analysis
             )
 
             # Parse Claude's response (extract content from LLMResponse)
-            response_text = response.content if hasattr(response, 'content') else str(response)
+            response_text = response.content if hasattr(response, "content") else str(response)
             interpretation = self._parse_interpretation_response(
                 response_text, result.experiment_id, result
             )
@@ -378,7 +368,7 @@ class DataAnalystAgent(BaseAgent):
             # Return fallback interpretation
             return self._create_fallback_interpretation(result)
 
-    def _extract_result_summary(self, result: ExperimentResult) -> Dict[str, Any]:
+    def _extract_result_summary(self, result: ExperimentResult) -> dict[str, Any]:
         """Extract key information from result for prompt."""
         summary = {
             "experiment_id": result.experiment_id,
@@ -387,58 +377,65 @@ class DataAnalystAgent(BaseAgent):
             "primary_p_value": result.primary_p_value,
             "primary_effect_size": result.primary_effect_size,
             "supports_hypothesis": result.supports_hypothesis,
-            "statistical_tests": []
+            "statistical_tests": [],
         }
 
         # Add statistical test details
         for test in result.statistical_tests:
-            summary["statistical_tests"].append({
-                "test_name": test.test_name,
-                "statistic": test.statistic,
-                "p_value": test.p_value,
-                "effect_size": test.effect_size,
-                "effect_size_type": test.effect_size_type,
-                "significance_label": test.significance_label,
-                "sample_size": test.sample_size
-            })
+            summary["statistical_tests"].append(
+                {
+                    "test_name": test.test_name,
+                    "statistic": test.statistic,
+                    "p_value": test.p_value,
+                    "effect_size": test.effect_size,
+                    "effect_size_type": test.effect_size_type,
+                    "significance_label": test.significance_label,
+                    "sample_size": test.sample_size,
+                }
+            )
 
         # Add variable summaries
         if result.variable_results:
             summary["variables"] = []
             for var in result.variable_results[:5]:  # Top 5 variables
-                summary["variables"].append({
-                    "name": var.variable_name,
-                    "mean": var.mean,
-                    "median": var.median,
-                    "std": var.std,
-                    "min": var.min,
-                    "max": var.max,
-                    "n_samples": var.n_samples
-                })
+                summary["variables"].append(
+                    {
+                        "name": var.variable_name,
+                        "mean": var.mean,
+                        "median": var.median,
+                        "std": var.std,
+                        "min": var.min,
+                        "max": var.max,
+                        "n_samples": var.n_samples,
+                    }
+                )
 
         return summary
 
     def _build_interpretation_prompt(
         self,
-        result_summary: Dict[str, Any],
-        hypothesis: Optional[Hypothesis],
-        literature_context: Optional[str]
+        result_summary: dict[str, Any],
+        hypothesis: Hypothesis | None,
+        literature_context: str | None,
     ) -> str:
         """Build prompt for Claude interpretation."""
         prompt_parts = []
 
         # Hypothesis context
         if hypothesis:
-            prompt_parts.append(f"""
+            prompt_parts.append(
+                f"""
 HYPOTHESIS:
 {hypothesis.statement}
 
 Domain: {hypothesis.domain}
 Expected Outcome: {getattr(hypothesis, 'expected_outcome', 'Not specified')}
-""")
+"""
+            )
 
         # Result summary
-        prompt_parts.append(f"""
+        prompt_parts.append(
+            f"""
 EXPERIMENTAL RESULTS:
 Status: {result_summary['status']}
 Primary Test: {result_summary['primary_test']}
@@ -447,27 +444,33 @@ Primary Effect Size: {result_summary['primary_effect_size']}
 Hypothesis Supported: {result_summary['supports_hypothesis']}
 
 Statistical Tests:
-""")
+"""
+        )
 
-        for i, test in enumerate(result_summary['statistical_tests'][:3], 1):
-            prompt_parts.append(f"""
+        for i, test in enumerate(result_summary["statistical_tests"][:3], 1):
+            prompt_parts.append(
+                f"""
 Test {i}: {test['test_name']}
   - Statistic: {test['statistic']:.4f}
   - P-value: {test['p_value']:.6f}
   - Effect Size: {test['effect_size']} ({test['effect_size_type']})
   - Significance: {test['significance_label']}
   - Sample Size: {test['sample_size']}
-""")
+"""
+            )
 
         # Literature context
         if literature_context and self.use_literature_context:
-            prompt_parts.append(f"""
+            prompt_parts.append(
+                f"""
 LITERATURE CONTEXT:
 {literature_context[:1000]}  # Limit to 1000 chars
-""")
+"""
+            )
 
         # Instructions
-        prompt_parts.append("""
+        prompt_parts.append(
+            """
 Please provide a comprehensive scientific interpretation of these results:
 
 1. HYPOTHESIS SUPPORT: Does the data support or reject the hypothesis? (Be nuanced - consider strength of evidence)
@@ -501,21 +504,19 @@ Format your response as JSON with the following structure:
     "follow_up_experiments": ["experiment 1", "experiment 2", ...],
     "overall_assessment": "Quality: X/5. Explanation..."
 }
-""")
+"""
+        )
 
         return "\n".join(prompt_parts)
 
     def _parse_interpretation_response(
-        self,
-        response: str,
-        experiment_id: str,
-        result: ExperimentResult
+        self, response: str, experiment_id: str, result: ExperimentResult
     ) -> ResultInterpretation:
         """Parse Claude's JSON response into ResultInterpretation."""
         try:
             # Extract JSON from response (Claude sometimes adds text before/after)
-            json_start = response.find('{')
-            json_end = response.rfind('}') + 1
+            json_start = response.find("{")
+            json_end = response.rfind("}") + 1
             json_str = response[json_start:json_end]
 
             data = json.loads(json_str)
@@ -537,7 +538,7 @@ Format your response as JSON with the following structure:
                 follow_up_experiments=data.get("follow_up_experiments", []),
                 anomalies_detected=anomalies,
                 patterns_detected=patterns,
-                overall_assessment=data.get("overall_assessment", "")
+                overall_assessment=data.get("overall_assessment", ""),
             )
 
         except json.JSONDecodeError as e:
@@ -555,24 +556,24 @@ Format your response as JSON with the following structure:
             key_findings=[
                 f"Primary test: {result.primary_test}",
                 f"P-value: {result.primary_p_value}",
-                f"Effect size: {result.primary_effect_size}"
+                f"Effect size: {result.primary_effect_size}",
             ],
             significance_interpretation=f"P-value of {result.primary_p_value} indicates "
-                                       f"{'significant' if result.primary_p_value < 0.05 else 'non-significant'} results",
+            f"{'significant' if result.primary_p_value < 0.05 else 'non-significant'} results",
             biological_significance=None,
             comparison_to_prior_work=None,
             potential_confounds=["Automated analysis - manual review recommended"],
             follow_up_experiments=["Manual review needed for recommendations"],
             anomalies_detected=[],
             patterns_detected=[],
-            overall_assessment="Automated fallback interpretation - Claude unavailable"
+            overall_assessment="Automated fallback interpretation - Claude unavailable",
         )
 
     # ========================================================================
     # ANOMALY DETECTION
     # ========================================================================
 
-    def detect_anomalies(self, result: ExperimentResult) -> List[str]:
+    def detect_anomalies(self, result: ExperimentResult) -> list[str]:
         """
         Detect anomalies in experimental results.
 
@@ -653,10 +654,7 @@ Format your response as JSON with the following structure:
     # PATTERN DETECTION
     # ========================================================================
 
-    def detect_patterns_across_results(
-        self,
-        results: List[ExperimentResult]
-    ) -> List[str]:
+    def detect_patterns_across_results(self, results: list[ExperimentResult]) -> list[str]:
         """
         Detect patterns across multiple experiment results.
 
@@ -699,8 +697,12 @@ Format your response as JSON with the following structure:
         # Pattern: Increasing/decreasing trend in effect sizes
         if len(effect_sizes) >= 4:
             # Simple monotonicity check
-            increasing = all(effect_sizes[i] <= effect_sizes[i+1] for i in range(len(effect_sizes)-1))
-            decreasing = all(effect_sizes[i] >= effect_sizes[i+1] for i in range(len(effect_sizes)-1))
+            increasing = all(
+                effect_sizes[i] <= effect_sizes[i + 1] for i in range(len(effect_sizes) - 1)
+            )
+            decreasing = all(
+                effect_sizes[i] >= effect_sizes[i + 1] for i in range(len(effect_sizes) - 1)
+            )
 
             if increasing:
                 patterns.append(
@@ -736,10 +738,7 @@ Format your response as JSON with the following structure:
     # ========================================================================
 
     def interpret_significance(
-        self,
-        p_value: float,
-        effect_size: Optional[float],
-        sample_size: Optional[int]
+        self, p_value: float, effect_size: float | None, sample_size: int | None
     ) -> str:
         """
         Provide nuanced interpretation of statistical significance.

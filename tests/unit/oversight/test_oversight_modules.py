@@ -4,20 +4,21 @@ Tests for oversight modules (human review + notifications).
 Combined tests for efficiency.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
+from unittest.mock import Mock, patch
 
-from kosmos.oversight.human_review import (
-    HumanReviewWorkflow, ApprovalMode, AuditEntry
-)
-from kosmos.oversight.notifications import (
-    NotificationManager, NotificationLevel, NotificationChannel
-)
+import pytest
+
 from kosmos.models.safety import ApprovalRequest, ApprovalStatus, RiskLevel
+from kosmos.oversight.human_review import ApprovalMode, HumanReviewWorkflow
+from kosmos.oversight.notifications import (
+    NotificationChannel,
+    NotificationLevel,
+    NotificationManager,
+)
 
 
 # ========== Human Review Workflow Tests ==========
+
 
 class TestHumanReviewInit:
     """Tests for HumanReviewWorkflow initialization."""
@@ -34,9 +35,7 @@ class TestHumanReviewInit:
         """Test initialization with custom settings."""
         callback = Mock()
         workflow = HumanReviewWorkflow(
-            mode=ApprovalMode.QUEUE,
-            auto_approve_low_risk=False,
-            notification_callback=callback
+            mode=ApprovalMode.QUEUE, auto_approve_low_risk=False, notification_callback=callback
         )
 
         assert workflow.mode == ApprovalMode.QUEUE
@@ -56,7 +55,7 @@ class TestApprovalModes:
             operation_type="test",
             operation_description="Test op",
             risk_level=RiskLevel.HIGH,  # Even high risk
-            reason_for_approval="Testing"
+            reason_for_approval="Testing",
         )
 
         result = workflow.request_approval(request)
@@ -72,7 +71,7 @@ class TestApprovalModes:
             operation_type="test",
             operation_description="Test op",
             risk_level=RiskLevel.LOW,
-            reason_for_approval="Testing"
+            reason_for_approval="Testing",
         )
 
         result = workflow.request_approval(request)
@@ -83,8 +82,7 @@ class TestApprovalModes:
     def test_queue_mode_adds_to_pending(self):
         """Test that queue mode adds request to pending."""
         workflow = HumanReviewWorkflow(
-            mode=ApprovalMode.QUEUE,
-            auto_approve_low_risk=False  # Don't auto-approve
+            mode=ApprovalMode.QUEUE, auto_approve_low_risk=False  # Don't auto-approve
         )
 
         request = ApprovalRequest(
@@ -92,7 +90,7 @@ class TestApprovalModes:
             operation_type="test",
             operation_description="Test op",
             risk_level=RiskLevel.MEDIUM,
-            reason_for_approval="Testing"
+            reason_for_approval="Testing",
         )
 
         result = workflow.request_approval(request)
@@ -105,20 +103,17 @@ class TestApprovalModes:
 class TestPendingRequestProcessing:
     """Tests for processing pending requests in queue mode."""
 
-    @patch('builtins.input', side_effect=['yes'])
+    @patch("builtins.input", side_effect=["yes"])
     def test_process_pending_approves_request(self, mock_input):
         """Test processing pending request with approval."""
-        workflow = HumanReviewWorkflow(
-            mode=ApprovalMode.QUEUE,
-            auto_approve_low_risk=False
-        )
+        workflow = HumanReviewWorkflow(mode=ApprovalMode.QUEUE, auto_approve_low_risk=False)
 
         request = ApprovalRequest(
             request_id="test_123",
             operation_type="test",
             operation_description="Test op",
             risk_level=RiskLevel.MEDIUM,
-            reason_for_approval="Testing"
+            reason_for_approval="Testing",
         )
 
         workflow.request_approval(request)
@@ -128,20 +123,17 @@ class TestPendingRequestProcessing:
         assert processed[0].status == ApprovalStatus.APPROVED
         assert workflow.get_pending_count() == 0
 
-    @patch('builtins.input', side_effect=['no', 'User rejected'])
+    @patch("builtins.input", side_effect=["no", "User rejected"])
     def test_process_pending_rejects_request(self, mock_input):
         """Test processing pending request with rejection."""
-        workflow = HumanReviewWorkflow(
-            mode=ApprovalMode.QUEUE,
-            auto_approve_low_risk=False
-        )
+        workflow = HumanReviewWorkflow(mode=ApprovalMode.QUEUE, auto_approve_low_risk=False)
 
         request = ApprovalRequest(
             request_id="test_123",
             operation_type="test",
             operation_description="Test op",
             risk_level=RiskLevel.MEDIUM,
-            reason_for_approval="Testing"
+            reason_for_approval="Testing",
         )
 
         workflow.request_approval(request)
@@ -163,7 +155,7 @@ class TestOverrideCapability:
             operation_type="test",
             operation_description="Test op",
             risk_level=RiskLevel.LOW,
-            reason_for_approval="Testing"
+            reason_for_approval="Testing",
         )
 
         # Auto-approve
@@ -172,10 +164,7 @@ class TestOverrideCapability:
 
         # Override to rejected
         workflow.override_decision(
-            "test_123",
-            user="admin",
-            new_status=ApprovalStatus.REJECTED,
-            reason="Security concern"
+            "test_123", user="admin", new_status=ApprovalStatus.REJECTED, reason="Security concern"
         )
 
         assert request.status == ApprovalStatus.REJECTED
@@ -187,10 +176,7 @@ class TestOverrideCapability:
 
         with pytest.raises(ValueError, match="not found"):
             workflow.override_decision(
-                "nonexistent",
-                user="admin",
-                new_status=ApprovalStatus.REJECTED,
-                reason="Test"
+                "nonexistent", user="admin", new_status=ApprovalStatus.REJECTED, reason="Test"
             )
 
 
@@ -206,7 +192,7 @@ class TestAuditTrail:
             operation_type="test",
             operation_description="Test",
             risk_level=RiskLevel.LOW,
-            reason_for_approval="Testing"
+            reason_for_approval="Testing",
         )
 
         workflow.request_approval(request)
@@ -227,7 +213,7 @@ class TestAuditTrail:
                 operation_type="test",
                 operation_description="Test",
                 risk_level=RiskLevel.LOW,
-                reason_for_approval="Testing"
+                reason_for_approval="Testing",
             )
             workflow.request_approval(request)
 
@@ -246,7 +232,7 @@ class TestAuditTrail:
                 operation_type="test",
                 operation_description="Test",
                 risk_level=RiskLevel.LOW,
-                reason_for_approval="Testing"
+                reason_for_approval="Testing",
             )
             workflow.request_approval(request)
 
@@ -258,6 +244,7 @@ class TestAuditTrail:
 
 
 # ========== Notification Manager Tests ==========
+
 
 class TestNotificationManagerInit:
     """Tests for NotificationManager initialization."""
@@ -275,7 +262,7 @@ class TestNotificationManagerInit:
         manager = NotificationManager(
             default_channel=NotificationChannel.LOG,
             min_level=NotificationLevel.WARNING,
-            use_rich_formatting=False
+            use_rich_formatting=False,
         )
 
         assert manager.default_channel == NotificationChannel.LOG
@@ -286,12 +273,10 @@ class TestNotificationManagerInit:
 class TestNotificationSending:
     """Tests for sending notifications."""
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_notify_info_message(self, mock_logger):
         """Test sending info notification."""
-        manager = NotificationManager(
-            default_channel=NotificationChannel.LOG
-        )
+        manager = NotificationManager(default_channel=NotificationChannel.LOG)
 
         manager.notify("Test message", level=NotificationLevel.INFO)
 
@@ -300,12 +285,10 @@ class TestNotificationSending:
         assert manager.history[0].message == "Test message"
         assert manager.history[0].level == NotificationLevel.INFO
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_notify_below_min_level_ignored(self, mock_logger):
         """Test that notifications below min level are ignored."""
-        manager = NotificationManager(
-            min_level=NotificationLevel.WARNING
-        )
+        manager = NotificationManager(min_level=NotificationLevel.WARNING)
 
         manager.notify("Debug message", level=NotificationLevel.DEBUG)
         manager.notify("Info message", level=NotificationLevel.INFO)
@@ -313,12 +296,11 @@ class TestNotificationSending:
         # Should not be in history
         assert len(manager.history) == 0
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_convenience_methods(self, mock_logger):
         """Test convenience methods (info, warning, error, etc.)."""
         manager = NotificationManager(
-            default_channel=NotificationChannel.LOG,
-            min_level=NotificationLevel.DEBUG
+            default_channel=NotificationChannel.LOG, min_level=NotificationLevel.DEBUG
         )
 
         manager.debug("Debug msg")
@@ -335,7 +317,7 @@ class TestNotificationSending:
 class TestNotificationHistory:
     """Tests for notification history management."""
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_get_history_all(self, mock_logger):
         """Test getting all notification history."""
         manager = NotificationManager(default_channel=NotificationChannel.LOG)
@@ -347,7 +329,7 @@ class TestNotificationHistory:
 
         assert len(history) == 10
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_get_history_filtered_by_level(self, mock_logger):
         """Test getting history filtered by level."""
         manager = NotificationManager(default_channel=NotificationChannel.LOG)
@@ -362,7 +344,7 @@ class TestNotificationHistory:
         assert len(warnings) == 1
         assert warnings[0].message == "Warning 1"
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_get_history_with_limit(self, mock_logger):
         """Test getting history with limit."""
         manager = NotificationManager(default_channel=NotificationChannel.LOG)
@@ -376,7 +358,7 @@ class TestNotificationHistory:
         # Should be most recent
         assert history[-1].message == "Message 99"
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_clear_history(self, mock_logger):
         """Test clearing notification history."""
         manager = NotificationManager(default_channel=NotificationChannel.LOG)
@@ -393,7 +375,7 @@ class TestNotificationHistory:
 class TestNotificationStats:
     """Tests for notification statistics."""
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_get_stats(self, mock_logger):
         """Test getting notification statistics."""
         manager = NotificationManager(default_channel=NotificationChannel.LOG)
@@ -414,12 +396,11 @@ class TestNotificationStats:
 class TestNotificationConfiguration:
     """Tests for notification configuration changes."""
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_set_min_level(self, mock_logger):
         """Test changing minimum notification level."""
         manager = NotificationManager(
-            min_level=NotificationLevel.INFO,
-            default_channel=NotificationChannel.LOG
+            min_level=NotificationLevel.INFO, default_channel=NotificationChannel.LOG
         )
 
         manager.debug("Debug msg")  # Should be ignored
@@ -430,7 +411,7 @@ class TestNotificationConfiguration:
 
         assert len(manager.history) == 1
 
-    @patch('kosmos.oversight.notifications.logger')
+    @patch("kosmos.oversight.notifications.logger")
     def test_set_channel(self, mock_logger):
         """Test changing notification channel."""
         manager = NotificationManager()

@@ -12,8 +12,9 @@ Coverage target: 20 tests across 4 test classes
 """
 
 import pytest
-from kosmos.domains.neuroscience.ontology import NeuroscienceOntology
+
 from kosmos.domains.biology.ontology import BiologicalRelationType
+from kosmos.domains.neuroscience.ontology import NeuroscienceOntology
 
 
 @pytest.fixture
@@ -42,18 +43,25 @@ class TestNeuroscienceOntologyInit:
     def test_concept_count_validation(self, neuroscience_ontology):
         """Test expected number of concepts in each category"""
         # Brain regions (7 major + 5 cortical = 12) + brain itself = 13
-        brain_regions = [c for c in neuroscience_ontology.concepts.values()
-                        if c.type in ["brain_region", "cortical_region", "anatomical_structure"]]
+        brain_regions = [
+            c
+            for c in neuroscience_ontology.concepts.values()
+            if c.type in ["brain_region", "cortical_region", "anatomical_structure"]
+        ]
         assert len(brain_regions) >= 12
 
         # Neurons (6 subtypes) + glia (3 subtypes) + base types (2) = 11
-        cell_types = [c for c in neuroscience_ontology.concepts.values()
-                     if c.type in ["cell_type", "neuron_subtype", "glial_subtype"]]
+        cell_types = [
+            c
+            for c in neuroscience_ontology.concepts.values()
+            if c.type in ["cell_type", "neuron_subtype", "glial_subtype"]
+        ]
         assert len(cell_types) >= 11
 
         # Neurotransmitters (6)
-        neurotransmitters = [c for c in neuroscience_ontology.concepts.values()
-                            if c.type == "neurotransmitter"]
+        neurotransmitters = [
+            c for c in neuroscience_ontology.concepts.values() if c.type == "neurotransmitter"
+        ]
         assert len(neurotransmitters) == 6
 
         # Diseases (5)
@@ -77,12 +85,12 @@ class TestNeuroscienceOntologyInit:
         # Get cortex hierarchy
         cortex_hierarchy = neuroscience_ontology.get_region_hierarchy("cortex")
 
-        assert cortex_hierarchy['id'] == "cortex"
-        assert cortex_hierarchy['name'] == "Cerebral Cortex"
-        assert len(cortex_hierarchy['children']) == 5  # 5 cortical subregions
+        assert cortex_hierarchy["id"] == "cortex"
+        assert cortex_hierarchy["name"] == "Cerebral Cortex"
+        assert len(cortex_hierarchy["children"]) == 5  # 5 cortical subregions
 
         # Verify subregions
-        subregion_names = {child['name'] for child in cortex_hierarchy['children']}
+        subregion_names = {child["name"] for child in cortex_hierarchy["children"]}
         assert "Prefrontal Cortex" in subregion_names
         assert "Motor Cortex" in subregion_names
         assert "Visual Cortex" in subregion_names
@@ -94,7 +102,9 @@ class TestBrainRegions:
 
     def test_brain_region_hierarchy(self, neuroscience_ontology):
         """Test major brain regions are children of brain"""
-        brain_regions = neuroscience_ontology.get_child_concepts("brain", BiologicalRelationType.PART_OF)
+        brain_regions = neuroscience_ontology.get_child_concepts(
+            "brain", BiologicalRelationType.PART_OF
+        )
 
         # Should have 7 major regions
         assert len(brain_regions) >= 7
@@ -109,7 +119,9 @@ class TestBrainRegions:
     def test_cortex_subregions(self, neuroscience_ontology):
         """Test cortical subregions have correct properties"""
         # Get cortical subregions
-        cortical_regions = neuroscience_ontology.get_child_concepts("cortex", BiologicalRelationType.PART_OF)
+        cortical_regions = neuroscience_ontology.get_child_concepts(
+            "cortex", BiologicalRelationType.PART_OF
+        )
         assert len(cortical_regions) == 5
 
         # Verify prefrontal cortex
@@ -139,16 +151,14 @@ class TestBrainRegions:
         """Test that regions have parent relationships"""
         # Check cortical region parents
         pfc_parents = neuroscience_ontology.get_parent_concepts(
-            "prefrontal_cortex",
-            BiologicalRelationType.PART_OF
+            "prefrontal_cortex", BiologicalRelationType.PART_OF
         )
         assert len(pfc_parents) == 1
         assert pfc_parents[0].id == "cortex"
 
         # Check cortex parents
         cortex_parents = neuroscience_ontology.get_parent_concepts(
-            "cortex",
-            BiologicalRelationType.PART_OF
+            "cortex", BiologicalRelationType.PART_OF
         )
         assert len(cortex_parents) == 1
         assert cortex_parents[0].id == "brain"
@@ -165,7 +175,9 @@ class TestBrainRegions:
 
         # Temporal cortex
         temporal = neuroscience_ontology.concepts["temporal_cortex"]
-        assert "auditory" in temporal.description.lower() or "memory" in temporal.description.lower()
+        assert (
+            "auditory" in temporal.description.lower() or "memory" in temporal.description.lower()
+        )
 
 
 @pytest.mark.unit
@@ -175,7 +187,9 @@ class TestCellTypes:
     def test_neuron_types(self, neuroscience_ontology):
         """Test neuron subtypes and hierarchy"""
         # Get all neuron subtypes
-        neuron_subtypes = neuroscience_ontology.get_child_concepts("neuron", BiologicalRelationType.IS_A)
+        neuron_subtypes = neuroscience_ontology.get_child_concepts(
+            "neuron", BiologicalRelationType.IS_A
+        )
         assert len(neuron_subtypes) == 6
 
         # Verify specific neuron types
@@ -190,7 +204,9 @@ class TestCellTypes:
     def test_glial_cells(self, neuroscience_ontology):
         """Test glial cell types"""
         # Get glial subtypes
-        glia_subtypes = neuroscience_ontology.get_child_concepts("glia", BiologicalRelationType.IS_A)
+        glia_subtypes = neuroscience_ontology.get_child_concepts(
+            "glia", BiologicalRelationType.IS_A
+        )
         assert len(glia_subtypes) == 3
 
         # Verify specific glial types
@@ -208,16 +224,14 @@ class TestCellTypes:
         """Test cell type hierarchical relationships"""
         # Pyramidal neurons should be child of neuron
         pyramidal_parents = neuroscience_ontology.get_parent_concepts(
-            "pyramidal_neuron",
-            BiologicalRelationType.IS_A
+            "pyramidal_neuron", BiologicalRelationType.IS_A
         )
         assert len(pyramidal_parents) == 1
         assert pyramidal_parents[0].id == "neuron"
 
         # Microglia should be child of glia
         microglia_parents = neuroscience_ontology.get_parent_concepts(
-            "microglia",
-            BiologicalRelationType.IS_A
+            "microglia", BiologicalRelationType.IS_A
         )
         assert len(microglia_parents) == 1
         assert microglia_parents[0].id == "glia"
@@ -244,8 +258,9 @@ class TestNeurotransmitters:
     def test_neurotransmitter_systems(self, neuroscience_ontology):
         """Test all major neurotransmitters are present"""
         # Get all neurotransmitters
-        neurotransmitters = [c for c in neuroscience_ontology.concepts.values()
-                            if c.type == "neurotransmitter"]
+        neurotransmitters = [
+            c for c in neuroscience_ontology.concepts.values() if c.type == "neurotransmitter"
+        ]
         assert len(neurotransmitters) == 6
 
         nt_names = {nt.name for nt in neurotransmitters}
@@ -261,7 +276,8 @@ class TestNeurotransmitters:
         # Dopaminergic neurons encode dopamine
         # Find ENCODES relations where target is dopamine
         dopamine_relations = [
-            r for r in neuroscience_ontology.relations
+            r
+            for r in neuroscience_ontology.relations
             if r.target_id == "dopamine" and r.relation_type == BiologicalRelationType.ENCODES
         ]
         assert len(dopamine_relations) == 1
@@ -269,7 +285,8 @@ class TestNeurotransmitters:
 
         # GABAergic neurons encode GABA
         gaba_relations = [
-            r for r in neuroscience_ontology.relations
+            r
+            for r in neuroscience_ontology.relations
             if r.target_id == "gaba" and r.relation_type == BiologicalRelationType.ENCODES
         ]
         assert len(gaba_relations) == 1

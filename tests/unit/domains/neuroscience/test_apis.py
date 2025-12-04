@@ -13,19 +13,21 @@ Tests 7 neuroscience API clients:
 Coverage target: 40 tests (7 clients × 5-6 tests)
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from kosmos.domains.neuroscience.apis import (
-    FlyWireClient,
     AllenBrainClient,
-    MICrONSClient,
-    GEOClient,
     AMPADClient,
+    ConnectomeDataset,
+    FlyWireClient,
+    GeneExpressionData,
+    GEOClient,
+    MICrONSClient,
+    NeuronData,
     OpenConnectomeClient,
     WormBaseClient,
-    NeuronData,
-    GeneExpressionData,
-    ConnectomeDataset
 )
 
 
@@ -50,7 +52,7 @@ class TestFlyWireClient:
     def test_init_default(self):
         """Test FlyWire client initialization"""
         client = FlyWireClient()
-        assert hasattr(client, 'client')
+        assert hasattr(client, "client")
         assert FlyWireClient.BASE_URL == "https://global.daf-apis.com/nglstate/api/v1"
 
     def test_get_neuron_success(self):
@@ -105,21 +107,17 @@ class TestAllenBrainClient:
     def test_init_default(self):
         """Test Allen Brain client initialization"""
         client = AllenBrainClient()
-        assert hasattr(client, 'client')
+        assert hasattr(client, "client")
         assert AllenBrainClient.BASE_URL == "https://api.brain-map.org/api/v2"
 
     def test_get_gene_expression_success(self, mock_httpx_client):
         """Test successful gene expression retrieval"""
         mock_httpx_client.get.return_value.json.return_value = {
             "success": True,
-            "msg": [{
-                "id": 12345,
-                "acronym": "SOD2",
-                "name": "Superoxide dismutase 2"
-            }]
+            "msg": [{"id": 12345, "acronym": "SOD2", "name": "Superoxide dismutase 2"}],
         }
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = AllenBrainClient()
             result = client.get_gene_expression("SOD2")
 
@@ -132,10 +130,10 @@ class TestAllenBrainClient:
         """Test gene expression with brain region filter"""
         mock_httpx_client.get.return_value.json.return_value = {
             "success": True,
-            "msg": [{"id": 123, "acronym": "APP"}]
+            "msg": [{"id": 123, "acronym": "APP"}],
         }
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = AllenBrainClient()
             result = client.get_gene_expression("APP", structure="hippocampus")
 
@@ -146,13 +144,10 @@ class TestAllenBrainClient:
         """Test experiment search functionality"""
         mock_httpx_client.get.return_value.json.return_value = {
             "success": True,
-            "msg": [
-                {"id": 1, "name": "Experiment 1"},
-                {"id": 2, "name": "Experiment 2"}
-            ]
+            "msg": [{"id": 1, "name": "Experiment 1"}, {"id": 2, "name": "Experiment 2"}],
         }
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = AllenBrainClient()
             results = client.search_experiments(product_id=1, limit=10)
 
@@ -161,12 +156,9 @@ class TestAllenBrainClient:
 
     def test_dataset_selection(self, mock_httpx_client):
         """Test different product selection"""
-        mock_httpx_client.get.return_value.json.return_value = {
-            "success": True,
-            "msg": [{"id": 3}]
-        }
+        mock_httpx_client.get.return_value.json.return_value = {"success": True, "msg": [{"id": 3}]}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = AllenBrainClient()
             # Test human brain product
             results = client.search_experiments(product_id=2)
@@ -177,7 +169,7 @@ class TestAllenBrainClient:
         """Test error handling for failed requests"""
         mock_httpx_client.get.side_effect = Exception("Network error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = AllenBrainClient()
             result = client.get_gene_expression("INVALID")
 
@@ -191,7 +183,7 @@ class TestMICrONSClient:
     def test_init_default(self):
         """Test MICrONS client initialization"""
         client = MICrONSClient()
-        assert hasattr(client, 'client')
+        assert hasattr(client, "client")
         assert MICrONSClient.BASE_URL == "https://microns-explorer.org/api"
 
     def test_get_connectome_data(self):
@@ -240,14 +232,14 @@ class TestGEOClient:
     def test_init_default(self):
         """Test GEO client initialization"""
         client = GEOClient()
-        assert hasattr(client, 'client')
+        assert hasattr(client, "client")
         assert GEOClient.BASE_URL == "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi"
 
     def test_get_dataset_success(self, mock_httpx_client):
         """Test successful dataset retrieval"""
         mock_httpx_client.get.return_value.text = "!Series_title = Test Dataset"
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GEOClient()
             result = client.get_dataset("GSE153873")
 
@@ -257,7 +249,7 @@ class TestGEOClient:
 
     def test_search_datasets(self, mock_httpx_client):
         """Test dataset search functionality"""
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GEOClient()
             results = client.search_datasets("alzheimers", organism="Homo sapiens")
 
@@ -267,7 +259,7 @@ class TestGEOClient:
         """Test different format retrieval"""
         mock_httpx_client.get.return_value.text = "Sample data"
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GEOClient()
             result = client.get_dataset("GSE123", format="xml")
 
@@ -277,7 +269,7 @@ class TestGEOClient:
         """Test response contains raw data"""
         mock_httpx_client.get.return_value.text = "SOFT format data"
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GEOClient()
             result = client.get_dataset("GSE456")
 
@@ -288,7 +280,7 @@ class TestGEOClient:
         """Test error handling for failed requests"""
         mock_httpx_client.get.side_effect = Exception("Connection failed")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = GEOClient()
             result = client.get_dataset("INVALID")
 
@@ -302,7 +294,7 @@ class TestAMPADClient:
     def test_init_default(self):
         """Test AMP-AD client initialization"""
         client = AMPADClient()
-        assert hasattr(client, 'client')
+        assert hasattr(client, "client")
         assert AMPADClient.BASE_URL == "https://adknowledgeportal.synapse.org"
 
     def test_get_study_data(self):
@@ -356,7 +348,7 @@ class TestOpenConnectomeClient:
     def test_init_default(self):
         """Test OpenConnectome client initialization"""
         client = OpenConnectomeClient()
-        assert hasattr(client, 'client')
+        assert hasattr(client, "client")
         assert OpenConnectomeClient.BASE_URL == "https://openconnecto.me/ocp/ca"
 
     def test_get_dataset_info(self):
@@ -410,17 +402,17 @@ class TestWormBaseClient:
     def test_init_default(self):
         """Test WormBase client initialization"""
         client = WormBaseClient()
-        assert hasattr(client, 'client')
+        assert hasattr(client, "client")
         assert WormBaseClient.BASE_URL == "https://wormbase.org/rest"
 
     def test_get_gene_info(self, mock_httpx_client):
         """Test gene information retrieval"""
         mock_httpx_client.get.return_value.json.return_value = {
             "gene": "sod-2",
-            "description": "Superoxide dismutase"
+            "description": "Superoxide dismutase",
         }
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = WormBaseClient()
             result = client.get_gene("sod-2")
 
@@ -438,12 +430,9 @@ class TestWormBaseClient:
 
     def test_neuron_connectivity(self, mock_httpx_client):
         """Test neuron information retrieval"""
-        mock_httpx_client.get.return_value.json.return_value = {
-            "neuron": "AVAL",
-            "connections": []
-        }
+        mock_httpx_client.get.return_value.json.return_value = {"neuron": "AVAL", "connections": []}
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = WormBaseClient()
             result = client.get_neuron("AVAL")
 
@@ -464,7 +453,7 @@ class TestWormBaseClient:
         """Test error handling for failed requests"""
         mock_httpx_client.get.side_effect = Exception("API error")
 
-        with patch('httpx.Client', return_value=mock_httpx_client):
+        with patch("httpx.Client", return_value=mock_httpx_client):
             client = WormBaseClient()
             result = client.get_neuron("INVALID")
 

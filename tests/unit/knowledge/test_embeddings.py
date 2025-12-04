@@ -2,18 +2,18 @@
 Tests for kosmos.knowledge.embeddings module.
 """
 
-import pytest
+from unittest.mock import patch
+
 import numpy as np
-from unittest.mock import Mock, patch, MagicMock
+import pytest
 
 from kosmos.knowledge.embeddings import PaperEmbedder
-from kosmos.literature.base_client import PaperMetadata, PaperSource
 
 
 @pytest.fixture
 def paper_embedder():
     """Create PaperEmbedder instance."""
-    with patch('kosmos.knowledge.embeddings.SentenceTransformer') as mock_st:
+    with patch("kosmos.knowledge.embeddings.SentenceTransformer") as mock_st:
         mock_st.return_value.get_sentence_embedding_dimension.return_value = 768
         mock_st.return_value.device = "cpu"
         embedder = PaperEmbedder(model_name="allenai/specter")
@@ -24,7 +24,7 @@ def paper_embedder():
 class TestPaperEmbedderInit:
     """Test paper embedder initialization."""
 
-    @patch('kosmos.knowledge.embeddings.SentenceTransformer')
+    @patch("kosmos.knowledge.embeddings.SentenceTransformer")
     def test_init_default(self, mock_st):
         """Test default initialization."""
         mock_st.return_value.get_sentence_embedding_dimension.return_value = 768
@@ -33,7 +33,7 @@ class TestPaperEmbedderInit:
         assert embedder.model_name == "allenai/specter"
         mock_st.assert_called_once()
 
-    @patch('kosmos.knowledge.embeddings.SentenceTransformer')
+    @patch("kosmos.knowledge.embeddings.SentenceTransformer")
     def test_init_custom_model(self, mock_st):
         """Test initialization with custom model."""
         mock_st.return_value.get_sentence_embedding_dimension.return_value = 768
@@ -48,7 +48,7 @@ class TestEmbeddingGeneration:
 
     def test_embed_query(self, paper_embedder):
         """Test embedding a query."""
-        with patch.object(paper_embedder.model, 'encode') as mock_encode:
+        with patch.object(paper_embedder.model, "encode") as mock_encode:
             mock_encode.return_value = np.array([0.1, 0.2, 0.3])
 
             embedding = paper_embedder.embed_query("test query")
@@ -59,7 +59,7 @@ class TestEmbeddingGeneration:
 
     def test_embed_paper(self, paper_embedder, sample_paper_metadata):
         """Test embedding a paper."""
-        with patch.object(paper_embedder.model, 'encode') as mock_encode:
+        with patch.object(paper_embedder.model, "encode") as mock_encode:
             mock_encode.return_value = np.array([0.1] * 768)
 
             embedding = paper_embedder.embed_paper(sample_paper_metadata)
@@ -71,7 +71,7 @@ class TestEmbeddingGeneration:
 
     def test_embed_papers_batch(self, paper_embedder, sample_papers_list):
         """Test batch embedding of papers."""
-        with patch.object(paper_embedder.model, 'encode') as mock_encode:
+        with patch.object(paper_embedder.model, "encode") as mock_encode:
             mock_encode.return_value = np.array([[0.1] * 768] * len(sample_papers_list))
 
             embeddings = paper_embedder.embed_papers(sample_papers_list)
@@ -81,7 +81,7 @@ class TestEmbeddingGeneration:
 
     def test_embed_empty_query(self, paper_embedder):
         """Test embedding empty query."""
-        with patch.object(paper_embedder.model, 'encode') as mock_encode:
+        with patch.object(paper_embedder.model, "encode") as mock_encode:
             mock_encode.return_value = np.array([0.0] * 768)
 
             embedding = paper_embedder.embed_query("")
@@ -95,7 +95,7 @@ class TestEmbeddingBehavior:
 
     def test_multiple_queries(self, paper_embedder):
         """Test that multiple queries are handled correctly."""
-        with patch.object(paper_embedder.model, 'encode') as mock_encode:
+        with patch.object(paper_embedder.model, "encode") as mock_encode:
             mock_encode.return_value = np.array([0.1, 0.2, 0.3])
 
             # Call multiple times
@@ -132,16 +132,16 @@ class TestEmbeddingSimilarity:
     def test_find_most_similar(self, paper_embedder):
         """Test finding most similar papers."""
         # Create mock embeddings array
-        paper_embeddings = np.array([
-            [1.0, 0.0, 0.0],
-            [0.9, 0.1, 0.0],
-            [0.0, 1.0, 0.0],
-        ])
+        paper_embeddings = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.9, 0.1, 0.0],
+                [0.0, 1.0, 0.0],
+            ]
+        )
 
         query_embedding = np.array([1.0, 0.0, 0.0])
-        similar = paper_embedder.find_most_similar(
-            query_embedding, paper_embeddings, top_k=2
-        )
+        similar = paper_embedder.find_most_similar(query_embedding, paper_embeddings, top_k=2)
 
         assert len(similar) <= 2
         assert all(isinstance(item, tuple) for item in similar)

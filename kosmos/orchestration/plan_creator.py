@@ -15,10 +15,10 @@ Performance Target: Generate plans with ~80% approval rate
 
 import json
 import logging
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
 from kosmos.config import _DEFAULT_CLAUDE_SONNET_MODEL
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,44 +26,46 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Task:
     """Container for a research task."""
+
     task_id: int
     task_type: str  # data_analysis, literature_review, hypothesis_generation
     description: str
     expected_output: str
-    required_skills: List[str]
+    required_skills: list[str]
     exploration: bool
-    target_hypotheses: Optional[List[str]] = None
+    target_hypotheses: list[str] | None = None
     priority: int = 1
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
-            'id': self.task_id,
-            'type': self.task_type,
-            'description': self.description,
-            'expected_output': self.expected_output,
-            'required_skills': self.required_skills,
-            'exploration': self.exploration,
-            'target_hypotheses': self.target_hypotheses or [],
-            'priority': self.priority
+            "id": self.task_id,
+            "type": self.task_type,
+            "description": self.description,
+            "expected_output": self.expected_output,
+            "required_skills": self.required_skills,
+            "exploration": self.exploration,
+            "target_hypotheses": self.target_hypotheses or [],
+            "priority": self.priority,
         }
 
 
 @dataclass
 class ResearchPlan:
     """Container for a research plan (10 tasks + rationale)."""
+
     cycle: int
-    tasks: List[Task]
+    tasks: list[Task]
     rationale: str
     exploration_ratio: float
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
-            'cycle': self.cycle,
-            'tasks': [t.to_dict() for t in self.tasks],
-            'rationale': self.rationale,
-            'exploration_ratio': self.exploration_ratio
+            "cycle": self.cycle,
+            "tasks": [t.to_dict() for t in self.tasks],
+            "rationale": self.rationale,
+            "exploration_ratio": self.exploration_ratio,
         }
 
 
@@ -85,7 +87,7 @@ class PlanCreatorAgent:
         self,
         anthropic_client=None,
         model: str = _DEFAULT_CLAUDE_SONNET_MODEL,
-        default_num_tasks: int = 10
+        default_num_tasks: int = 10,
     ):
         """
         Initialize Plan Creator Agent.
@@ -117,10 +119,7 @@ class PlanCreatorAgent:
             return 0.30  # Late: exploit findings
 
     def create_plan(
-        self,
-        research_objective: str,
-        context: Dict,
-        num_tasks: Optional[int] = None
+        self, research_objective: str, context: dict, num_tasks: int | None = None
     ) -> ResearchPlan:
         """
         Generate strategic research plan.
@@ -136,7 +135,7 @@ class PlanCreatorAgent:
         if num_tasks is None:
             num_tasks = self.default_num_tasks
 
-        cycle = context.get('cycle', 1)
+        cycle = context.get("cycle", 1)
         exploration_ratio = self._get_exploration_ratio(cycle)
 
         # If no LLM client, use mock planning
@@ -156,7 +155,7 @@ class PlanCreatorAgent:
                 model=self.model,
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.7  # Allow creativity
+                temperature=0.7,  # Allow creativity
             )
 
             # Parse response
@@ -164,16 +163,16 @@ class PlanCreatorAgent:
 
             # Validate and create ResearchPlan
             tasks = []
-            for i, task_data in enumerate(plan_data.get('tasks', [])[:num_tasks], 1):
+            for i, task_data in enumerate(plan_data.get("tasks", [])[:num_tasks], 1):
                 task = Task(
                     task_id=i,
-                    task_type=task_data.get('type', 'data_analysis'),
-                    description=task_data.get('description', ''),
-                    expected_output=task_data.get('expected_output', ''),
-                    required_skills=task_data.get('required_skills', []),
-                    exploration=task_data.get('exploration', False),
-                    target_hypotheses=task_data.get('target_hypotheses'),
-                    priority=task_data.get('priority', 1)
+                    task_type=task_data.get("type", "data_analysis"),
+                    description=task_data.get("description", ""),
+                    expected_output=task_data.get("expected_output", ""),
+                    required_skills=task_data.get("required_skills", []),
+                    exploration=task_data.get("exploration", False),
+                    target_hypotheses=task_data.get("target_hypotheses"),
+                    priority=task_data.get("priority", 1),
                 )
                 tasks.append(task)
 
@@ -184,8 +183,8 @@ class PlanCreatorAgent:
             return ResearchPlan(
                 cycle=cycle,
                 tasks=tasks,
-                rationale=plan_data.get('rationale', ''),
-                exploration_ratio=exploration_ratio
+                rationale=plan_data.get("rationale", ""),
+                exploration_ratio=exploration_ratio,
             )
 
         except Exception as e:
@@ -195,25 +194,21 @@ class PlanCreatorAgent:
             )
 
     def _build_planning_prompt(
-        self,
-        research_objective: str,
-        context: Dict,
-        num_tasks: int,
-        exploration_ratio: float
+        self, research_objective: str, context: dict, num_tasks: int, exploration_ratio: float
     ) -> str:
         """Build prompt for strategic planning."""
-        cycle = context.get('cycle', 1)
-        findings_count = len(context.get('recent_findings', []))
-        unsupported_hyps = len(context.get('unsupported_hypotheses', []))
+        cycle = context.get("cycle", 1)
+        findings_count = len(context.get("recent_findings", []))
+        unsupported_hyps = len(context.get("unsupported_hypotheses", []))
 
         # Format recent findings
         findings_summary = ""
-        for finding in context.get('recent_findings', [])[:5]:
+        for finding in context.get("recent_findings", [])[:5]:
             findings_summary += f"- {finding.get('summary', 'N/A')[:100]}\n"
 
         # Format unsupported hypotheses
         hypotheses_summary = ""
-        for hyp in context.get('unsupported_hypotheses', [])[:3]:
+        for hyp in context.get("unsupported_hypotheses", [])[:3]:
             hypotheses_summary += f"- {hyp.get('statement', 'N/A')}\n"
 
         return f"""You are a strategic research planning agent for an autonomous AI scientist.
@@ -269,12 +264,12 @@ class PlanCreatorAgent:
 
 Generate a research plan as JSON (no additional text)."""
 
-    def _parse_plan_response(self, response_text: str) -> Dict:
+    def _parse_plan_response(self, response_text: str) -> dict:
         """Parse LLM response to extract plan."""
         try:
             # Extract JSON from response
-            start_idx = response_text.find('{')
-            end_idx = response_text.rfind('}') + 1
+            start_idx = response_text.find("{")
+            end_idx = response_text.rfind("}") + 1
 
             if start_idx != -1 and end_idx > start_idx:
                 json_str = response_text[start_idx:end_idx]
@@ -284,15 +279,15 @@ Generate a research plan as JSON (no additional text)."""
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse plan JSON: {e}")
 
-        return {'tasks': [], 'rationale': 'Failed to parse plan'}
+        return {"tasks": [], "rationale": "Failed to parse plan"}
 
     def _create_mock_plan(
         self,
         cycle: int,
         research_objective: str,
-        context: Dict,
+        context: dict,
         num_tasks: int,
-        exploration_ratio: float
+        exploration_ratio: float,
     ) -> ResearchPlan:
         """Create mock plan for testing (when no LLM available)."""
         tasks = []
@@ -300,65 +295,76 @@ Generate a research plan as JSON (no additional text)."""
 
         # Task type rotation to ensure structural requirements are met
         # (Plan reviewer requires >= 2 task types, >= 3 data_analysis tasks)
-        task_types = ['data_analysis', 'literature_review', 'hypothesis_generation']
+        task_types = ["data_analysis", "literature_review", "hypothesis_generation"]
 
         # Create exploration tasks (mix of data_analysis and literature_review)
         for i in range(1, num_exploration + 1):
             # Ensure first 3 exploration tasks are data_analysis, then mix in literature_review
             if i <= 3:
-                task_type = 'data_analysis'
+                task_type = "data_analysis"
             else:
                 task_type = task_types[(i - 1) % 2]  # Alternate data_analysis and literature_review
 
-            tasks.append(Task(
-                task_id=i,
-                task_type=task_type,
-                description=f"Exploratory {task_type.replace('_', ' ')} {i} for {research_objective}",
-                expected_output=f"{'Statistical findings and visualizations' if task_type == 'data_analysis' else 'Literature synthesis report'}",
-                required_skills=['pandas', 'scipy'] if task_type == 'data_analysis' else ['arxiv', 'pubmed'],
-                exploration=True,
-                priority=1
-            ))
+            tasks.append(
+                Task(
+                    task_id=i,
+                    task_type=task_type,
+                    description=f"Exploratory {task_type.replace('_', ' ')} {i} for {research_objective}",
+                    expected_output=f"{'Statistical findings and visualizations' if task_type == 'data_analysis' else 'Literature synthesis report'}",
+                    required_skills=(
+                        ["pandas", "scipy"] if task_type == "data_analysis" else ["arxiv", "pubmed"]
+                    ),
+                    exploration=True,
+                    priority=1,
+                )
+            )
 
         # Create exploitation tasks (mix including hypothesis_generation)
         for i in range(num_exploration + 1, num_tasks + 1):
             # Alternate between data_analysis and hypothesis_generation for exploitation
-            task_type = 'data_analysis' if (i - num_exploration) % 2 == 1 else 'hypothesis_generation'
+            task_type = (
+                "data_analysis" if (i - num_exploration) % 2 == 1 else "hypothesis_generation"
+            )
 
-            tasks.append(Task(
-                task_id=i,
-                task_type=task_type,
-                description=f"Validation {task_type.replace('_', ' ')} {i} for existing findings",
-                expected_output='Hypothesis test results' if task_type == 'data_analysis' else 'New testable hypotheses',
-                required_skills=['pandas', 'statsmodels'] if task_type == 'data_analysis' else [],
-                exploration=False,
-                priority=2
-            ))
+            tasks.append(
+                Task(
+                    task_id=i,
+                    task_type=task_type,
+                    description=f"Validation {task_type.replace('_', ' ')} {i} for existing findings",
+                    expected_output=(
+                        "Hypothesis test results"
+                        if task_type == "data_analysis"
+                        else "New testable hypotheses"
+                    ),
+                    required_skills=(
+                        ["pandas", "statsmodels"] if task_type == "data_analysis" else []
+                    ),
+                    exploration=False,
+                    priority=2,
+                )
+            )
 
         return ResearchPlan(
             cycle=cycle,
             tasks=tasks,
             rationale=f"Mock plan for cycle {cycle} (no LLM client provided)",
-            exploration_ratio=exploration_ratio
+            exploration_ratio=exploration_ratio,
         )
 
     def _create_generic_task(self, task_id: int) -> Task:
         """Create a generic task to fill gaps."""
         return Task(
             task_id=task_id,
-            task_type='data_analysis',
+            task_type="data_analysis",
             description=f"Additional analysis task {task_id}",
             expected_output="Statistical findings",
-            required_skills=['pandas', 'scipy'],
+            required_skills=["pandas", "scipy"],
             exploration=True,
-            priority=3
+            priority=3,
         )
 
     def revise_plan(
-        self,
-        original_plan: ResearchPlan,
-        review_feedback: Dict,
-        context: Dict
+        self, original_plan: ResearchPlan, review_feedback: dict, context: dict
     ) -> ResearchPlan:
         """
         Revise plan based on reviewer feedback.
@@ -372,17 +378,17 @@ Generate a research plan as JSON (no additional text)."""
             Revised ResearchPlan
         """
         # Simple revision: regenerate with feedback in context
-        feedback_text = review_feedback.get('feedback', '')
-        required_changes = review_feedback.get('required_changes', [])
+        feedback_text = review_feedback.get("feedback", "")
+        required_changes = review_feedback.get("required_changes", [])
 
         # Add feedback to context
         context_with_feedback = context.copy()
-        context_with_feedback['previous_plan_feedback'] = feedback_text
-        context_with_feedback['required_changes'] = required_changes
+        context_with_feedback["previous_plan_feedback"] = feedback_text
+        context_with_feedback["required_changes"] = required_changes
 
         # Regenerate plan
         return self.create_plan(
-            research_objective=context.get('research_objective', ''),
+            research_objective=context.get("research_objective", ""),
             context=context_with_feedback,
-            num_tasks=len(original_plan.tasks)
+            num_tasks=len(original_plan.tasks),
         )

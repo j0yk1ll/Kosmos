@@ -1,6 +1,5 @@
 """
 Reproducibility management and validation.
-from kosmos.utils.compat import model_to_dict
 
 Implements:
 - Random seed management
@@ -10,17 +9,20 @@ Implements:
 - Reproducibility reports
 """
 
-import os
-import sys
-import random
-import logging
-import platform
-import subprocess
 import hashlib
-from typing import Dict, List, Any, Optional
+import logging
+import os
+import platform
+import random
+import subprocess
+import sys
 from datetime import datetime
-from pathlib import Path
+from typing import Any
+
 from pydantic import BaseModel, Field
+
+from kosmos.utils.compat import model_to_dict
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Try to import numpy for seed management
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
@@ -41,12 +44,12 @@ class EnvironmentSnapshot(BaseModel):
     platform: str
     platform_version: str
     cpu_count: int
-    installed_packages: Dict[str, str] = Field(default_factory=dict)
-    environment_variables: Dict[str, str] = Field(default_factory=dict)
+    installed_packages: dict[str, str] = Field(default_factory=dict)
+    environment_variables: dict[str, str] = Field(default_factory=dict)
     working_directory: str
     timestamp: datetime = Field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return model_to_dict(self)
 
@@ -56,7 +59,7 @@ class EnvironmentSnapshot(BaseModel):
         relevant_data = {
             "python": self.python_version,
             "platform": self.platform,
-            "packages": self.installed_packages
+            "packages": self.installed_packages,
         }
         data_str = str(sorted(relevant_data.items()))
         return hashlib.md5(data_str.encode()).hexdigest()
@@ -67,11 +70,11 @@ class ReproducibilityReport(BaseModel):
 
     experiment_id: str
     is_reproducible: bool
-    seed_used: Optional[int] = None
-    environment_snapshot: Optional[EnvironmentSnapshot] = None
-    consistency_checks: List[str] = Field(default_factory=list)
-    issues: List[str] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    seed_used: int | None = None
+    environment_snapshot: EnvironmentSnapshot | None = None
+    consistency_checks: list[str] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)
 
     def summary(self) -> str:
@@ -94,7 +97,7 @@ class ReproducibilityManager:
         default_seed: int = 42,
         capture_environment: bool = True,
         capture_packages: bool = True,
-        strict_mode: bool = False
+        strict_mode: bool = False,
     ):
         """
         Initialize reproducibility manager.
@@ -111,17 +114,17 @@ class ReproducibilityManager:
         self.strict_mode = strict_mode
 
         # Track current seed
-        self.current_seed: Optional[int] = None
+        self.current_seed: int | None = None
 
         # Environment snapshots by experiment
-        self.environments: Dict[str, EnvironmentSnapshot] = {}
+        self.environments: dict[str, EnvironmentSnapshot] = {}
 
         logger.info(
             f"ReproducibilityManager initialized (seed={default_seed}, "
             f"capture_env={capture_environment}, strict={strict_mode})"
         )
 
-    def set_seed(self, seed: Optional[int] = None) -> int:
+    def set_seed(self, seed: int | None = None) -> int:
         """
         Set random seed for reproducibility.
 
@@ -144,6 +147,7 @@ class ReproducibilityManager:
         # Try to set PyTorch seed if available
         try:
             import torch
+
             torch.manual_seed(seed)
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(seed)
@@ -153,6 +157,7 @@ class ReproducibilityManager:
         # Try to set TensorFlow seed if available
         try:
             import tensorflow as tf
+
             tf.random.set_seed(seed)
         except ImportError:
             pass
@@ -162,14 +167,12 @@ class ReproducibilityManager:
 
         return seed
 
-    def get_current_seed(self) -> Optional[int]:
+    def get_current_seed(self) -> int | None:
         """Get the current random seed."""
         return self.current_seed
 
     def capture_environment_snapshot(
-        self,
-        experiment_id: str,
-        include_env_vars: bool = False
+        self, experiment_id: str, include_env_vars: bool = False
     ) -> EnvironmentSnapshot:
         """
         Capture snapshot of current environment.
@@ -213,7 +216,7 @@ class ReproducibilityManager:
             cpu_count=cpu_count,
             installed_packages=packages,
             environment_variables=env_vars,
-            working_directory=working_dir
+            working_directory=working_dir,
         )
 
         # Store snapshot
@@ -223,7 +226,7 @@ class ReproducibilityManager:
 
         return snapshot
 
-    def _get_installed_packages(self) -> Dict[str, str]:
+    def _get_installed_packages(self) -> dict[str, str]:
         """Get installed Python packages and versions."""
         packages = {}
 
@@ -233,11 +236,12 @@ class ReproducibilityManager:
                 [sys.executable, "-m", "pip", "list", "--format=json"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
 
             if result.returncode == 0:
                 import json
+
                 package_list = json.loads(result.stdout)
                 packages = {pkg["name"]: pkg["version"] for pkg in package_list}
         except Exception as e:
@@ -250,7 +254,7 @@ class ReproducibilityManager:
         experiment_id: str,
         original_result: Any,
         replication_result: Any,
-        tolerance: float = 1e-6
+        tolerance: float = 1e-6,
     ) -> ReproducibilityReport:
         """
         Validate consistency between original and replicated results.
@@ -268,14 +272,14 @@ class ReproducibilityManager:
         checks = []
 
         # Check if results are same type
-        if type(original_result) != type(replication_result):
+        if type(original_result) is not type(replication_result):
             issues.append(
                 f"Result types differ: {type(original_result)} vs {type(replication_result)}"
             )
         checks.append("result_type")
 
         # Numeric comparison
-        if isinstance(original_result, (int, float)):
+        if isinstance(original_result, int | float):
             if abs(original_result - replication_result) > tolerance:
                 issues.append(
                     f"Numeric results differ beyond tolerance: "
@@ -301,9 +305,7 @@ class ReproducibilityManager:
             if orig_keys != repl_keys:
                 missing = orig_keys - repl_keys
                 extra = repl_keys - orig_keys
-                issues.append(
-                    f"Dict keys differ (missing: {missing}, extra: {extra})"
-                )
+                issues.append(f"Dict keys differ (missing: {missing}, extra: {extra})")
             checks.append("dict_keys")
 
         # String comparison
@@ -320,20 +322,14 @@ class ReproducibilityManager:
             seed_used=self.current_seed,
             environment_snapshot=self.environments.get(experiment_id),
             consistency_checks=checks,
-            issues=issues
+            issues=issues,
         )
 
         logger.info(f"Reproducibility validation: {report.summary()}")
 
         return report
 
-    def test_determinism(
-        self,
-        experiment_function,
-        seed: int,
-        n_runs: int = 3,
-        **kwargs
-    ) -> bool:
+    def test_determinism(self, experiment_function, seed: int, n_runs: int = 3, **kwargs) -> bool:
         """
         Test if experiment function is deterministic.
 
@@ -368,23 +364,17 @@ class ReproducibilityManager:
             report = self.validate_consistency(
                 experiment_id=f"determinism_test_{i}",
                 original_result=results[0],
-                replication_result=results[i]
+                replication_result=results[i],
             )
 
             if not report.is_reproducible:
-                logger.warning(
-                    f"Determinism test failed: Run 1 vs Run {i+1} differ"
-                )
+                logger.warning(f"Determinism test failed: Run 1 vs Run {i+1} differ")
                 return False
 
         logger.info(f"Determinism test passed ({n_runs} runs)")
         return True
 
-    def compare_environments(
-        self,
-        env1_id: str,
-        env2_id: str
-    ) -> Dict[str, Any]:
+    def compare_environments(self, env1_id: str, env2_id: str) -> dict[str, Any]:
         """
         Compare two environment snapshots.
 
@@ -407,7 +397,7 @@ class ReproducibilityManager:
             "python_version": env1.python_version != env2.python_version,
             "platform": env1.platform != env2.platform,
             "cpu_count": env1.cpu_count != env2.cpu_count,
-            "package_differences": []
+            "package_differences": [],
         }
 
         # Compare packages
@@ -422,34 +412,32 @@ class ReproducibilityManager:
         version_diffs = []
         for pkg in env1_pkgs & env2_pkgs:
             if env1.installed_packages[pkg] != env2.installed_packages[pkg]:
-                version_diffs.append({
-                    "package": pkg,
-                    "env1_version": env1.installed_packages[pkg],
-                    "env2_version": env2.installed_packages[pkg]
-                })
+                version_diffs.append(
+                    {
+                        "package": pkg,
+                        "env1_version": env1.installed_packages[pkg],
+                        "env2_version": env2.installed_packages[pkg],
+                    }
+                )
 
         differences["package_differences"] = {
             "missing_in_env2": list(missing_in_env2),
             "extra_in_env2": list(extra_in_env2),
-            "version_differences": version_diffs
+            "version_differences": version_diffs,
         }
 
         # Overall match
         differences["environments_match"] = (
-            not differences["python_version"] and
-            not differences["platform"] and
-            len(missing_in_env2) == 0 and
-            len(extra_in_env2) == 0 and
-            len(version_diffs) == 0
+            not differences["python_version"]
+            and not differences["platform"]
+            and len(missing_in_env2) == 0
+            and len(extra_in_env2) == 0
+            and len(version_diffs) == 0
         )
 
         return differences
 
-    def export_environment(
-        self,
-        experiment_id: str,
-        output_path: Optional[str] = None
-    ) -> str:
+    def export_environment(self, experiment_id: str, output_path: str | None = None) -> str:
         """
         Export environment snapshot to requirements.txt format.
 
@@ -469,9 +457,9 @@ class ReproducibilityManager:
             output_path = f"requirements_{experiment_id}.txt"
 
         # Write requirements file
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             # Add header comment
-            f.write(f"# Generated by ReproducibilityManager\n")
+            f.write("# Generated by ReproducibilityManager\n")
             f.write(f"# Experiment: {experiment_id}\n")
             f.write(f"# Timestamp: {env.timestamp}\n")
             f.write(f"# Python: {env.python_version}\n")
@@ -490,7 +478,7 @@ class ReproducibilityManager:
         self.environments.clear()
         logger.info("All environment snapshots cleared")
 
-    def get_snapshot_summary(self) -> Dict[str, Any]:
+    def get_snapshot_summary(self) -> dict[str, Any]:
         """
         Get summary of stored snapshots.
 
@@ -500,5 +488,5 @@ class ReproducibilityManager:
         return {
             "total_snapshots": len(self.environments),
             "experiment_ids": list(self.environments.keys()),
-            "current_seed": self.current_seed
+            "current_seed": self.current_seed,
         }

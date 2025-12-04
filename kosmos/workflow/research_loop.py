@@ -7,20 +7,21 @@ This is the main entry point for running the Kosmos AI scientist system.
 """
 
 import logging
-from typing import Dict, List, Optional
 from datetime import datetime
+
+from kosmos.agents import SkillLoader
 
 # Gap imports
 from kosmos.compression import ContextCompressor
-from kosmos.world_model.artifacts import ArtifactStateManager
 from kosmos.orchestration import (
+    DelegationManager,
+    NoveltyDetector,
     PlanCreatorAgent,
     PlanReviewerAgent,
-    DelegationManager,
-    NoveltyDetector
 )
 from kosmos.validation import ScholarEvalValidator
-from kosmos.agents import SkillLoader
+from kosmos.world_model.artifacts import ArtifactStateManager
+
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class ResearchWorkflow:
         anthropic_client=None,
         artifacts_dir: str = "artifacts",
         world_model=None,
-        max_cycles: int = 20
+        max_cycles: int = 20,
     ):
         """
         Initialize Research Workflow.
@@ -80,8 +81,7 @@ class ResearchWorkflow:
 
         # Gap 1: State Manager
         self.state_manager = ArtifactStateManager(
-            artifacts_dir=artifacts_dir,
-            world_model=world_model
+            artifacts_dir=artifacts_dir, world_model=world_model
         )
         logger.info("✓ Gap 1: State Manager initialized")
 
@@ -105,11 +105,7 @@ class ResearchWorkflow:
         self.cycle_results = []
         self.start_time = None
 
-    async def run(
-        self,
-        num_cycles: int = 5,
-        tasks_per_cycle: int = 10
-    ) -> Dict:
+    async def run(self, num_cycles: int = 5, tasks_per_cycle: int = 10) -> dict:
         """
         Run autonomous research workflow.
 
@@ -156,20 +152,18 @@ class ResearchWorkflow:
         # Compute final statistics
         return self._compute_final_statistics()
 
-    async def _execute_cycle(self, cycle: int, num_tasks: int) -> Dict:
+    async def _execute_cycle(self, cycle: int, num_tasks: int) -> dict:
         """Execute one research cycle."""
 
         # Step 1: Get context from State Manager
         context = self.state_manager.get_cycle_context(cycle, lookback=3)
-        context['research_objective'] = self.research_objective
+        context["research_objective"] = self.research_objective
 
         logger.info(f"  Context: {context.get('findings_count', 0)} recent findings")
 
         # Step 2: Plan Creator generates tasks
         plan = self.plan_creator.create_plan(
-            research_objective=self.research_objective,
-            context=context,
-            num_tasks=num_tasks
+            research_objective=self.research_objective, context=context, num_tasks=num_tasks
         )
 
         logger.info(f"  Generated plan with {len(plan.tasks)} tasks")
@@ -197,30 +191,24 @@ class ResearchWorkflow:
             plan = self.plan_creator.revise_plan(plan, review.to_dict(), context)
             review = self.plan_reviewer.review_plan(plan.to_dict(), context)
 
-            logger.info(
-                f"  Revised plan: {'APPROVED' if review.approved else 'REJECTED'}"
-            )
+            logger.info(f"  Revised plan: {'APPROVED' if review.approved else 'REJECTED'}")
 
         # Step 5: Delegation Manager executes approved tasks
         completed_tasks = []
         if review.approved:
             execution_result = await self.delegation_manager.execute_plan(
-                plan.to_dict(),
-                cycle,
-                context
+                plan.to_dict(), cycle, context
             )
 
-            completed_tasks = execution_result.get('completed_tasks', [])
-            logger.info(
-                f"  Execution: {len(completed_tasks)}/{num_tasks} tasks completed"
-            )
+            completed_tasks = execution_result.get("completed_tasks", [])
+            logger.info(f"  Execution: {len(completed_tasks)}/{num_tasks} tasks completed")
         else:
             logger.warning("  Plan rejected after revision, skipping execution")
 
         # Step 6 & 7: Validate and save findings
         validated_count = 0
         for task_result in completed_tasks:
-            finding = task_result.get('finding')
+            finding = task_result.get("finding")
             if not finding:
                 continue
 
@@ -229,25 +217,20 @@ class ResearchWorkflow:
 
             if eval_score.passes_threshold:
                 # Save validated finding
-                finding['scholar_eval'] = eval_score.to_dict()
+                finding["scholar_eval"] = eval_score.to_dict()
                 await self.state_manager.save_finding_artifact(
-                    cycle,
-                    task_result.get('task_id', 0),
-                    finding
+                    cycle, task_result.get("task_id", 0), finding
                 )
                 validated_count += 1
             else:
-                logger.debug(
-                    f"    Finding rejected: score={eval_score.overall_score:.2f}"
-                )
+                logger.debug(f"    Finding rejected: score={eval_score.overall_score:.2f}")
 
         logger.info(f"  Validated: {validated_count}/{len(completed_tasks)} findings")
 
         # Step 8: Compress cycle results
         if completed_tasks:
             compressed_cycle = self.context_compressor.compress_cycle_results(
-                cycle,
-                completed_tasks
+                cycle, completed_tasks
             )
             logger.info(
                 f"  Compressed: {len(completed_tasks)} tasks → "
@@ -262,44 +245,36 @@ class ResearchWorkflow:
         await self.state_manager.generate_cycle_summary(cycle)
 
         return {
-            'cycle': cycle,
-            'tasks_generated': len(plan.tasks),
-            'tasks_completed': len(completed_tasks),
-            'validated_findings': validated_count,
-            'plan_approved': review.approved,
-            'plan_score': review.average_score
+            "cycle": cycle,
+            "tasks_generated": len(plan.tasks),
+            "tasks_completed": len(completed_tasks),
+            "validated_findings": validated_count,
+            "plan_approved": review.approved,
+            "plan_score": review.average_score,
         }
 
-    def _compute_final_statistics(self) -> Dict:
+    def _compute_final_statistics(self) -> dict:
         """Compute final statistics across all cycles."""
         total_time = (datetime.now() - self.start_time).total_seconds()
 
         all_findings = self.state_manager.get_all_findings()
         validated_findings = self.state_manager.get_validated_findings()
 
-        total_tasks_completed = sum(
-            r.get('tasks_completed', 0) for r in self.cycle_results
-        )
-        total_tasks_generated = sum(
-            r.get('tasks_generated', 0) for r in self.cycle_results
-        )
+        total_tasks_completed = sum(r.get("tasks_completed", 0) for r in self.cycle_results)
+        total_tasks_generated = sum(r.get("tasks_generated", 0) for r in self.cycle_results)
 
         results = {
-            'cycles_completed': len(self.cycle_results),
-            'total_findings': len(all_findings),
-            'validated_findings': len(validated_findings),
-            'validation_rate': (
-                len(validated_findings) / len(all_findings)
-                if all_findings else 0
+            "cycles_completed": len(self.cycle_results),
+            "total_findings": len(all_findings),
+            "validated_findings": len(validated_findings),
+            "validation_rate": (len(validated_findings) / len(all_findings) if all_findings else 0),
+            "total_tasks_generated": total_tasks_generated,
+            "total_tasks_completed": total_tasks_completed,
+            "task_completion_rate": (
+                total_tasks_completed / total_tasks_generated if total_tasks_generated else 0
             ),
-            'total_tasks_generated': total_tasks_generated,
-            'total_tasks_completed': total_tasks_completed,
-            'task_completion_rate': (
-                total_tasks_completed / total_tasks_generated
-                if total_tasks_generated else 0
-            ),
-            'total_time': total_time,
-            'research_objective': self.research_objective
+            "total_time": total_time,
+            "research_objective": self.research_objective,
         }
 
         logger.info(
@@ -326,16 +301,16 @@ class ResearchWorkflow:
         """
         validated_findings = self.state_manager.get_validated_findings()
 
-        report = f"# Research Report\n\n"
+        report = "# Research Report\n\n"
         report += f"**Objective**: {self.research_objective}\n"
         report += f"**Date**: {datetime.now().strftime('%Y-%m-%d')}\n"
         report += f"**Cycles Completed**: {len(self.cycle_results)}\n\n"
 
-        report += f"## Summary\n\n"
+        report += "## Summary\n\n"
         report += f"This autonomous research system completed {len(self.cycle_results)} "
         report += f"research cycles, generating {len(validated_findings)} validated findings.\n\n"
 
-        report += f"## Key Findings\n\n"
+        report += "## Key Findings\n\n"
         for i, finding in enumerate(validated_findings[:10], 1):  # Top 10
             report += f"### Finding {i}\n\n"
             report += f"{finding.summary}\n\n"
@@ -356,20 +331,20 @@ class ResearchWorkflow:
 
             # Quality score
             if finding.scholar_eval:
-                overall = finding.scholar_eval.get('overall_score', 0)
+                overall = finding.scholar_eval.get("overall_score", 0)
                 report += f"**Quality Score**: {overall:.2f}/1.0\n\n"
 
         return report
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get comprehensive statistics."""
         return {
-            'workflow': {
-                'research_objective': self.research_objective,
-                'max_cycles': self.max_cycles,
-                'cycles_completed': len(self.cycle_results)
+            "workflow": {
+                "research_objective": self.research_objective,
+                "max_cycles": self.max_cycles,
+                "cycles_completed": len(self.cycle_results),
             },
-            'state_manager': self.state_manager.get_statistics(),
-            'skill_loader': self.skill_loader.get_statistics(),
-            'novelty_detector': self.novelty_detector.get_statistics()
+            "state_manager": self.state_manager.get_statistics(),
+            "skill_loader": self.skill_loader.get_statistics(),
+            "novelty_detector": self.novelty_detector.get_statistics(),
         }

@@ -4,15 +4,16 @@ Integration tests for Kosmos CLI.
 Tests all CLI commands with various options and scenarios.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from typer.testing import CliRunner
-from pathlib import Path
-import tempfile
 import json
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-from kosmos.cli.main import app
+import pytest
+from typer.testing import CliRunner
+
 from kosmos.cli.interactive import run_interactive_mode
+from kosmos.cli.main import app
 from kosmos.cli.views.results_viewer import ResultsViewer
 
 
@@ -343,9 +344,7 @@ class TestInteractiveMode:
     @patch("kosmos.cli.interactive.Prompt.ask")
     @patch("kosmos.cli.interactive.Confirm.ask")
     @patch("kosmos.cli.interactive.IntPrompt.ask")
-    def test_interactive_mode_complete_flow(
-        self, mock_int_prompt, mock_confirm, mock_prompt
-    ):
+    def test_interactive_mode_complete_flow(self, mock_int_prompt, mock_confirm, mock_prompt):
         """Test complete interactive flow."""
         # Mock user inputs
         mock_prompt.side_effect = [
@@ -384,12 +383,15 @@ class TestInteractiveMode:
         # (This test would need more setup to fully test)
 
 
-@pytest.mark.parametrize("command,args", [
-    ("version", []),
-    ("info", []),
-    ("config", ["--show"]),
-    ("cache", ["--stats"]),
-])
+@pytest.mark.parametrize(
+    "command,args",
+    [
+        ("version", []),
+        ("info", []),
+        ("config", ["--show"]),
+        ("cache", ["--stats"]),
+    ],
+)
 def test_command_does_not_crash(cli_runner, command, args):
     """Test that commands don't crash."""
     with patch("kosmos.config.get_config"):
@@ -403,10 +405,16 @@ def test_cli_keyboard_interrupt(cli_runner):
     """Test CLI handles keyboard interrupt gracefully."""
     # This is difficult to test directly, but we can verify the code structure
     # supports it by checking that KeyboardInterrupt is caught in commands
-    from kosmos.cli.commands import run, status, history, cache, config as config_cmd
-
     # Verify KeyboardInterrupt handlers exist
     import inspect
+
+    from kosmos.cli.commands import (
+        cache,
+        config as config_cmd,
+        history,
+        run,
+        status,
+    )
 
     for module in [run, status, history, cache, config_cmd]:
         source = inspect.getsource(module)

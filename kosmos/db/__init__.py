@@ -7,12 +7,15 @@ Performance Features:
 - Optimized session management
 """
 
-from sqlalchemy import create_engine, event, pool
-from sqlalchemy.orm import sessionmaker, Session
-from kosmos.db.models import Base
 import logging
-from typing import Generator, Optional
+from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Optional
+
+from sqlalchemy import create_engine, event, pool
+from sqlalchemy.orm import Session, sessionmaker
+
+from kosmos.db.models import Base
 
 
 logger = logging.getLogger(__name__)
@@ -30,7 +33,7 @@ def init_database(
     max_overflow: int = 10,
     pool_timeout: int = 30,
     enable_slow_query_logging: bool = True,
-    slow_query_threshold_ms: float = 100.0
+    slow_query_threshold_ms: float = 100.0,
 ):
     """
     Initialize database engine with connection pooling and performance monitoring.
@@ -71,11 +74,7 @@ def init_database(
     # Configure engine with connection pooling
     if database_url.startswith("sqlite"):
         # SQLite doesn't support traditional pooling
-        _engine = create_engine(
-            database_url,
-            echo=echo,
-            connect_args={"check_same_thread": False}
-        )
+        _engine = create_engine(database_url, echo=echo, connect_args={"check_same_thread": False})
     else:
         # PostgreSQL, MySQL, etc. - use QueuePool
         _engine = create_engine(
@@ -85,7 +84,7 @@ def init_database(
             max_overflow=max_overflow,
             pool_timeout=pool_timeout,
             pool_pre_ping=True,  # Verify connections before using
-            poolclass=pool.QueuePool
+            poolclass=pool.QueuePool,
         )
 
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
@@ -93,6 +92,7 @@ def init_database(
     # Enable slow query logging
     if enable_slow_query_logging:
         from kosmos.db.operations import log_slow_queries
+
         log_slow_queries(_engine, threshold_ms=slow_query_threshold_ms)
         logger.info(f"Slow query logging enabled (threshold: {slow_query_threshold_ms}ms)")
 
@@ -175,10 +175,7 @@ def init_from_config():
             logger.warning(f"Setup warning: {error}")
 
     # Initialize database connection
-    init_database(
-        database_url=database_url,
-        echo=config.database.echo
-    )
+    init_database(database_url=database_url, echo=config.database.echo)
 
     # Verify schema is complete (warn if not)
     if not setup_results["schema_valid"]:

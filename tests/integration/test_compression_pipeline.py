@@ -5,20 +5,19 @@ Tests full compression workflow with real notebooks and multi-tier compression.
 """
 
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, AsyncMock
 
 from kosmos.compression.compressor import (
+    CompressedContext,
     ContextCompressor,
-    NotebookCompressor,
     LiteratureCompressor,
-    CompressedContext
+    NotebookCompressor,
 )
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def real_notebook_content():
@@ -92,45 +91,45 @@ def real_papers():
     """Realistic paper list for literature compression."""
     return [
         {
-            'paper_id': 'paper_001',
-            'title': 'KRAS G12D mutations drive oncogenic signaling in pancreatic cancer',
-            'authors': ['Smith, J.', 'Jones, M.', 'Lee, K.'],
-            'year': 2023,
-            'journal': 'Nature Cancer',
-            'abstract': '''KRAS mutations are found in 90% of pancreatic ductal adenocarcinoma (PDAC).
+            "paper_id": "paper_001",
+            "title": "KRAS G12D mutations drive oncogenic signaling in pancreatic cancer",
+            "authors": ["Smith, J.", "Jones, M.", "Lee, K."],
+            "year": 2023,
+            "journal": "Nature Cancer",
+            "abstract": """KRAS mutations are found in 90% of pancreatic ductal adenocarcinoma (PDAC).
             We analyzed 500 PDAC samples and found G12D mutations associated with poor prognosis
             (HR=2.5, p<0.001). Statistical analysis reveals significant correlation between
-            mutation status and therapeutic response (r=0.67, n=150).''',
-            'findings': '''Main finding: KRAS G12D mutations predict poor outcomes in PDAC.
+            mutation status and therapeutic response (r=0.67, n=150).""",
+            "findings": """Main finding: KRAS G12D mutations predict poor outcomes in PDAC.
             p-value: 0.0001, hazard ratio: 2.5, sample size: 500 patients.
-            Effect size: Cohen's d = 0.82 for survival difference.''',
-            'relevance_score': 0.95
+            Effect size: Cohen's d = 0.82 for survival difference.""",
+            "relevance_score": 0.95,
         },
         {
-            'paper_id': 'paper_002',
-            'title': 'Novel KRAS inhibitor shows efficacy in preclinical models',
-            'authors': ['Chen, L.', 'Wang, H.'],
-            'year': 2024,
-            'journal': 'Cell',
-            'abstract': '''Development of a novel covalent KRAS G12C inhibitor with improved
+            "paper_id": "paper_002",
+            "title": "Novel KRAS inhibitor shows efficacy in preclinical models",
+            "authors": ["Chen, L.", "Wang, H."],
+            "year": 2024,
+            "journal": "Cell",
+            "abstract": """Development of a novel covalent KRAS G12C inhibitor with improved
             pharmacokinetics. In vivo studies showed tumor regression in 65% of mice (n=40).
-            Phase 1 trial data shows response rate of 42% (p=0.002).''',
-            'findings': '''Drug efficacy: 65% tumor regression in mice, 42% response rate in humans.
-            Statistical significance: p = 0.002, n = 40 (preclinical), n = 50 (clinical).''',
-            'relevance_score': 0.88
+            Phase 1 trial data shows response rate of 42% (p=0.002).""",
+            "findings": """Drug efficacy: 65% tumor regression in mice, 42% response rate in humans.
+            Statistical significance: p = 0.002, n = 40 (preclinical), n = 50 (clinical).""",
+            "relevance_score": 0.88,
         },
         {
-            'paper_id': 'paper_003',
-            'title': 'KRAS downstream signaling pathways in colorectal cancer',
-            'authors': ['Park, S.'],
-            'year': 2022,
-            'journal': 'Cancer Research',
-            'abstract': '''Investigation of MAPK and PI3K signaling in KRAS-mutant CRC.
-            Phosphoproteomic analysis of 200 samples reveals pathway activation patterns.''',
-            'findings': '''Pathway analysis: MAPK activation in 78% of KRAS-mutant samples.
-            PI3K pathway: correlation r = 0.71 with mutation status.''',
-            'relevance_score': 0.75
-        }
+            "paper_id": "paper_003",
+            "title": "KRAS downstream signaling pathways in colorectal cancer",
+            "authors": ["Park, S."],
+            "year": 2022,
+            "journal": "Cancer Research",
+            "abstract": """Investigation of MAPK and PI3K signaling in KRAS-mutant CRC.
+            Phosphoproteomic analysis of 200 samples reveals pathway activation patterns.""",
+            "findings": """Pathway analysis: MAPK activation in 78% of KRAS-mutant samples.
+            PI3K pathway: correlation r = 0.71 with mutation status.""",
+            "relevance_score": 0.75,
+        },
     ]
 
 
@@ -143,37 +142,26 @@ def multi_cycle_results(real_notebook_content, real_papers, temp_dir):
 
     return [
         {
-            'cycle': 1,
-            'results': [
-                {
-                    'type': 'data_analysis',
-                    'notebook_path': str(notebook_path)
-                },
-                {
-                    'type': 'literature_review',
-                    'papers': real_papers[:2]
-                }
-            ]
+            "cycle": 1,
+            "results": [
+                {"type": "data_analysis", "notebook_path": str(notebook_path)},
+                {"type": "literature_review", "papers": real_papers[:2]},
+            ],
         },
         {
-            'cycle': 2,
-            'results': [
-                {
-                    'type': 'data_analysis',
-                    'notebook_path': str(notebook_path)
-                },
-                {
-                    'type': 'literature_review',
-                    'papers': real_papers[1:]
-                }
-            ]
-        }
+            "cycle": 2,
+            "results": [
+                {"type": "data_analysis", "notebook_path": str(notebook_path)},
+                {"type": "literature_review", "papers": real_papers[1:]},
+            ],
+        },
     ]
 
 
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestCompressionPipeline:
     """Integration tests for full compression pipeline."""
@@ -191,8 +179,8 @@ class TestCompressionPipeline:
         assert result.full_content_path == str(notebook_path)
 
         # Should extract statistics
-        assert 'p_value' in result.statistics
-        assert result.statistics['p_value'] < 0.05
+        assert "p_value" in result.statistics
+        assert result.statistics["p_value"] < 0.05
 
     def test_literature_compression_pipeline(self, real_papers):
         """Test full literature compression workflow."""
@@ -204,12 +192,13 @@ class TestCompressionPipeline:
         # Check compression preserves key info
         for i, result in enumerate(results):
             assert isinstance(result, CompressedContext)
-            assert 'paper_id' in result.metadata
+            assert "paper_id" in result.metadata
 
             # Higher relevance papers should be first
             if i > 0:
-                assert (results[i-1].metadata.get('relevance_score', 0) >=
-                        result.metadata.get('relevance_score', 0))
+                assert results[i - 1].metadata.get("relevance_score", 0) >= result.metadata.get(
+                    "relevance_score", 0
+                )
 
     def test_context_compressor_full_cycle(self, real_notebook_content, real_papers, temp_dir):
         """Test full context compression for a research cycle."""
@@ -219,15 +208,15 @@ class TestCompressionPipeline:
         compressor = ContextCompressor()
 
         task_results = [
-            {'type': 'data_analysis', 'notebook_path': str(notebook_path)},
-            {'type': 'literature_review', 'papers': real_papers}
+            {"type": "data_analysis", "notebook_path": str(notebook_path)},
+            {"type": "literature_review", "papers": real_papers},
         ]
 
         result = compressor.compress_cycle_results(cycle=1, task_results=task_results)
 
         assert isinstance(result, CompressedContext)
-        assert result.metadata['cycle'] == 1
-        assert result.metadata['n_tasks'] == 2
+        assert result.metadata["cycle"] == 1
+        assert result.metadata["n_tasks"] == 2
 
         # Summary should mention both data analysis and literature
         assert len(result.summary) > 100
@@ -239,8 +228,7 @@ class TestCompressionPipeline:
 
         for cycle_data in multi_cycle_results:
             result = compressor.compress_cycle_results(
-                cycle=cycle_data['cycle'],
-                task_results=cycle_data['results']
+                cycle=cycle_data["cycle"], task_results=cycle_data["results"]
             )
             compressed_cycles.append(result)
 
@@ -248,7 +236,7 @@ class TestCompressionPipeline:
 
         # Each cycle should have compressed context
         for i, compressed in enumerate(compressed_cycles):
-            assert compressed.metadata['cycle'] == i + 1
+            assert compressed.metadata["cycle"] == i + 1
             assert len(compressed.summary) > 0
 
     def test_compression_preserves_statistical_evidence(self, real_notebook_content, temp_dir):
@@ -262,13 +250,13 @@ class TestCompressionPipeline:
         # Should preserve key statistics
         stats = result.statistics
 
-        assert 'p_value' in stats
+        assert "p_value" in stats
         # p-value from notebook
-        assert stats['p_value'] < 0.001 or stats['p_value_count'] >= 1
+        assert stats["p_value"] < 0.001 or stats["p_value_count"] >= 1
 
         # Should have sample size if extractable
-        if 'sample_size' in stats:
-            assert stats['sample_size'] > 0
+        if "sample_size" in stats:
+            assert stats["sample_size"] > 0
 
     def test_compression_ratio_efficiency(self, real_notebook_content, temp_dir):
         """Test that compression achieves significant size reduction."""
@@ -295,9 +283,9 @@ class TestCompressionPipeline:
         assert len(results) == 2
 
         # Should include highest relevance papers
-        paper_ids = [r.metadata['paper_id'] for r in results]
-        assert 'paper_001' in paper_ids  # 0.95 relevance
-        assert 'paper_002' in paper_ids  # 0.88 relevance
+        paper_ids = [r.metadata["paper_id"] for r in results]
+        assert "paper_001" in paper_ids  # 0.95 relevance
+        assert "paper_002" in paper_ids  # 0.88 relevance
 
 
 class TestCompressionCaching:
@@ -310,9 +298,7 @@ class TestCompressionCaching:
 
         compressor = ContextCompressor()
 
-        task_results = [
-            {'type': 'data_analysis', 'notebook_path': str(notebook_path)}
-        ]
+        task_results = [{"type": "data_analysis", "notebook_path": str(notebook_path)}]
 
         # Compress same cycle twice
         result1 = compressor.compress_cycle_results(cycle=1, task_results=task_results)
@@ -345,13 +331,13 @@ class TestCompressionEdgeCases:
         compressor = ContextCompressor()
 
         task_results = [
-            {'type': 'data_analysis', 'notebook_path': str(notebook_path)},
-            {'type': 'literature_review', 'papers': real_papers},
-            {'type': 'hypothesis_generation', 'hypotheses': ['Hyp 1', 'Hyp 2']},
-            {'type': 'unknown_type', 'data': 'some data'}
+            {"type": "data_analysis", "notebook_path": str(notebook_path)},
+            {"type": "literature_review", "papers": real_papers},
+            {"type": "hypothesis_generation", "hypotheses": ["Hyp 1", "Hyp 2"]},
+            {"type": "unknown_type", "data": "some data"},
         ]
 
         result = compressor.compress_cycle_results(cycle=1, task_results=task_results)
 
         assert isinstance(result, CompressedContext)
-        assert result.metadata['n_tasks'] == 4
+        assert result.metadata["n_tasks"] == 4

@@ -10,16 +10,18 @@ References:
 - Figure 4 (neural_network): Log-log scaling analysis pattern
 """
 
-import pandas as pd
-import numpy as np
-from scipy import stats
-from typing import Dict, List, Tuple, Optional, Union, Any
 import logging
-from pathlib import Path
 import warnings
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+from scipy import stats
+
 
 # Suppress scientific computation warnings
-warnings.filterwarnings('ignore', category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +46,9 @@ class DataAnalyzer:
         data: pd.DataFrame,
         group_col: str,
         measure_col: str,
-        groups: Tuple[str, str],
-        log_transform: bool = False
-    ) -> Dict[str, Any]:
+        groups: tuple[str, str],
+        log_transform: bool = False,
+    ) -> dict[str, Any]:
         """
         Perform t-test comparison between two groups.
 
@@ -93,9 +95,11 @@ class DataAnalyzer:
 
         # Validate data
         if len(group1_data) == 0 or len(group2_data) == 0:
-            raise ValueError(f"One or both groups have no data. "
-                           f"Group '{groups[0]}': {len(group1_data)} samples, "
-                           f"Group '{groups[1]}': {len(group2_data)} samples")
+            raise ValueError(
+                f"One or both groups have no data. "
+                f"Group '{groups[0]}': {len(group1_data)} samples, "
+                f"Group '{groups[1]}': {len(group2_data)} samples"
+            )
 
         # Log transformation if requested (kosmos-figures Figure 2 pattern)
         if log_transform:
@@ -113,7 +117,11 @@ class DataAnalyzer:
 
         # Log2 fold change (handle division by zero)
         if group2_mean != 0:
-            log2_fc = np.log2(group1_mean / group2_mean) if group1_mean > 0 and group2_mean > 0 else np.nan
+            log2_fc = (
+                np.log2(group1_mean / group2_mean)
+                if group1_mean > 0 and group2_mean > 0
+                else np.nan
+            )
         else:
             log2_fc = np.nan
 
@@ -133,29 +141,26 @@ class DataAnalyzer:
             sig_label = "ns"
 
         return {
-            't_statistic': float(t_stat),
-            'p_value': float(p_value),
-            'group1_mean': float(group1_mean),
-            'group2_mean': float(group2_mean),
-            'group1_std': float(np.std(group1_data, ddof=1)),
-            'group2_std': float(np.std(group2_data, ddof=1)),
-            'mean_difference': float(mean_diff),
-            'log2_fold_change': float(log2_fc) if not np.isnan(log2_fc) else None,
-            'significant_0.05': bool(sig_0_05),
-            'significant_0.01': bool(sig_0_01),
-            'significant_0.001': bool(sig_0_001),
-            'significance_label': sig_label,
-            'n_group1': int(len(group1_data)),
-            'n_group2': int(len(group2_data))
+            "t_statistic": float(t_stat),
+            "p_value": float(p_value),
+            "group1_mean": float(group1_mean),
+            "group2_mean": float(group2_mean),
+            "group1_std": float(np.std(group1_data, ddof=1)),
+            "group2_std": float(np.std(group2_data, ddof=1)),
+            "mean_difference": float(mean_diff),
+            "log2_fold_change": float(log2_fc) if not np.isnan(log2_fc) else None,
+            "significant_0.05": bool(sig_0_05),
+            "significant_0.01": bool(sig_0_01),
+            "significant_0.001": bool(sig_0_001),
+            "significance_label": sig_label,
+            "n_group1": int(len(group1_data)),
+            "n_group2": int(len(group2_data)),
         }
 
     @staticmethod
     def correlation_analysis(
-        data: pd.DataFrame,
-        x_col: str,
-        y_col: str,
-        method: str = 'pearson'
-    ) -> Dict[str, Any]:
+        data: pd.DataFrame, x_col: str, y_col: str, method: str = "pearson"
+    ) -> dict[str, Any]:
         """
         Perform correlation analysis with linear regression.
 
@@ -191,16 +196,18 @@ class DataAnalyzer:
         df_clean = data[[x_col, y_col]].dropna()
 
         if len(df_clean) < 3:
-            raise ValueError(f"Insufficient data after removing NaN values. "
-                           f"Need at least 3 samples, got {len(df_clean)}")
+            raise ValueError(
+                f"Insufficient data after removing NaN values. "
+                f"Need at least 3 samples, got {len(df_clean)}"
+            )
 
         x = df_clean[x_col].values
         y = df_clean[y_col].values
 
         # Correlation
-        if method == 'pearson':
+        if method == "pearson":
             corr, p_val = stats.pearsonr(x, y)
-        elif method == 'spearman':
+        elif method == "spearman":
             corr, p_val = stats.spearmanr(x, y)
         else:
             raise ValueError(f"Unknown method '{method}'. Use 'pearson' or 'spearman'")
@@ -223,24 +230,20 @@ class DataAnalyzer:
         equation = f"y = {slope:.4f}x {sign}{intercept:.4f}"
 
         return {
-            'correlation': float(corr),
-            'p_value': float(p_val),
-            'r_squared': float(r_value ** 2),
-            'slope': float(slope),
-            'intercept': float(intercept),
-            'std_err': float(std_err),
-            'significance': significance,
-            'n_samples': int(len(x)),
-            'equation': equation,
-            'method': method
+            "correlation": float(corr),
+            "p_value": float(p_val),
+            "r_squared": float(r_value**2),
+            "slope": float(slope),
+            "intercept": float(intercept),
+            "std_err": float(std_err),
+            "significance": significance,
+            "n_samples": int(len(x)),
+            "equation": equation,
+            "method": method,
         }
 
     @staticmethod
-    def log_log_scaling_analysis(
-        data: pd.DataFrame,
-        x_col: str,
-        y_col: str
-    ) -> Dict[str, Any]:
+    def log_log_scaling_analysis(data: pd.DataFrame, x_col: str, y_col: str) -> dict[str, Any]:
         """
         Analyze scaling relationships on log-log scale.
 
@@ -278,8 +281,10 @@ class DataAnalyzer:
         df_clean = df_clean[(df_clean[x_col] > 0) & (df_clean[y_col] > 0)]
 
         if len(df_clean) < 3:
-            raise ValueError(f"Insufficient positive data for log-log analysis. "
-                           f"Need at least 3 positive samples, got {len(df_clean)}")
+            raise ValueError(
+                f"Insufficient positive data for log-log analysis. "
+                f"Need at least 3 positive samples, got {len(df_clean)}"
+            )
 
         x = df_clean[x_col].values
         y = df_clean[y_col].values
@@ -297,31 +302,28 @@ class DataAnalyzer:
 
         # Convert back to power law parameters
         # log(y) = log(a) + b*log(x)  =>  y = 10^intercept * x^slope
-        a = 10 ** intercept  # power_law_coefficient
+        a = 10**intercept  # power_law_coefficient
         b = slope  # power_law_exponent
 
         # Power law equation
         equation = f"y = {a:.3f} * x^{b:.3f}"
 
         return {
-            'spearman_rho': float(rho),
-            'p_value': float(p_value),
-            'power_law_exponent': float(b),
-            'power_law_coefficient': float(a),
-            'r_squared': float(r_value ** 2),
-            'equation': equation,
-            'n_samples': int(len(x)),
-            'log_log_slope': float(slope),
-            'log_log_intercept': float(intercept)
+            "spearman_rho": float(rho),
+            "p_value": float(p_value),
+            "power_law_exponent": float(b),
+            "power_law_coefficient": float(a),
+            "r_squared": float(r_value**2),
+            "equation": equation,
+            "n_samples": int(len(x)),
+            "log_log_slope": float(slope),
+            "log_log_intercept": float(intercept),
         }
 
     @staticmethod
     def anova_comparison(
-        data: pd.DataFrame,
-        group_col: str,
-        measure_col: str,
-        groups: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        data: pd.DataFrame, group_col: str, measure_col: str, groups: list[str] | None = None
+    ) -> dict[str, Any]:
         """
         Perform one-way ANOVA for multiple group comparison.
 
@@ -365,9 +367,16 @@ class DataAnalyzer:
         f_stat, p_value = stats.f_oneway(*group_data)
 
         # Calculate group statistics
-        group_means = {str(g): float(np.mean(gd)) for g, gd in zip(unique_groups, group_data)}
-        group_stds = {str(g): float(np.std(gd, ddof=1)) for g, gd in zip(unique_groups, group_data)}
-        group_sizes = {str(g): int(len(gd)) for g, gd in zip(unique_groups, group_data)}
+        group_means = {
+            str(g): float(np.mean(gd)) for g, gd in zip(unique_groups, group_data, strict=False)
+        }
+        group_stds = {
+            str(g): float(np.std(gd, ddof=1))
+            for g, gd in zip(unique_groups, group_data, strict=False)
+        }
+        group_sizes = {
+            str(g): int(len(gd)) for g, gd in zip(unique_groups, group_data, strict=False)
+        }
 
         # Calculate effect size (eta-squared)
         grand_mean = np.mean(np.concatenate(group_data))
@@ -380,26 +389,26 @@ class DataAnalyzer:
         within_var = np.mean([np.var(gd, ddof=1) for gd in group_data])
 
         return {
-            'f_statistic': float(f_stat),
-            'p_value': float(p_value),
-            'group_means': group_means,
-            'group_stds': group_stds,
-            'group_sizes': group_sizes,
-            'significant_0.05': bool(p_value < 0.05),
-            'significant_0.01': bool(p_value < 0.01),
-            'eta_squared': float(eta_squared),
-            'between_group_variance': float(between_var),
-            'within_group_variance': float(within_var),
-            'n_groups': int(len(unique_groups))
+            "f_statistic": float(f_stat),
+            "p_value": float(p_value),
+            "group_means": group_means,
+            "group_stds": group_stds,
+            "group_sizes": group_sizes,
+            "significant_0.05": bool(p_value < 0.05),
+            "significant_0.01": bool(p_value < 0.01),
+            "eta_squared": float(eta_squared),
+            "between_group_variance": float(between_var),
+            "within_group_variance": float(within_var),
+            "n_groups": int(len(unique_groups)),
         }
 
     @staticmethod
     def shap_feature_importance(
         model,
-        X_train: Union[pd.DataFrame, np.ndarray],
-        X_test: Optional[Union[pd.DataFrame, np.ndarray]] = None,
-        max_display: int = 20
-    ) -> Dict[str, Any]:
+        X_train: pd.DataFrame | np.ndarray,
+        X_test: pd.DataFrame | np.ndarray | None = None,
+        max_display: int = 20,
+    ) -> dict[str, Any]:
         """
         Calculate SHAP values for feature importance explanation (REQ-DAA-CAP-005).
 
@@ -427,12 +436,14 @@ class DataAnalyzer:
         """
         try:
             import shap
-        except ImportError:
-            raise ImportError("shap package required. Install with: pip install shap")
+        except ImportError as e:
+            raise ImportError("shap package required. Install with: pip install shap") from e
 
         # Convert to DataFrame if numpy array
         if isinstance(X_train, np.ndarray):
-            X_train = pd.DataFrame(X_train, columns=[f'feature_{i}' for i in range(X_train.shape[1])])
+            X_train = pd.DataFrame(
+                X_train, columns=[f"feature_{i}" for i in range(X_train.shape[1])]
+            )
 
         if X_test is None:
             # Sample from training data
@@ -458,32 +469,31 @@ class DataAnalyzer:
             shap_values_importance = np.abs(shap_values).mean(axis=0)
 
         # Create feature importance dictionary
-        feature_importance = dict(zip(
-            X_train.columns,
-            shap_values_importance
-        ))
+        feature_importance = dict(zip(X_train.columns, shap_values_importance, strict=False))
 
         # Sort by importance
-        feature_importance = dict(sorted(
-            feature_importance.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:max_display])
+        feature_importance = dict(
+            sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)[:max_display]
+        )
 
         return {
-            'feature_importance': {k: float(v) for k, v in feature_importance.items()},
-            'base_value': float(explainer.expected_value if not isinstance(explainer.expected_value, list) else explainer.expected_value[0]),
-            'feature_names': list(X_train.columns),
-            'n_samples': int(len(X_test))
+            "feature_importance": {k: float(v) for k, v in feature_importance.items()},
+            "base_value": float(
+                explainer.expected_value
+                if not isinstance(explainer.expected_value, list)
+                else explainer.expected_value[0]
+            ),
+            "feature_names": list(X_train.columns),
+            "n_samples": int(len(X_test)),
         }
 
     @staticmethod
     def pathway_enrichment_analysis(
-        gene_list: List[str],
-        organism: str = 'human',
-        gene_sets: str = 'KEGG_2021_Human',
-        outdir: Optional[str] = None
-    ) -> Dict[str, Any]:
+        gene_list: list[str],
+        organism: str = "human",
+        gene_sets: str = "KEGG_2021_Human",
+        outdir: str | None = None,
+    ) -> dict[str, Any]:
         """
         Perform pathway enrichment analysis using gseapy (REQ-DAA-CAP-008).
 
@@ -509,8 +519,8 @@ class DataAnalyzer:
         """
         try:
             import gseapy as gp
-        except ImportError:
-            raise ImportError("gseapy package required. Install with: pip install gseapy")
+        except ImportError as e:
+            raise ImportError("gseapy package required. Install with: pip install gseapy") from e
 
         # Run enrichment analysis
         enr = gp.enrichr(
@@ -519,36 +529,39 @@ class DataAnalyzer:
             organism=organism.capitalize(),
             outdir=outdir,
             no_plot=True if outdir is None else False,
-            cutoff=0.05  # Adjusted p-value cutoff
+            cutoff=0.05,  # Adjusted p-value cutoff
         )
 
         results_df = enr.results
 
         # Extract significant pathways
-        significant = results_df[results_df['Adjusted P-value'] < 0.05]
+        significant = results_df[results_df["Adjusted P-value"] < 0.05]
 
         enriched_pathways = []
         for _, row in significant.iterrows():
-            enriched_pathways.append({
-                'pathway': row['Term'],
-                'p_value': float(row['P-value']),
-                'adj_p_value': float(row['Adjusted P-value']),
-                'genes': row['Genes'].split(';') if isinstance(row['Genes'], str) else [],
-                'n_genes': int(row['Overlap'].split('/')[0]) if '/' in str(row['Overlap']) else 0
-            })
+            enriched_pathways.append(
+                {
+                    "pathway": row["Term"],
+                    "p_value": float(row["P-value"]),
+                    "adj_p_value": float(row["Adjusted P-value"]),
+                    "genes": row["Genes"].split(";") if isinstance(row["Genes"], str) else [],
+                    "n_genes": (
+                        int(row["Overlap"].split("/")[0]) if "/" in str(row["Overlap"]) else 0
+                    ),
+                }
+            )
 
         return {
-            'enriched_pathways': enriched_pathways,
-            'top_pathway': enriched_pathways[0] if enriched_pathways else None,
-            'significant_count': len(enriched_pathways),
-            'total_tested': len(results_df)
+            "enriched_pathways": enriched_pathways,
+            "top_pathway": enriched_pathways[0] if enriched_pathways else None,
+            "significant_count": len(enriched_pathways),
+            "total_tested": len(results_df),
         }
 
     @staticmethod
     def fit_distributions(
-        data: pd.Series,
-        distributions: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        data: pd.Series, distributions: list[str] | None = None
+    ) -> dict[str, Any]:
         """
         Fit multiple statistical distributions and find best fit (REQ-DAA-CAP-005).
 
@@ -569,13 +582,13 @@ class DataAnalyzer:
             >>> print(f"Best fit: {result['best_fit']}")
         """
         if distributions is None:
-            distributions = ['norm', 'lognorm', 'gamma', 'expon', 'weibull_min']
+            distributions = ["norm", "lognorm", "gamma", "expon", "weibull_min"]
 
         # Remove NaN values
         data_clean = data.dropna()
 
         results = {}
-        best_aic = float('inf')
+        best_aic = float("inf")
         best_dist = None
         best_params = None
 
@@ -595,10 +608,10 @@ class DataAnalyzer:
                 ks_stat, ks_pvalue = stats.kstest(data_clean, dist_name, args=params)
 
                 results[dist_name] = {
-                    'params': params,
-                    'aic': float(aic),
-                    'ks_statistic': float(ks_stat),
-                    'ks_pvalue': float(ks_pvalue)
+                    "params": params,
+                    "aic": float(aic),
+                    "ks_statistic": float(ks_stat),
+                    "ks_pvalue": float(ks_pvalue),
                 }
 
                 if aic < best_aic:
@@ -611,18 +624,16 @@ class DataAnalyzer:
                 continue
 
         return {
-            'best_fit': best_dist,
-            'best_params': list(best_params) if best_params else None,
-            'aic_scores': {k: v['aic'] for k, v in results.items()},
-            'all_results': results
+            "best_fit": best_dist,
+            "best_params": list(best_params) if best_params else None,
+            "aic_scores": {k: v["aic"] for k, v in results.items()},
+            "all_results": results,
         }
 
     @staticmethod
     def segmented_regression(
-        x: Union[pd.Series, np.ndarray],
-        y: Union[pd.Series, np.ndarray],
-        n_breakpoints: int = 1
-    ) -> Dict[str, Any]:
+        x: pd.Series | np.ndarray, y: pd.Series | np.ndarray, n_breakpoints: int = 1
+    ) -> dict[str, Any]:
         """
         Perform piecewise linear (segmented) regression (REQ-DAA-CAP-005).
 
@@ -648,8 +659,8 @@ class DataAnalyzer:
         """
         try:
             import pwlf
-        except ImportError:
-            raise ImportError("pwlf package required. Install with: pip install pwlf")
+        except ImportError as e:
+            raise ImportError("pwlf package required. Install with: pip install pwlf") from e
 
         # Convert to numpy arrays
         if isinstance(x, pd.Series):
@@ -665,7 +676,6 @@ class DataAnalyzer:
 
         # Get slopes and intercepts for each segment
         slopes = model.calc_slopes()
-        intercepts = []
 
         # Calculate R²
         y_pred = model.predict(x)
@@ -674,19 +684,19 @@ class DataAnalyzer:
         r_squared = 1 - (ss_res / ss_tot)
 
         return {
-            'breakpoints': [float(bp) for bp in breakpoints[1:-1]],  # Exclude endpoints
-            'slopes': [float(s) for s in slopes],
-            'r_squared': float(r_squared),
-            'prediction_function': lambda x_new: model.predict(x_new)
+            "breakpoints": [float(bp) for bp in breakpoints[1:-1]],  # Exclude endpoints
+            "slopes": [float(s) for s in slopes],
+            "r_squared": float(r_squared),
+            "prediction_function": lambda x_new: model.predict(x_new),
         }
 
     @staticmethod
     def create_publication_plot(
-        data: Union[pd.DataFrame, Dict[str, Any]],
+        data: pd.DataFrame | dict[str, Any],
         plot_type: str,
         output_path: str,
-        title: Optional[str] = None,
-        **kwargs
+        title: str | None = None,
+        **kwargs,
     ) -> str:
         """
         Generate publication-quality plots (REQ-DAA-CAP-006).
@@ -712,51 +722,51 @@ class DataAnalyzer:
         import seaborn as sns
 
         # Set publication-quality style
-        sns.set_style('whitegrid')
-        plt.rcParams['font.size'] = 12
-        plt.rcParams['axes.labelsize'] = 14
-        plt.rcParams['axes.titlesize'] = 16
-        plt.rcParams['xtick.labelsize'] = 11
-        plt.rcParams['ytick.labelsize'] = 11
-        plt.rcParams['legend.fontsize'] = 11
-        plt.rcParams['figure.dpi'] = 300
+        sns.set_style("whitegrid")
+        plt.rcParams["font.size"] = 12
+        plt.rcParams["axes.labelsize"] = 14
+        plt.rcParams["axes.titlesize"] = 16
+        plt.rcParams["xtick.labelsize"] = 11
+        plt.rcParams["ytick.labelsize"] = 11
+        plt.rcParams["legend.fontsize"] = 11
+        plt.rcParams["figure.dpi"] = 300
 
-        fig, ax = plt.subplots(figsize=kwargs.get('figsize', (8, 6)))
+        fig, ax = plt.subplots(figsize=kwargs.get("figsize", (8, 6)))
 
-        if plot_type == 'scatter':
-            x_col = kwargs.get('x')
-            y_col = kwargs.get('y')
+        if plot_type == "scatter":
+            x_col = kwargs.get("x")
+            y_col = kwargs.get("y")
             if isinstance(data, pd.DataFrame):
                 ax.scatter(data[x_col], data[y_col], alpha=0.6)
                 ax.set_xlabel(x_col)
                 ax.set_ylabel(y_col)
 
-        elif plot_type == 'boxplot':
+        elif plot_type == "boxplot":
             if isinstance(data, pd.DataFrame):
-                data.boxplot(ax=ax, **{k: v for k, v in kwargs.items() if k not in ['figsize']})
+                data.boxplot(ax=ax, **{k: v for k, v in kwargs.items() if k not in ["figsize"]})
 
-        elif plot_type == 'heatmap':
+        elif plot_type == "heatmap":
             if isinstance(data, pd.DataFrame):
-                sns.heatmap(data, annot=True, fmt='.2f', cmap='coolwarm', ax=ax)
+                sns.heatmap(data, annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
 
-        elif plot_type == 'distribution':
-            values = kwargs.get('values')
+        elif plot_type == "distribution":
+            values = kwargs.get("values")
             if values is not None:
-                ax.hist(values, bins=kwargs.get('bins', 30), alpha=0.7, edgecolor='black')
-                ax.set_xlabel(kwargs.get('xlabel', 'Value'))
-                ax.set_ylabel(kwargs.get('ylabel', 'Frequency'))
+                ax.hist(values, bins=kwargs.get("bins", 30), alpha=0.7, edgecolor="black")
+                ax.set_xlabel(kwargs.get("xlabel", "Value"))
+                ax.set_ylabel(kwargs.get("ylabel", "Frequency"))
 
-        elif plot_type == 'bar':
-            x_col = kwargs.get('x')
-            y_col = kwargs.get('y')
+        elif plot_type == "bar":
+            x_col = kwargs.get("x")
+            y_col = kwargs.get("y")
             if isinstance(data, pd.DataFrame):
-                data.plot(x=x_col, y=y_col, kind='bar', ax=ax, legend=False)
+                data.plot(x=x_col, y=y_col, kind="bar", ax=ax, legend=False)
 
         if title:
             ax.set_title(title)
 
         plt.tight_layout()
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
         plt.close()
 
         logger.info(f"Saved publication plot to {output_path}")
@@ -764,9 +774,7 @@ class DataAnalyzer:
 
     @staticmethod
     def save_to_notebook(
-        analysis_results: Dict[str, Any],
-        output_path: str,
-        title: str = "Data Analysis Results"
+        analysis_results: dict[str, Any], output_path: str, title: str = "Data Analysis Results"
     ) -> str:
         """
         Save analysis results to Jupyter notebook format (REQ-DAA-SUM-004).
@@ -789,9 +797,9 @@ class DataAnalyzer:
         """
         try:
             import nbformat
-            from nbformat.v4 import new_notebook, new_markdown_cell, new_code_cell
-        except ImportError:
-            raise ImportError("nbformat required. Install with: pip install nbformat")
+            from nbformat.v4 import new_code_cell, new_markdown_cell, new_notebook
+        except ImportError as e:
+            raise ImportError("nbformat required. Install with: pip install nbformat") from e
 
         # Create new notebook
         nb = new_notebook()
@@ -806,15 +814,11 @@ class DataAnalyzer:
 
             cell = new_code_cell(code)
             # Add output
-            cell.outputs = [{
-                'output_type': 'stream',
-                'name': 'stdout',
-                'text': str(value)
-            }]
+            cell.outputs = [{"output_type": "stream", "name": "stdout", "text": str(value)}]
             nb.cells.append(cell)
 
         # Save notebook
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             nbformat.write(nb, f)
 
         logger.info(f"Saved analysis notebook to {output_path}")
@@ -829,7 +833,7 @@ class DataLoader:
     """
 
     @staticmethod
-    def load_csv(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
+    def load_csv(file_path: str | Path, **kwargs) -> pd.DataFrame:
         """
         Load CSV file with pandas.
 
@@ -846,7 +850,7 @@ class DataLoader:
         return df
 
     @staticmethod
-    def load_excel(file_path: Union[str, Path], sheet_name: Union[str, int] = 0, **kwargs) -> pd.DataFrame:
+    def load_excel(file_path: str | Path, sheet_name: str | int = 0, **kwargs) -> pd.DataFrame:
         """
         Load Excel file with pandas.
 
@@ -864,7 +868,7 @@ class DataLoader:
         return df
 
     @staticmethod
-    def load_json(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
+    def load_json(file_path: str | Path, **kwargs) -> pd.DataFrame:
         """
         Load JSON file with pandas.
 
@@ -881,7 +885,7 @@ class DataLoader:
         return df
 
     @staticmethod
-    def load_data(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
+    def load_data(file_path: str | Path, **kwargs) -> pd.DataFrame:
         """
         Auto-detect file type and load data.
 
@@ -902,15 +906,16 @@ class DataLoader:
 
         suffix = file_path.suffix.lower()
 
-        if suffix == '.csv':
+        if suffix == ".csv":
             return DataLoader.load_csv(file_path, **kwargs)
-        elif suffix in ['.xlsx', '.xls']:
+        elif suffix in [".xlsx", ".xls"]:
             return DataLoader.load_excel(file_path, **kwargs)
-        elif suffix == '.json':
+        elif suffix == ".json":
             return DataLoader.load_json(file_path, **kwargs)
         else:
-            raise ValueError(f"Unsupported file type: {suffix}. "
-                           f"Supported: .csv, .xlsx, .xls, .json")
+            raise ValueError(
+                f"Unsupported file type: {suffix}. " f"Supported: .csv, .xlsx, .xls, .json"
+            )
 
 
 class DataCleaner:
@@ -921,7 +926,7 @@ class DataCleaner:
     """
 
     @staticmethod
-    def remove_missing(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    def remove_missing(df: pd.DataFrame, subset: list[str] | None = None) -> pd.DataFrame:
         """
         Remove rows with missing values.
 
@@ -937,12 +942,14 @@ class DataCleaner:
         removed = initial_rows - len(df_clean)
 
         if removed > 0:
-            logger.info(f"Removed {removed} rows with missing values ({removed/initial_rows*100:.1f}%)")
+            logger.info(
+                f"Removed {removed} rows with missing values ({removed/initial_rows*100:.1f}%)"
+            )
 
         return df_clean
 
     @staticmethod
-    def filter_positive(df: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
+    def filter_positive(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
         """
         Filter to keep only rows where specified columns have positive values.
 
@@ -962,17 +969,16 @@ class DataCleaner:
 
         removed = initial_rows - len(df)
         if removed > 0:
-            logger.info(f"Removed {removed} rows with non-positive values in {columns} "
-                       f"({removed/initial_rows*100:.1f}%)")
+            logger.info(
+                f"Removed {removed} rows with non-positive values in {columns} "
+                f"({removed/initial_rows*100:.1f}%)"
+            )
 
         return df
 
     @staticmethod
     def remove_outliers(
-        df: pd.DataFrame,
-        column: str,
-        method: str = 'iqr',
-        threshold: float = 1.5
+        df: pd.DataFrame, column: str, method: str = "iqr", threshold: float = 1.5
     ) -> pd.DataFrame:
         """
         Remove outliers using IQR or Z-score method.
@@ -988,7 +994,7 @@ class DataCleaner:
         """
         initial_rows = len(df)
 
-        if method == 'iqr':
+        if method == "iqr":
             Q1 = df[column].quantile(0.25)
             Q3 = df[column].quantile(0.75)
             IQR = Q3 - Q1
@@ -996,7 +1002,7 @@ class DataCleaner:
             upper_bound = Q3 + threshold * IQR
             df_clean = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
-        elif method == 'zscore':
+        elif method == "zscore":
             z_scores = np.abs(stats.zscore(df[column]))
             df_clean = df[z_scores < threshold]
 
@@ -1005,13 +1011,15 @@ class DataCleaner:
 
         removed = initial_rows - len(df_clean)
         if removed > 0:
-            logger.info(f"Removed {removed} outliers from '{column}' using {method} "
-                       f"({removed/initial_rows*100:.1f}%)")
+            logger.info(
+                f"Removed {removed} outliers from '{column}' using {method} "
+                f"({removed/initial_rows*100:.1f}%)"
+            )
 
         return df_clean
 
     @staticmethod
-    def normalize(df: pd.DataFrame, columns: List[str], method: str = 'zscore') -> pd.DataFrame:
+    def normalize(df: pd.DataFrame, columns: list[str], method: str = "zscore") -> pd.DataFrame:
         """
         Normalize specified columns.
 
@@ -1026,7 +1034,7 @@ class DataCleaner:
         df_normalized = df.copy()
 
         for col in columns:
-            if method == 'zscore':
+            if method == "zscore":
                 mean = df[col].mean()
                 std = df[col].std()
                 if std > 0:
@@ -1034,7 +1042,7 @@ class DataCleaner:
                 else:
                     logger.warning(f"Column '{col}' has zero variance, skipping normalization")
 
-            elif method == 'minmax':
+            elif method == "minmax":
                 min_val = df[col].min()
                 max_val = df[col].max()
                 if max_val > min_val:
