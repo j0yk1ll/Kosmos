@@ -21,17 +21,17 @@ WARNINGS=0
 
 pass() {
     echo -e "${GREEN}[PASS]${NC} $1"
-    ((PASSED++))
+    ((PASSED+=1))
 }
 
 fail() {
     echo -e "${RED}[FAIL]${NC} $1"
-    ((FAILED++))
+    ((FAILED+=1))
 }
 
 warn() {
     echo -e "${YELLOW}[WARN]${NC} $1"
-    ((WARNINGS++))
+    ((WARNINGS+=1))
 }
 
 # 1. Check Python version
@@ -49,12 +49,41 @@ fi
 # 2. Check package installation
 echo ""
 echo "=== Step 2: Package Import Check ==="
-python3 -c "from kosmos.compression import ContextCompressor" 2>/dev/null && pass "Context compression module" || fail "Context compression module"
-python3 -c "from kosmos.orchestration import ResearchOrchestrator" 2>/dev/null && pass "Orchestration module" || fail "Orchestration module"
-python3 -c "from kosmos.validation import ScholarEvalValidator" 2>/dev/null && pass "Validation module" || fail "Validation module"
-python3 -c "from kosmos.workflow import ResearchWorkflow" 2>/dev/null && pass "Workflow module" || fail "Workflow module"
-python3 -c "from kosmos.execution import ProductionExecutor, PackageResolver" 2>/dev/null && pass "Execution module (new)" || fail "Execution module (new)"
-python3 -c "from kosmos.monitoring import MetricsCollector" 2>/dev/null && pass "Monitoring module" || warn "Monitoring module (optional)"
+if python3 -c "from kosmos.compression import ContextCompressor" >/dev/null 2>&1; then
+    pass "Context compression module"
+else
+    fail "Context compression module"
+fi
+
+if python3 -c "from kosmos.orchestration import ResearchOrchestrator" >/dev/null 2>&1; then
+    pass "Orchestration module"
+else
+    fail "Orchestration module"
+fi
+
+if python3 -c "from kosmos.validation import ScholarEvalValidator" >/dev/null 2>&1; then
+    pass "Validation module"
+else
+    fail "Validation module"
+fi
+
+if python3 -c "from kosmos.workflow import ResearchWorkflow" >/dev/null 2>&1; then
+    pass "Workflow module"
+else
+    fail "Workflow module"
+fi
+
+if python3 -c "from kosmos.execution import ProductionExecutor, PackageResolver" >/dev/null 2>&1; then
+    pass "Execution module (new)"
+else
+    fail "Execution module (new)"
+fi
+
+if python3 -c "from kosmos.monitoring import MetricsCollector" >/dev/null 2>&1; then
+    pass "Monitoring module"
+else
+    warn "Monitoring module (optional)"
+fi
 
 # 3. Run smoke tests
 echo ""
