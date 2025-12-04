@@ -70,7 +70,7 @@ services:
       - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=C
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/setup_postgres.sh:/docker-entrypoint-initdb.d/init.sh
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kosmos -d kosmos"]

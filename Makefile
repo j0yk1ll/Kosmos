@@ -1,4 +1,4 @@
-.PHONY: help install setup-docker setup-neo4j setup-env start stop restart status verify clean test lint format docs docs-serve docs-clean docs-live docs-linkcheck docs-coverage install-all install-dev install-docs install-test
+.PHONY: help install setup-neo4j setup-env start stop restart status verify clean test lint format docs docs-serve docs-clean docs-live docs-linkcheck docs-coverage install-all install-dev install-docs install-test
 
 # Default target
 help:
@@ -8,7 +8,6 @@ help:
 	@echo ""
 	@echo "Setup Commands:"
 	@echo "  make install        - Complete environment setup (Python, deps, config)"
-	@echo "  make setup-docker   - Install Docker on WSL2"
 	@echo "  make setup-neo4j    - Setup and start Neo4j container"
 	@echo "  make setup-env      - Setup Python environment only"
 	@echo ""
@@ -38,10 +37,9 @@ help:
 	@echo "  make db-reset       - Reset database (DESTRUCTIVE)"
 	@echo ""
 	@echo "Quick Start:"
-	@echo "  1. make setup-docker    # Install Docker (one-time)"
-	@echo "  2. make install         # Setup environment"
-	@echo "  3. make start           # Start services"
-	@echo "  4. make verify          # Verify everything works"
+	@echo "  1. make install         # Setup environment"
+	@echo "  2. make start           # Start services"
+	@echo "  3. make verify          # Verify everything works"
 	@echo ""
 
 #==============================================================================
@@ -63,10 +61,6 @@ install-docs:
 
 install-test:
 	@$(MAKE) install EXTRAS=test
-
-setup-docker:
-	@echo "🐳 Installing Docker on WSL2..."
-	@./scripts/setup_docker_wsl2.sh
 
 setup-neo4j:
 	@echo "🔷 Setting up Neo4j..."

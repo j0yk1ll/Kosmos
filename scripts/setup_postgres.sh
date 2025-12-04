@@ -1,6 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Kosmos PostgreSQL initialization wrapper script
+# This script is executed by the official Postgres image when placed in
+# /docker-entrypoint-initdb.d/ and the database is being initialized for the
+# first time.
+
+export PGPASSWORD="${POSTGRES_PASSWORD:-}"
+
+echo "[kosmos] postgres init script starting"
+
+# Wait briefly for Postgres to accept connections (entrypoint starts the server
+# before running scripts in /docker-entrypoint-initdb.d/, but being defensive is fine).
+wait_for_pg() {
+  local max_wait=30
+  local i=0
+  until pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" > /dev/null 2>&1; do
+    i=$((i+1))
+    if [ "$i" -ge "$max_wait" ]; then
+      echo "Postgres did not become ready after ${max_wait}s" >&2
+      exit 1
+    fi
+    sleep 1
+  done
+}
+
+wait_for_pg
+
+echo "[kosmos] running initialization SQL via psql"
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<'SQL'
 -- Kosmos PostgreSQL Initialization Script
--- This script runs automatically when PostgreSQL container starts for the first time
--- Location: /docker-entrypoint-initdb.d/init.sql
 
 -- Enable required PostgreSQL extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";        -- UUID generation functions
@@ -50,3 +79,8 @@ COMMENT ON DATABASE kosmos IS 'Kosmos AI Scientist - Main application database';
 
 -- Note: Table creation will be handled by Alembic migrations
 -- This script only sets up extensions and optimal configuration
+SQL
+
+echo "[kosmos] postgres init script completed"
+
+exit 0

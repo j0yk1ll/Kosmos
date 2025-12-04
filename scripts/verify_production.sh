@@ -59,8 +59,8 @@ python3 -c "from kosmos.monitoring import MetricsCollector" 2>/dev/null && pass 
 # 3. Run smoke tests
 echo ""
 echo "=== Step 3: Smoke Tests ==="
-if [ -f scripts/smoke_test.py ]; then
-    python3 scripts/smoke_test.py && pass "Smoke tests" || fail "Smoke tests"
+if [ -f scripts/utils/smoke_test.py ]; then
+    python3 scripts/utils/smoke_test.py && pass "Smoke tests" || fail "Smoke tests"
 else
     warn "Smoke test script not found"
 fi
@@ -92,8 +92,8 @@ pytest tests/integration/ tests/e2e/ -v --timeout=300 2>/dev/null && pass "Integ
 # 7. E2E verification
 echo ""
 echo "=== Step 7: E2E Verification ==="
-if [ -f scripts/verify_e2e.py ]; then
-    python3 scripts/verify_e2e.py --cycles 3 --tasks 5 && pass "E2E workflow verification" || warn "E2E verification (may need API keys)"
+if [ -f scripts/utils/verify_e2e.py ]; then
+    python3 scripts/utils/verify_e2e.py --cycles 3 --tasks 5 && pass "E2E workflow verification" || warn "E2E verification (may need API keys)"
 else
     warn "E2E verification script not found"
 fi
