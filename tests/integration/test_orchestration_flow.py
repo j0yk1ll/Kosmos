@@ -70,13 +70,13 @@ def past_tasks():
 @pytest.fixture
 def plan_creator():
     """PlanCreatorAgent without LLM for testing."""
-    return PlanCreatorAgent(anthropic_client=None)
+    return PlanCreatorAgent(llm_client=None)
 
 
 @pytest.fixture
 def plan_reviewer():
     """PlanReviewerAgent without LLM for testing."""
-    return PlanReviewerAgent(anthropic_client=None)
+    return PlanReviewerAgent(llm_client=None)
 
 
 @pytest.fixture

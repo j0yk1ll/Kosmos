@@ -10,9 +10,10 @@ import time
 import uuid
 from typing import Any
 
+import dspy
+
 from kosmos.agents.base import AgentMessage, AgentStatus, BaseAgent, MessageType
-from kosmos.core.llm import get_client
-from kosmos.core.prompts import HYPOTHESIS_GENERATOR
+from kosmos.agents.dspy_client import DSPyAgentClient
 from kosmos.db import get_session
 from kosmos.db.models import (
     Hypothesis as DBHypothesis,
@@ -30,6 +31,31 @@ from kosmos.utils.compat import model_to_dict
 
 
 logger = logging.getLogger(__name__)
+
+
+class DomainClassificationSignature(dspy.Signature):
+    """Identify the primary scientific domain for a research question."""
+
+    research_question: str = dspy.InputField()
+    domain: str = dspy.OutputField(desc="Normalized domain label such as machine_learning or biology")
+
+
+class HypothesisGenerationSignature(dspy.Signature):
+    """Produce multiple structured hypotheses for a research question."""
+
+    research_question: str = dspy.InputField()
+    domain: str = dspy.InputField()
+    num_hypotheses: int = dspy.InputField()
+    literature_context: str = dspy.InputField(desc="Optional recent literature context as plain text")
+
+    hypotheses: list[dict] = dspy.OutputField(
+        desc="List of hypotheses with statement, rationale, confidence_score, testability_score, and suggested_experiment_types"
+    )
+
+
+def get_client():
+    """Deprecated compatibility shim for legacy patches."""
+    return None
 
 
 class HypothesisGeneratorAgent(BaseAgent):
@@ -66,6 +92,7 @@ class HypothesisGeneratorAgent(BaseAgent):
         agent_id: str | None = None,
         agent_type: str | None = None,
         config: dict[str, Any] | None = None,
+        llm_client: DSPyAgentClient | None = None,
     ):
         """
         Initialize Hypothesis Generator Agent.
@@ -85,7 +112,7 @@ class HypothesisGeneratorAgent(BaseAgent):
         self.min_novelty_score = self.config.get("min_novelty_score", 0.5)
 
         # Components
-        self.llm_client = get_client()
+        self.llm_client = llm_client
         self.literature_search = UnifiedLiteratureSearch() if self.use_literature_context else None
 
         logger.info(f"Initialized HypothesisGeneratorAgent {self.agent_id}")
@@ -185,8 +212,8 @@ class HypothesisGeneratorAgent(BaseAgent):
             papers = self._gather_literature_context(research_question, domain)
             logger.info(f"Gathered {len(papers)} papers for context")
 
-        # Step 3: Generate hypotheses using Claude
-        hypotheses = self._generate_with_claude(
+        # Step 3: Generate hypotheses using DSPy LM
+        hypotheses = self._generate_with_lm(
             research_question=research_question,
             domain=domain,
             num_hypotheses=num_hypotheses,
@@ -249,16 +276,18 @@ class HypothesisGeneratorAgent(BaseAgent):
         Returns:
             str: Detected domain
         """
-        prompt = f"""Analyze this research question and identify the primary scientific domain:
-
-Research Question: "{research_question}"
-
-Return ONLY the domain name (e.g., "machine_learning", "biology", "physics", "chemistry", "neuroscience", "astrophysics", "materials_science", "general").
-No explanation needed."""
-
         try:
-            response = self.llm_client.generate(prompt=prompt, max_tokens=50, temperature=0.0)
-            domain = response.strip().lower().replace(" ", "_").replace("-", "_")
+            if not self.llm_client:
+                raise ValueError("Language model client is not configured")
+
+            prediction = self.llm_client.predict(
+                DomainClassificationSignature, research_question=research_question
+            )
+            domain = (
+                prediction.domain.strip().lower().replace(" ", "_").replace("-", "_")
+                if prediction and getattr(prediction, "domain", None)
+                else None
+            )
             return domain if domain else "general"
 
         except Exception as e:
@@ -293,7 +322,7 @@ No explanation needed."""
             logger.error(f"Error gathering literature: {e}", exc_info=True)
             return []
 
-    def _generate_with_claude(
+    def _generate_with_lm(
         self,
         research_question: str,
         domain: str,
@@ -301,7 +330,7 @@ No explanation needed."""
         context_papers: list[PaperMetadata],
     ) -> list[Hypothesis]:
         """
-        Generate hypotheses using Claude with structured output.
+        Generate hypotheses using DSPy LMs with structured output.
 
         Args:
             research_question: Research question
@@ -326,41 +355,23 @@ No explanation needed."""
                     literature_context += f"   Abstract: {paper.abstract[:200]}...\n"
                 literature_context += "\n"
 
-        # Create prompt
-        prompt = HYPOTHESIS_GENERATOR.render(
-            research_question=research_question,
-            domain=domain,
-            num_hypotheses=num_hypotheses,
-            literature_context=literature_context or "No specific literature context provided.",
-        )
-
-        # Define expected JSON schema
-        schema = {
-            "hypotheses": [
-                {
-                    "statement": "string (clear, testable hypothesis)",
-                    "rationale": "string (scientific justification)",
-                    "confidence_score": "float 0.0-1.0",
-                    "testability_score": "float 0.0-1.0 (preliminary estimate)",
-                    "suggested_experiment_types": [
-                        "computational | data_analysis | literature_synthesis"
-                    ],
-                }
-            ]
-        }
-
         try:
-            # Call Claude with structured output
-            response = self.llm_client.generate_structured(
-                prompt=prompt,
-                schema=schema,
-                max_tokens=4000,
-                temperature=0.7,  # Slightly higher for creativity
+            if not self.llm_client:
+                raise ValueError("Language model client is not configured")
+
+            prediction = self.llm_client.predict(
+                HypothesisGenerationSignature,
+                research_question=research_question,
+                domain=domain,
+                num_hypotheses=num_hypotheses,
+                literature_context=literature_context
+                or "No specific literature context provided.",
             )
+            response = prediction.hypotheses if prediction else []
 
             # Parse response into Hypothesis objects
             hypotheses = []
-            for i, hyp_data in enumerate(response.get("hypotheses", [])):
+            for i, hyp_data in enumerate(response):
                 try:
                     # Map experiment types
                     exp_types = []
@@ -394,7 +405,7 @@ No explanation needed."""
             return hypotheses
 
         except Exception as e:
-            logger.error(f"Error generating hypotheses with Claude: {e}", exc_info=True)
+            logger.error(f"Error generating hypotheses with DSPy LM: {e}", exc_info=True)
             return []
 
     def _validate_hypothesis(self, hypothesis: Hypothesis) -> bool:

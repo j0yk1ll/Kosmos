@@ -2,7 +2,7 @@
 Literature Analyzer Agent with knowledge graph integration.
 
 Provides intelligent paper analysis including:
-- Paper summarization using Claude
+- Paper summarization using DSPy LMs
 - Key findings extraction
 - Methodology identification
 - Citation network analysis
@@ -17,8 +17,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+import dspy
+
 from kosmos.agents.base import AgentStatus, BaseAgent
-from kosmos.core.llm import get_client
+from kosmos.agents.dspy_client import DSPyAgentClient
 from kosmos.knowledge.concept_extractor import get_concept_extractor
 from kosmos.knowledge.embeddings import get_embedder
 from kosmos.knowledge.graph import get_knowledge_graph
@@ -29,6 +31,49 @@ from kosmos.literature.unified_search import UnifiedLiteratureSearch
 
 
 logger = logging.getLogger(__name__)
+
+
+class PaperSummarySignature(dspy.Signature):
+    """Summarize a scientific paper with structured sections."""
+
+    paper_title: str = dspy.InputField()
+    abstract: str = dspy.InputField()
+    body_text: str = dspy.InputField(desc="Full text or key sections")
+
+    executive_summary: str = dspy.OutputField()
+    key_findings: list[dict] = dspy.OutputField()
+    methodology: dict = dspy.OutputField()
+    significance: str = dspy.OutputField()
+    limitations: list[str] = dspy.OutputField()
+    confidence_score: float = dspy.OutputField()
+
+
+class KeyFindingsSignature(dspy.Signature):
+    """Extract key findings with evidence from a paper."""
+
+    paper_title: str = dspy.InputField()
+    abstract: str = dspy.InputField()
+    body_text: str = dspy.InputField()
+    max_findings: int = dspy.InputField()
+
+    findings: list[dict] = dspy.OutputField(desc="Findings with evidence, confidence, and category")
+
+
+class MethodologyExtractionSignature(dspy.Signature):
+    """Identify research methods, datasets, and evaluation patterns."""
+
+    paper_title: str = dspy.InputField()
+    abstract: str = dspy.InputField()
+    body_text: str = dspy.InputField()
+
+    methodology: dict = dspy.OutputField(desc="Design, data, models, evaluation, and limitations")
+
+
+class InsightSynthesisSignature(dspy.Signature):
+    """Synthesize cross-paper insights."""
+
+    corpus_summaries: list[str] = dspy.InputField()
+    insights: list[str] = dspy.OutputField(desc="High-level insights across the corpus")
 
 
 @dataclass
@@ -53,7 +98,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
     Intelligent literature analysis agent with knowledge graph integration.
 
     Capabilities:
-    - Paper summarization using Claude
+    - Paper summarization using DSPy LMs
     - Key findings extraction
     - Methodology identification
     - Citation network analysis (graph + on-demand)
@@ -85,6 +130,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
         agent_id: str | None = None,
         agent_type: str | None = None,
         config: dict[str, Any] | None = None,
+        llm_client: DSPyAgentClient | None = None,
     ):
         """
         Initialize Literature Analyzer Agent.
@@ -106,7 +152,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
         self.use_semantic_similarity = self.config.get("use_semantic_similarity", True)
 
         # Initialize components
-        self.llm_client = get_client()
+        self.llm_client = llm_client
 
         if self.use_knowledge_graph:
             try:
@@ -232,7 +278,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
 
     def summarize_paper(self, paper: PaperMetadata) -> PaperAnalysis:
         """
-        Generate comprehensive paper summary using Claude.
+        Generate comprehensive paper summary using DSPy LMs.
 
         Args:
             paper: PaperMetadata object
@@ -259,26 +305,38 @@ class LiteratureAnalyzerAgent(BaseAgent):
         if not self._validate_paper(paper):
             raise ValueError(f"Paper lacks required data: {paper.primary_identifier}")
 
-        # Build prompt
-        prompt = self._build_summarization_prompt(paper)
+        if not self.llm_client:
+            raise ValueError("Language model client is not configured")
 
-        # Generate with Claude
+        # Generate with DSPy LM
         try:
-            analysis = self.llm_client.generate_structured(
-                prompt=prompt,
-                output_schema=self._get_summarization_schema(),
-                system="You are an expert scientific literature analyst. Provide thorough, accurate analysis.",
-                max_tokens=2048,
+            body_text = "\n\n".join(
+                [
+                    part
+                    for part in [
+                        paper.abstract or "",
+                        getattr(paper, "summary", "") or "",
+                        getattr(paper, "full_text", "") or "",
+                    ]
+                    if part
+                ]
+            )
+
+            prediction = self.llm_client.predict(
+                PaperSummarySignature,
+                paper_title=paper.title or paper.primary_identifier,
+                abstract=paper.abstract or "",
+                body_text=body_text,
             )
 
             result = PaperAnalysis(
                 paper_id=paper.primary_identifier,
-                executive_summary=analysis.get("executive_summary", ""),
-                key_findings=analysis.get("key_findings", []),
-                methodology=analysis.get("methodology", {}),
-                significance=analysis.get("significance", ""),
-                limitations=analysis.get("limitations", []),
-                confidence_score=analysis.get("confidence_score", 0.5),
+                executive_summary=getattr(prediction, "executive_summary", ""),
+                key_findings=getattr(prediction, "key_findings", []),
+                methodology=getattr(prediction, "methodology", {}),
+                significance=getattr(prediction, "significance", ""),
+                limitations=getattr(prediction, "limitations", []),
+                confidence_score=getattr(prediction, "confidence_score", 0.5),
                 analysis_time=time.time() - start_time,
             )
 
@@ -296,7 +354,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
         self, paper: PaperMetadata, max_findings: int = 5
     ) -> list[dict[str, Any]]:
         """
-        Extract structured key findings using Claude.
+        Extract structured key findings using DSPy LMs.
 
         Args:
             paper: PaperMetadata object
@@ -312,34 +370,19 @@ class LiteratureAnalyzerAgent(BaseAgent):
                 print(f"{finding['finding']} (confidence: {finding['confidence']})")
             ```
         """
-        prompt = self._build_key_findings_prompt(paper, max_findings)
-
-        schema = {
-            "type": "object",
-            "properties": {
-                "findings": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "finding": {"type": "string"},
-                            "evidence": {"type": "string"},
-                            "confidence": {"type": "number"},
-                            "category": {"type": "string"},
-                        },
-                    },
-                }
-            },
-        }
-
         try:
-            result = self.llm_client.generate_structured(
-                prompt=prompt,
-                output_schema=schema,
-                system="Extract key findings with supporting evidence.",
+            body_text = "\n\n".join(
+                [text for text in [paper.abstract or "", getattr(paper, "summary", "")] if text]
             )
 
-            return result.get("findings", [])
+            prediction = self.llm_client.predict(
+                KeyFindingsSignature,
+                paper_title=paper.title or paper.primary_identifier,
+                abstract=paper.abstract or "",
+                body_text=body_text,
+                max_findings=max_findings,
+            )
+            return getattr(prediction, "findings", [])
 
         except Exception as e:
             logger.error(f"Key findings extraction failed: {e}")
@@ -394,18 +437,20 @@ class LiteratureAnalyzerAgent(BaseAgent):
             except Exception as e:
                 logger.warning(f"Concept extraction failed: {e}")
 
-        # Supplement with Claude if needed
+        # Supplement with the LM if needed
         if not methodology["experimental_methods"] and not methodology["computational_methods"]:
-            prompt = self._build_methodology_prompt(paper)
-
             try:
-                result = self.llm_client.generate_structured(
-                    prompt=prompt,
-                    output_schema=self._get_methodology_schema(),
-                    system="Extract research methods systematically.",
+                body_text = "\n\n".join(
+                    [text for text in [paper.abstract or "", getattr(paper, "full_text", "")] if text]
                 )
 
-                methodology.update(result)
+                prediction = self.llm_client.predict(
+                    MethodologyExtractionSignature,
+                    paper_title=paper.title or paper.primary_identifier,
+                    abstract=paper.abstract or "",
+                    body_text=body_text,
+                )
+                methodology.update(getattr(prediction, "methodology", {}))
 
             except Exception as e:
                 logger.error(f"Methodology extraction failed: {e}")
@@ -657,7 +702,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
         - Common themes and concepts
         - Methodological trends
         - Citation patterns
-        - Research gaps (Claude-powered)
+        - Research gaps (LM-powered)
 
         Args:
             papers: List of papers
@@ -708,7 +753,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
             top_concepts = sorted(concept_freq.items(), key=lambda x: x[1], reverse=True)[:10]
             analysis["common_themes"] = [name for name, count in top_concepts]
 
-        # Generate insights with Claude
+        # Generate insights with DSPy LM
         if generate_insights:
             try:
                 # Summarize papers (filter out None papers)
@@ -718,16 +763,11 @@ class LiteratureAnalyzerAgent(BaseAgent):
                     if p is not None and p.title
                 ]
 
-                prompt = self._build_corpus_insights_prompt(summaries)
-
-                insights = self.llm_client.generate_structured(
-                    prompt=prompt,
-                    output_schema=self._get_corpus_insights_schema(),
-                    system="Analyze research corpus and identify patterns, trends, and gaps.",
-                    max_tokens=1024,
+                prediction = self.llm_client.predict(
+                    InsightSynthesisSignature, corpus_summaries=summaries
                 )
 
-                analysis.update(insights)
+                analysis["insights"] = getattr(prediction, "insights", [])
 
             except Exception as e:
                 logger.error(f"Corpus insights generation failed: {e}")
@@ -858,92 +898,6 @@ class LiteratureAnalyzerAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Failed to build citation graph for {paper_id}: {e}")
             return False
-
-    # Prompt builders
-
-    def _build_summarization_prompt(self, paper: PaperMetadata) -> str:
-        """Build prompt for paper summarization."""
-        title = paper.title if paper and paper.title else "Unknown Title"
-        text = f"Title: {title}\n\n"
-
-        if paper and paper.full_text:
-            text += f"Text: {paper.full_text[:5000]}"  # Limit length
-        elif paper and paper.abstract:
-            text += f"Abstract: {paper.abstract}"
-        else:
-            text += "Abstract: Not available"
-
-        prompt = f"""Analyze this scientific paper and provide a comprehensive summary.
-
-{text}
-
-Provide a structured analysis with:
-1. Executive summary (2-3 sentences)
-2. Key findings (3-5 main results)
-3. Methodology (research approach)
-4. Significance (scientific importance)
-5. Limitations (weaknesses or caveats)
-6. Confidence score (0-1, how confident are you in this analysis?)
-
-Return structured output following the schema."""
-
-        return prompt
-
-    def _build_key_findings_prompt(self, paper: PaperMetadata, max_findings: int) -> str:
-        """Build prompt for key findings extraction."""
-        title = paper.title if paper and paper.title else "Unknown Title"
-        abstract = paper.abstract if paper and paper.abstract else "Not available"
-        text = f"Title: {title}\n\n"
-        text += f"Abstract: {abstract}"
-
-        prompt = f"""Extract the {max_findings} most important findings from this paper.
-
-{text}
-
-For each finding, provide:
-- finding: Clear statement of the finding
-- evidence: Direct quote or paraphrase supporting it
-- confidence: Your confidence (0-1)
-- category: Type (result, method, insight, limitation, etc.)
-
-Return structured output."""
-
-        return prompt
-
-    def _build_methodology_prompt(self, paper: PaperMetadata) -> str:
-        """Build prompt for methodology extraction."""
-        title = paper.title if paper and paper.title else "Unknown Title"
-        abstract = paper.abstract if paper and paper.abstract else "Not available"
-        return f"""Identify the research methods used in this paper.
-
-Title: {title}
-Abstract: {abstract}
-
-Categorize methods as:
-- experimental_methods: Lab or field experiments
-- computational_methods: Simulations, algorithms, models
-- analytical_methods: Statistical analysis, mathematical proofs
-- datasets_used: Data sources or datasets mentioned
-
-Return structured output."""
-
-    def _build_corpus_insights_prompt(self, summaries: list[str]) -> str:
-        """Build prompt for corpus-level insights."""
-        papers_text = "\n\n".join([f"{i+1}. {s}" for i, s in enumerate(summaries)])
-
-        prompt = f"""Analyze this collection of research papers and identify:
-
-{papers_text}
-
-Provide:
-1. common_themes: Recurring topics and concepts (list)
-2. methodological_trends: Common research approaches (list)
-3. research_gaps: Underexplored areas or questions (list)
-4. emerging_directions: Potential future research directions (list)
-
-Return structured output."""
-
-        return prompt
 
     # JSON schemas
 

@@ -1,7 +1,7 @@
 """
 Data Analyst Agent.
 
-Claude-powered agent for interpreting experiment results, detecting patterns,
+DSPy-powered agent for interpreting experiment results, detecting patterns,
 identifying anomalies, and generating scientific insights.
 """
 
@@ -10,15 +10,27 @@ import logging
 from datetime import datetime
 from typing import Any
 
+import dspy
+
 import numpy as np
 
 from kosmos.agents.base import AgentStatus, BaseAgent
-from kosmos.core.llm import get_client
+from kosmos.agents.dspy_client import DSPyAgentClient
 from kosmos.models.hypothesis import Hypothesis
 from kosmos.models.result import ExperimentResult
 
 
 logger = logging.getLogger(__name__)
+
+
+class ResultInterpretationSignature(dspy.Signature):
+    """Interpret experiment results with context."""
+
+    result_summary: str = dspy.InputField()
+    hypothesis_statement: str = dspy.InputField()
+    literature_context: str = dspy.InputField()
+
+    interpretation: str = dspy.OutputField(desc="Narrative interpretation of the results")
 
 
 class ResultInterpretation:
@@ -97,7 +109,7 @@ class ResultInterpretation:
 
 class DataAnalystAgent(BaseAgent):
     """
-    Agent for analyzing and interpreting experiment results using Claude.
+    Agent for analyzing and interpreting experiment results using DSPy LMs.
 
     Capabilities:
     - Interpret statistical results in scientific context
@@ -131,6 +143,7 @@ class DataAnalystAgent(BaseAgent):
         agent_id: str | None = None,
         agent_type: str | None = None,
         config: dict[str, Any] | None = None,
+        llm_client: DSPyAgentClient | None = None,
     ):
         """
         Initialize Data Analyst Agent.
@@ -154,7 +167,7 @@ class DataAnalystAgent(BaseAgent):
         self.effect_size_threshold = self.config.get("effect_size_threshold", 0.3)
 
         # Components
-        self.llm_client = get_client()
+        self.llm_client = llm_client
 
         # State: Store interpretations for pattern detection
         self.interpretation_history: list[ResultInterpretation] = []
@@ -322,7 +335,7 @@ class DataAnalystAgent(BaseAgent):
         literature_context: str | None = None,
     ) -> ResultInterpretation:
         """
-        Interpret experiment results using Claude.
+        Interpret experiment results using DSPy LMs.
 
         Args:
             result: ExperimentResult object to interpret
@@ -337,24 +350,20 @@ class DataAnalystAgent(BaseAgent):
         # Extract key information from result
         result_summary = self._extract_result_summary(result)
 
-        # Build interpretation prompt
-        prompt = self._build_interpretation_prompt(result_summary, hypothesis, literature_context)
+        if not self.llm_client:
+            raise ValueError("Language model client is not configured")
 
-        # Get Claude interpretation
+        # Get DSPy LM interpretation
         try:
-            response = self.llm_client.generate(
-                prompt=prompt,
-                system="You are an expert scientific data analyst. Provide nuanced, "
-                "evidence-based interpretations of experimental results. Focus on "
-                "scientific meaning, not just statistical significance.",
-                max_tokens=2000,
-                temperature=0.3,  # Lower temperature for more focused analysis
+            prediction = self.llm_client.predict(
+                ResultInterpretationSignature,
+                result_summary=result_summary,
+                hypothesis_statement=hypothesis.statement if hypothesis else "",
+                literature_context=literature_context or "",
             )
 
-            # Parse Claude's response (extract content from LLMResponse)
-            response_text = response.content if hasattr(response, "content") else str(response)
             interpretation = self._parse_interpretation_response(
-                response_text, result.experiment_id, result
+                getattr(prediction, "interpretation", ""), result.experiment_id, result
             )
 
             # Store in history for pattern detection
@@ -364,7 +373,7 @@ class DataAnalystAgent(BaseAgent):
             return interpretation
 
         except Exception as e:
-            logger.error(f"Error getting Claude interpretation: {e}")
+            logger.error(f"Error getting DSPy LM interpretation: {e}")
             # Return fallback interpretation
             return self._create_fallback_interpretation(result)
 
@@ -412,109 +421,12 @@ class DataAnalystAgent(BaseAgent):
 
         return summary
 
-    def _build_interpretation_prompt(
-        self,
-        result_summary: dict[str, Any],
-        hypothesis: Hypothesis | None,
-        literature_context: str | None,
-    ) -> str:
-        """Build prompt for Claude interpretation."""
-        prompt_parts = []
-
-        # Hypothesis context
-        if hypothesis:
-            prompt_parts.append(
-                f"""
-HYPOTHESIS:
-{hypothesis.statement}
-
-Domain: {hypothesis.domain}
-Expected Outcome: {getattr(hypothesis, 'expected_outcome', 'Not specified')}
-"""
-            )
-
-        # Result summary
-        prompt_parts.append(
-            f"""
-EXPERIMENTAL RESULTS:
-Status: {result_summary['status']}
-Primary Test: {result_summary['primary_test']}
-Primary P-value: {result_summary['primary_p_value']}
-Primary Effect Size: {result_summary['primary_effect_size']}
-Hypothesis Supported: {result_summary['supports_hypothesis']}
-
-Statistical Tests:
-"""
-        )
-
-        for i, test in enumerate(result_summary["statistical_tests"][:3], 1):
-            prompt_parts.append(
-                f"""
-Test {i}: {test['test_name']}
-  - Statistic: {test['statistic']:.4f}
-  - P-value: {test['p_value']:.6f}
-  - Effect Size: {test['effect_size']} ({test['effect_size_type']})
-  - Significance: {test['significance_label']}
-  - Sample Size: {test['sample_size']}
-"""
-            )
-
-        # Literature context
-        if literature_context and self.use_literature_context:
-            prompt_parts.append(
-                f"""
-LITERATURE CONTEXT:
-{literature_context[:1000]}  # Limit to 1000 chars
-"""
-            )
-
-        # Instructions
-        prompt_parts.append(
-            """
-Please provide a comprehensive scientific interpretation of these results:
-
-1. HYPOTHESIS SUPPORT: Does the data support or reject the hypothesis? (Be nuanced - consider strength of evidence)
-
-2. KEY FINDINGS: What are the 3-5 most important findings from these results?
-
-3. STATISTICAL SIGNIFICANCE: Interpret the statistical significance beyond just "p < 0.05". What does it mean scientifically?
-
-4. EFFECT SIZE: Is the effect size scientifically/practically meaningful, even if statistically significant?
-
-5. BIOLOGICAL/PHYSICAL SIGNIFICANCE: What is the real-world meaning of these results? (If applicable)
-
-6. COMPARISON TO PRIOR WORK: How do these results compare to existing literature? (If context provided)
-
-7. POTENTIAL CONFOUNDS: What are 2-3 potential confounding factors or limitations?
-
-8. FOLLOW-UP EXPERIMENTS: What 3-5 follow-up experiments would you recommend based on these results?
-
-9. OVERALL ASSESSMENT: Rate the quality and reliability of this experiment (Low/Medium/High) and explain why.
-
-Format your response as JSON with the following structure:
-{
-    "hypothesis_supported": true/false/null,
-    "confidence": 0.0-1.0,
-    "summary": "2-3 sentence overview",
-    "key_findings": ["finding 1", "finding 2", ...],
-    "significance_interpretation": "detailed statistical interpretation",
-    "biological_significance": "real-world meaning or null",
-    "comparison_to_prior_work": "comparison or null",
-    "potential_confounds": ["confound 1", "confound 2", ...],
-    "follow_up_experiments": ["experiment 1", "experiment 2", ...],
-    "overall_assessment": "Quality: X/5. Explanation..."
-}
-"""
-        )
-
-        return "\n".join(prompt_parts)
-
     def _parse_interpretation_response(
         self, response: str, experiment_id: str, result: ExperimentResult
     ) -> ResultInterpretation:
-        """Parse Claude's JSON response into ResultInterpretation."""
+        """Parse LM JSON response into ResultInterpretation."""
         try:
-            # Extract JSON from response (Claude sometimes adds text before/after)
+            # Extract JSON from response (models sometimes add text before/after)
             json_start = response.find("{")
             json_end = response.rfind("}") + 1
             json_str = response[json_start:json_end]
@@ -542,12 +454,12 @@ Format your response as JSON with the following structure:
             )
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON from Claude response: {e}")
+            logger.error(f"Failed to parse JSON from LM response: {e}")
             logger.debug(f"Response was: {response}")
             return self._create_fallback_interpretation(result)
 
     def _create_fallback_interpretation(self, result: ExperimentResult) -> ResultInterpretation:
-        """Create fallback interpretation if Claude fails."""
+        """Create fallback interpretation if the LM fails."""
         return ResultInterpretation(
             experiment_id=result.experiment_id,
             hypothesis_supported=result.supports_hypothesis,
@@ -566,7 +478,7 @@ Format your response as JSON with the following structure:
             follow_up_experiments=["Manual review needed for recommendations"],
             anomalies_detected=[],
             patterns_detected=[],
-            overall_assessment="Automated fallback interpretation - Claude unavailable",
+            overall_assessment="Automated fallback interpretation - language model unavailable",
         )
 
     # ========================================================================

@@ -3,7 +3,7 @@ Tests for kosmos.agents.hypothesis_generator module.
 """
 
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -15,16 +15,14 @@ from kosmos.models.hypothesis import ExperimentType, Hypothesis, HypothesisGener
 @pytest.fixture
 def hypothesis_agent():
     """Create HypothesisGeneratorAgent for testing without real LLM client."""
-    with patch("kosmos.agents.hypothesis_generator.get_client"):
-        agent = HypothesisGeneratorAgent(
-            config={
-                "num_hypotheses": 3,
-                "use_literature_context": False,
-            }  # Disable for faster tests
-        )
-        # Mock LLM client
-        agent.llm_client = Mock()
-        return agent
+    agent = HypothesisGeneratorAgent(
+        config={
+            "num_hypotheses": 3,
+            "use_literature_context": False,
+        },
+        llm_client=Mock(),
+    )
+    return agent
 
 
 @pytest.fixture
@@ -61,21 +59,18 @@ def mock_llm_response():
 class TestHypothesisGeneratorInit:
     """Test HypothesisGeneratorAgent initialization."""
 
-    @patch("kosmos.agents.hypothesis_generator.get_client")
-    def test_init_default(self, mock_get_client):
+    def test_init_default(self):
         """Test default initialization."""
-        mock_get_client.return_value = Mock()
-        agent = HypothesisGeneratorAgent()
+        agent = HypothesisGeneratorAgent(llm_client=Mock())
         assert agent.agent_type == "HypothesisGeneratorAgent"
         assert agent.num_hypotheses == 3
         assert agent.use_literature_context is True
 
-    @patch("kosmos.agents.hypothesis_generator.get_client")
-    def test_init_with_config(self, mock_get_client):
+    def test_init_with_config(self):
         """Test initialization with custom config."""
-        mock_get_client.return_value = Mock()
         agent = HypothesisGeneratorAgent(
-            config={"num_hypotheses": 5, "use_literature_context": False, "min_novelty_score": 0.7}
+            config={"num_hypotheses": 5, "use_literature_context": False, "min_novelty_score": 0.7},
+            llm_client=Mock(),
         )
         assert agent.num_hypotheses == 5
         assert agent.use_literature_context is False
@@ -86,16 +81,12 @@ class TestHypothesisGeneratorInit:
 class TestHypothesisGeneration:
     """Test hypothesis generation."""
 
-    @patch("kosmos.agents.hypothesis_generator.get_client")
-    def test_generate_hypotheses_success(
-        self, mock_get_client, hypothesis_agent, mock_llm_response
-    ):
+    def test_generate_hypotheses_success(self, hypothesis_agent, mock_llm_response):
         """Test successful hypothesis generation."""
         # Mock LLM client
         mock_client = Mock()
         mock_client.generate_structured.return_value = mock_llm_response
         mock_client.generate.return_value = "machine_learning"  # Domain detection
-        mock_get_client.return_value = mock_client
         hypothesis_agent.llm_client = mock_client
 
         # Generate hypotheses
@@ -123,17 +114,13 @@ class TestHypothesisGeneration:
         assert hyp.testability_score == 0.90
         assert ExperimentType.COMPUTATIONAL in hyp.suggested_experiment_types
 
-    @patch("kosmos.agents.hypothesis_generator.get_client")
-    def test_generate_with_custom_num_hypotheses(
-        self, mock_get_client, hypothesis_agent, mock_llm_response
-    ):
+    def test_generate_with_custom_num_hypotheses(self, hypothesis_agent, mock_llm_response):
         """Test generating custom number of hypotheses."""
         mock_client = Mock()
         mock_client.generate_structured.return_value = {
             "hypotheses": mock_llm_response["hypotheses"][:2]  # Return only 2
         }
         mock_client.generate.return_value = "biology"
-        mock_get_client.return_value = mock_client
         hypothesis_agent.llm_client = mock_client
 
         response = hypothesis_agent.generate_hypotheses(
@@ -144,13 +131,11 @@ class TestHypothesisGeneration:
 
         assert len(response.hypotheses) == 2
 
-    @patch("kosmos.agents.hypothesis_generator.get_client")
-    def test_domain_auto_detection(self, mock_get_client, hypothesis_agent):
+    def test_domain_auto_detection(self, hypothesis_agent):
         """Test automatic domain detection."""
         mock_client = Mock()
         mock_client.generate.return_value = "neuroscience"
         mock_client.generate_structured.return_value = {"hypotheses": []}
-        mock_get_client.return_value = mock_client
         hypothesis_agent.llm_client = mock_client
 
         response = hypothesis_agent.generate_hypotheses(
@@ -318,9 +303,8 @@ class TestLiteratureContext:
 class TestAgentExecute:
     """Test agent execute method."""
 
-    @patch("kosmos.agents.hypothesis_generator.get_client")
     def test_execute_generate_hypotheses_task(
-        self, mock_get_client, hypothesis_agent, mock_llm_response
+        self, hypothesis_agent, mock_llm_response
     ):
         """Test executing hypothesis generation via message."""
         from kosmos.agents.base import AgentMessage, MessageType
@@ -328,7 +312,6 @@ class TestAgentExecute:
         mock_client = Mock()
         mock_client.generate_structured.return_value = mock_llm_response
         mock_client.generate.return_value = "test_domain"
-        mock_get_client.return_value = mock_client
         hypothesis_agent.llm_client = mock_client
 
         message = AgentMessage(
@@ -354,13 +337,11 @@ class TestAgentExecute:
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
-    @patch("kosmos.agents.hypothesis_generator.get_client")
-    def test_empty_llm_response(self, mock_get_client, hypothesis_agent):
+    def test_empty_llm_response(self, hypothesis_agent):
         """Test handling empty LLM response."""
         mock_client = Mock()
         mock_client.generate_structured.return_value = {"hypotheses": []}
         mock_client.generate.return_value = "test"
-        mock_get_client.return_value = mock_client
         hypothesis_agent.llm_client = mock_client
 
         response = hypothesis_agent.generate_hypotheses(
@@ -369,8 +350,7 @@ class TestEdgeCases:
 
         assert len(response.hypotheses) == 0
 
-    @patch("kosmos.agents.hypothesis_generator.get_client")
-    def test_malformed_llm_response(self, mock_get_client, hypothesis_agent):
+    def test_malformed_llm_response(self, hypothesis_agent):
         """Test handling malformed LLM response."""
         mock_client = Mock()
         mock_client.generate_structured.return_value = {
@@ -380,7 +360,6 @@ class TestEdgeCases:
             ]
         }
         mock_client.generate.return_value = "test"
-        mock_get_client.return_value = mock_client
         hypothesis_agent.llm_client = mock_client
 
         response = hypothesis_agent.generate_hypotheses(
@@ -390,13 +369,11 @@ class TestEdgeCases:
         # Should filter out malformed hypotheses
         assert len(response.hypotheses) == 0
 
-    @patch("kosmos.agents.hypothesis_generator.get_client")
-    def test_llm_exception_handling(self, mock_get_client, hypothesis_agent):
+    def test_llm_exception_handling(self, hypothesis_agent):
         """Test handling LLM exceptions."""
         mock_client = Mock()
         mock_client.generate_structured.side_effect = Exception("LLM Error")
         mock_client.generate.return_value = "test"
-        mock_get_client.return_value = mock_client
         hypothesis_agent.llm_client = mock_client
 
         response = hypothesis_agent.generate_hypotheses(

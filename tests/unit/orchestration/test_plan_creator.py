@@ -7,7 +7,7 @@ Tests:
 """
 
 import json
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
@@ -39,41 +39,35 @@ def sample_context():
 @pytest.fixture
 def plan_creator():
     """Create PlanCreatorAgent without LLM client."""
-    return PlanCreatorAgent(anthropic_client=None)
+    return PlanCreatorAgent(llm_client=None)
 
 
 @pytest.fixture
 def mock_llm_response():
     """Mock LLM response for plan generation."""
-    response_content = json.dumps(
-        {
-            "tasks": [
-                {
-                    "id": 1,
-                    "type": "data_analysis",
-                    "description": "Analyze RNA-seq data",
-                    "expected_output": "DEG list",
-                    "required_skills": ["deseq2"],
-                    "exploration": True,
-                    "priority": 1,
-                },
-                {
-                    "id": 2,
-                    "type": "literature_review",
-                    "description": "Review KRAS papers",
-                    "expected_output": "Literature summary",
-                    "required_skills": [],
-                    "exploration": False,
-                    "priority": 2,
-                },
-            ],
-            "rationale": "Focus on KRAS pathway analysis",
-        }
-    )
-
-    mock_response = Mock()
-    mock_response.content = [Mock(text=response_content)]
-    return mock_response
+    return {
+        "tasks": [
+            {
+                "id": 1,
+                "type": "data_analysis",
+                "description": "Analyze RNA-seq data",
+                "expected_output": "DEG list",
+                "required_skills": ["deseq2"],
+                "exploration": True,
+                "priority": 1,
+            },
+            {
+                "id": 2,
+                "type": "literature_review",
+                "description": "Review KRAS papers",
+                "expected_output": "Literature summary",
+                "required_skills": [],
+                "exploration": False,
+                "priority": 2,
+            },
+        ],
+        "rationale": "Focus on KRAS pathway analysis",
+    }
 
 
 # ============================================================================
@@ -184,17 +178,17 @@ class TestPlanCreatorAgentInit:
         """Test default initialization."""
         agent = PlanCreatorAgent()
 
-        assert agent.client is None
+        assert agent.lm is None
         assert agent.default_num_tasks == 10
 
     def test_custom_initialization(self):
         """Test custom initialization."""
         mock_client = Mock()
         agent = PlanCreatorAgent(
-            anthropic_client=mock_client, model="claude-3-opus", default_num_tasks=5
+            llm_client=mock_client, model="claude-3-opus", default_num_tasks=5
         )
 
-        assert agent.client == mock_client
+        assert agent.lm == mock_client
         assert agent.model == "claude-3-opus"
         assert agent.default_num_tasks == 5
 
@@ -284,24 +278,24 @@ class TestLLMPlanCreation:
     async def test_create_plan_with_llm(self, sample_context, mock_llm_response):
         """Test creating plan with LLM client."""
         mock_client = Mock()
-        mock_client.messages.create = AsyncMock(return_value=mock_llm_response)
+        mock_client.generate_structured = Mock(return_value=mock_llm_response)
 
-        agent = PlanCreatorAgent(anthropic_client=mock_client)
+        agent = PlanCreatorAgent(llm_client=mock_client)
 
         plan = await agent.create_plan(
             research_objective="Test objective", context=sample_context, num_tasks=10
         )
 
         assert isinstance(plan, ResearchPlan)
-        mock_client.messages.create.assert_called_once()
+        mock_client.generate_structured.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_llm_failure_fallback(self, sample_context):
         """Test fallback to mock plan on LLM failure."""
         mock_client = Mock()
-        mock_client.messages.create = AsyncMock(side_effect=Exception("API Error"))
+        mock_client.generate_structured = Mock(side_effect=Exception("API Error"))
 
-        agent = PlanCreatorAgent(anthropic_client=mock_client)
+        agent = PlanCreatorAgent(llm_client=mock_client)
 
         plan = await agent.create_plan(
             research_objective="Test objective", context=sample_context, num_tasks=10
@@ -489,9 +483,9 @@ class TestPlanCreatorEdgeCases:
         """Test that plan fills in missing tasks."""
         # Response with only 2 tasks
         mock_client = Mock()
-        mock_client.messages.create = AsyncMock(return_value=mock_llm_response)
+        mock_client.generate_structured = Mock(return_value=mock_llm_response)
 
-        agent = PlanCreatorAgent(anthropic_client=mock_client)
+        agent = PlanCreatorAgent(llm_client=mock_client)
 
         plan = await agent.create_plan(
             research_objective="Test", context=sample_context, num_tasks=10  # Request 10

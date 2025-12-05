@@ -1,7 +1,7 @@
 """
 Experiment Designer Agent.
 
-Designs experimental protocols from hypotheses using templates and Claude,
+Designs experimental protocols from hypotheses using templates and DSPy LMs,
 with resource estimation and scientific rigor validation.
 """
 
@@ -12,9 +12,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+import dspy
+
 from kosmos.agents.base import AgentMessage, AgentStatus, BaseAgent, MessageType
-from kosmos.core.llm import get_client
-from kosmos.core.prompts import EXPERIMENT_DESIGNER
+from kosmos.agents.dspy_client import DSPyAgentClient
 from kosmos.db import get_session
 from kosmos.db.models import (
     Experiment as DBExperiment,
@@ -38,6 +39,28 @@ from kosmos.utils.compat import model_to_dict
 
 
 logger = logging.getLogger(__name__)
+
+
+class ExperimentDesignSignature(dspy.Signature):
+    """Design an executable experiment protocol for a hypothesis."""
+
+    hypothesis_statement: str = dspy.InputField()
+    hypothesis_rationale: str = dspy.InputField()
+    domain: str = dspy.InputField()
+    experiment_type: str = dspy.InputField()
+    max_cost_usd: str = dspy.InputField()
+    max_duration_days: str = dspy.InputField()
+    research_question: str = dspy.InputField()
+
+    name: str = dspy.OutputField()
+    description: str = dspy.OutputField()
+    objective: str = dspy.OutputField()
+    steps: list[dict] = dspy.OutputField()
+    variables: dict = dspy.OutputField()
+    control_groups: list = dspy.OutputField()
+    statistical_tests: list = dspy.OutputField()
+    sample_size: int = dspy.OutputField()
+    resource_estimates: dict = dspy.OutputField()
 
 
 class ExperimentDesignerAgent(BaseAgent):
@@ -77,6 +100,7 @@ class ExperimentDesignerAgent(BaseAgent):
         agent_id: str | None = None,
         agent_type: str | None = None,
         config: dict[str, Any] | None = None,
+        llm_client: DSPyAgentClient | None = None,
     ):
         """
         Initialize Experiment Designer Agent.
@@ -96,7 +120,7 @@ class ExperimentDesignerAgent(BaseAgent):
         self.use_llm_enhancement = self.config.get("use_llm_enhancement", True)
 
         # Components
-        self.llm_client = get_client()
+        self.llm_client = llm_client
         self.template_registry = get_template_registry()
 
         logger.info(f"Initialized ExperimentDesignerAgent {self.agent_id}")
@@ -205,7 +229,7 @@ class ExperimentDesignerAgent(BaseAgent):
                 max_duration_days=max_duration_days,
             )
         else:
-            protocol = self._generate_with_claude(
+            protocol = self._generate_with_lm(
                 hypothesis=hypothesis,
                 experiment_type=experiment_type,
                 max_cost_usd=max_cost_usd,
@@ -365,7 +389,7 @@ class ExperimentDesignerAgent(BaseAgent):
 
         if not template:
             logger.warning(f"No template found for {experiment_type.value}, falling back to LLM")
-            return self._generate_with_claude(
+            return self._generate_with_lm(
                 hypothesis, experiment_type, max_cost_usd, max_duration_days
             )
 
@@ -382,87 +406,61 @@ class ExperimentDesignerAgent(BaseAgent):
 
         return protocol
 
-    def _generate_with_claude(
+    def _generate_with_lm(
         self,
         hypothesis: Hypothesis,
         experiment_type: ExperimentType,
         max_cost_usd: float | None,
         max_duration_days: float | None,
     ) -> ExperimentProtocol:
-        """Generate protocol using Claude LLM."""
-        logger.info("Generating protocol with Claude")
-
-        # Build prompt
-        prompt = EXPERIMENT_DESIGNER.format(
-            hypothesis_statement=hypothesis.statement,
-            hypothesis_rationale=hypothesis.rationale,
-            domain=hypothesis.domain,
-            experiment_type=experiment_type.value,
-            max_cost_usd=max_cost_usd or "unlimited",
-            max_duration_days=max_duration_days or "flexible",
-            research_question=hypothesis.research_question,
-        )
-
-        # Define expected JSON schema for structured output
-        schema = {
-            "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "description": {"type": "string"},
-                "objective": {"type": "string"},
-                "steps": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "step_number": {"type": "integer"},
-                            "title": {"type": "string"},
-                            "description": {"type": "string"},
-                            "action": {"type": "string"},
-                            "expected_duration_minutes": {"type": "number"},
-                        },
-                        "required": ["step_number", "title", "description", "action"],
-                    },
-                },
-                "variables": {"type": "object"},
-                "control_groups": {"type": "array"},
-                "statistical_tests": {"type": "array"},
-                "sample_size": {"type": "integer"},
-                "resource_estimates": {"type": "object"},
-            },
-            "required": ["name", "description", "objective", "steps"],
-        }
+        """Generate protocol using DSPy LMs."""
+        logger.info("Generating protocol with DSPy LM")
 
         try:
-            # Get structured output from Claude
+            if not self.llm_client:
+                raise ValueError("Language model client is not configured")
+
+            # Get structured output from DSPy LM
             # Use higher max_tokens for experiment protocols which can be verbose
-            response = self.llm_client.generate_structured(
-                prompt=prompt,
-                schema=schema,
-                system=EXPERIMENT_DESIGNER.system_prompt,  # Fixed: was system_prompt
-                max_tokens=8192,  # Increased from default 4096 for detailed protocols
+            prediction = self.llm_client.predict(
+                ExperimentDesignSignature,
+                hypothesis_statement=hypothesis.statement,
+                hypothesis_rationale=hypothesis.rationale,
+                domain=hypothesis.domain,
+                experiment_type=experiment_type.value,
+                max_cost_usd=str(max_cost_usd or "unlimited"),
+                max_duration_days=str(max_duration_days or "flexible"),
+                research_question=hypothesis.research_question,
             )
 
-            # Parse and validate protocol
-            protocol_data = response if isinstance(response, dict) else json.loads(response)
+            protocol_payload = {
+                "name": getattr(prediction, "name", None),
+                "description": getattr(prediction, "description", None),
+                "objective": getattr(prediction, "objective", None),
+                "steps": getattr(prediction, "steps", None),
+                "variables": getattr(prediction, "variables", None),
+                "control_groups": getattr(prediction, "control_groups", None),
+                "statistical_tests": getattr(prediction, "statistical_tests", None),
+                "sample_size": getattr(prediction, "sample_size", None),
+                "resource_estimates": getattr(prediction, "resource_estimates", None),
+            }
 
-            # Validate protocol data to prevent NoneType errors downstream
-            if not protocol_data or not isinstance(protocol_data, dict):
-                logger.error(f"Failed to generate valid protocol data: {response}")
+            if not protocol_payload or not isinstance(protocol_payload, dict):
+                logger.error(f"Failed to generate valid protocol data: {protocol_payload}")
                 raise ValueError("LLM returned invalid protocol data")
 
-            protocol = self._parse_claude_protocol(protocol_data, hypothesis, experiment_type)
+            protocol = self._parse_lm_protocol(protocol_payload, hypothesis, experiment_type)
 
             return protocol
 
         except Exception as e:
-            logger.error(f"Error generating protocol with Claude: {e}")
+            logger.error(f"Error generating protocol with DSPy LM: {e}")
             raise ValueError(f"Failed to generate protocol: {e}") from e
 
-    def _parse_claude_protocol(
+    def _parse_lm_protocol(
         self, data: dict[str, Any], hypothesis: Hypothesis, experiment_type: ExperimentType
     ) -> ExperimentProtocol:
-        """Parse Claude's response into ExperimentProtocol."""
+        """Parse DSPy LM response into ExperimentProtocol."""
         # Parse steps
         steps = []
         for step_data in data.get("steps", []):
@@ -582,7 +580,7 @@ class ExperimentDesignerAgent(BaseAgent):
         """Enhance template-generated protocol with LLM insights."""
         logger.info("Enhancing protocol with LLM")
 
-        # Ask Claude for enhancements
+        # Ask the DSPy LM for enhancements
         prompt = f"""Review and enhance this experimental protocol.
 
 Hypothesis: {hypothesis.statement}
