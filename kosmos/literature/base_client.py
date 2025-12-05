@@ -46,10 +46,8 @@ class PaperMetadata:
 
     # Identifiers
     id: str  # Unique ID from source
-    source: PaperSource
+    source: PaperSource = PaperSource.UNKNOWN
     doi: str | None = None
-    arxiv_id: str | None = None
-    pubmed_id: str | None = None
 
     # Core metadata
     title: str = ""
@@ -92,8 +90,8 @@ class PaperMetadata:
 
     @property
     def primary_identifier(self) -> str:
-        """Get the primary identifier (DOI > arXiv > PubMed > source ID)."""
-        return self.doi or self.arxiv_id or self.pubmed_id or self.id
+        """Get the primary identifier (DOI > source ID)."""
+        return self.doi or self.id
 
     @property
     def author_names(self) -> list[str]:
@@ -106,8 +104,6 @@ class PaperMetadata:
             "id": self.id,
             "source": self.source.value,
             "doi": self.doi,
-            "arxiv_id": self.arxiv_id,
-            "pubmed_id": self.pubmed_id,
             "title": self.title,
             "abstract": self.abstract,
             "authors": [{"name": a.name, "affiliation": a.affiliation} for a in self.authors],

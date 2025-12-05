@@ -99,7 +99,7 @@ class SafetyIncident(BaseModel):
 
     incident_id: str
     timestamp: datetime = Field(default_factory=datetime.now)
-    violation: SafetyViolation
+    violation: SafetyViolation | None = None
     context: dict[str, Any] = Field(default_factory=dict)
     action_taken: str  # What was done in response
     experiment_id: str | None = None

@@ -67,12 +67,14 @@ class TestPubMedSearch:
         papers = pubmed_client.search("nonexistent_query_xyz")
         assert papers == []
 
-    @patch("Bio.Entrez.esearch")
+    @patch("kosmos.literature.pubmed_client.Entrez.esearch")
     def test_search_with_error(self, mock_esearch, pubmed_client):
         """Test search error handling."""
+        # Disable cache for this test
+        pubmed_client.cache = None
         mock_esearch.side_effect = Exception("API Error")
 
-        papers = pubmed_client.search("test query")
+        papers = pubmed_client.search("test query for error handling")
         assert papers == []
 
 
@@ -88,14 +90,14 @@ class TestPubMedGetPaper:
             source=PaperSource.PUBMED,
             title="CRISPR Test",
             abstract="Test abstract",
-            pubmed_id="23287718",
         )
 
         with patch.object(pubmed_client, "_fetch_paper_details", return_value=[mock_paper]):
             paper = pubmed_client.get_paper_by_id("23287718")
 
         assert paper is not None
-        assert paper.pubmed_id == "23287718"
+        assert paper.id == "23287718"
+        assert paper.source == PaperSource.PUBMED
 
     def test_get_paper_by_id_not_found(self, pubmed_client):
         """Test fetching non-existent paper."""
@@ -137,4 +139,4 @@ class TestPubMedIntegration:
 
         assert len(papers) > 0
         assert all(isinstance(p, PaperMetadata) for p in papers)
-        assert all(p.pubmed_id is not None for p in papers)
+        assert all(p.id is not None and p.source == PaperSource.PUBMED for p in papers)

@@ -38,7 +38,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from scipy import stats
 from scipy.optimize import differential_evolution
 
@@ -65,8 +65,7 @@ class CorrelationResult(BaseModel):
     equation: str  # Linear regression equation
     clean_data: pd.DataFrame | None = Field(default=None, exclude=True)
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class SHAPResult(BaseModel):
@@ -80,8 +79,7 @@ class SHAPResult(BaseModel):
     n_samples: int
     top_features: list[str] = Field(default_factory=list)  # Top 5 by importance
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class OptimizationResult(BaseModel):
@@ -95,8 +93,7 @@ class OptimizationResult(BaseModel):
     parameter_bounds: dict[str, tuple[float, float]]
     model_r_squared: float
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class DOEResult(BaseModel):
@@ -108,8 +105,7 @@ class DOEResult(BaseModel):
     sampling_method: str  # "LatinHypercube" or "Random"
     parameter_ranges: dict[str, tuple[float, float]]
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 # Main analyzer class

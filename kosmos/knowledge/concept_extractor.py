@@ -218,6 +218,19 @@ class ConceptExtractor:
             model_used=self.model,
         )
 
+        # Optionally cache the result
+        if self.use_cache and self.cache_dir:
+            try:
+                cache_path = (
+                    self.cache_dir
+                    / f"{hashlib.sha256(paper.primary_identifier.encode()).hexdigest()}.json"
+                )
+                with cache_path.open("w", encoding="utf-8") as f:
+                    json.dump(result.to_dict(), f)
+            except Exception:
+                # Don't fail extractions due to caching errors
+                logger.debug("Failed to write concept extraction cache", exc_info=True)
+
         # Cache result
         if self.use_cache:
             self._save_to_cache(paper.primary_identifier, result)

@@ -20,6 +20,15 @@ from kosmos.models.safety import (
 from kosmos.safety.guardrails import SafetyGuardrails
 
 
+@pytest.fixture(autouse=True)
+def mock_stop_flag_file(tmp_path):
+    """Mock the emergency stop flag file to use a temporary path."""
+    # We need to patch the class attribute itself
+    flag_path = tmp_path / ".kosmos_emergency_stop"
+    with patch("kosmos.safety.guardrails.SafetyGuardrails.STOP_FLAG_FILE", flag_path):
+        yield
+
+
 class TestSafetyGuardrailsInitialization:
     """Tests for SafetyGuardrails initialization."""
 
@@ -29,6 +38,10 @@ class TestSafetyGuardrailsInitialization:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -44,6 +57,8 @@ class TestSafetyGuardrailsInitialization:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(
@@ -59,6 +74,8 @@ class TestSafetyGuardrailsInitialization:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         SafetyGuardrails(enable_signal_handlers=True)
@@ -73,6 +90,7 @@ class TestSafetyGuardrailsInitialization:
         mock_config.safety.max_cpu_cores = 4.0
         mock_config.safety.max_memory_mb = 4096
         mock_config.safety.max_execution_time = 600
+        mock_config.safety.ethical_guidelines_path = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -92,6 +110,8 @@ class TestCodeValidation:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -108,6 +128,8 @@ class TestCodeValidation:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -124,6 +146,8 @@ class TestCodeValidation:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         incident_log = tmp_path / "incidents.jsonl"
@@ -144,6 +168,8 @@ class TestCodeValidation:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -158,6 +184,8 @@ class TestCodeValidation:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -179,6 +207,8 @@ class TestResourceLimitEnforcement:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -194,6 +224,8 @@ class TestResourceLimitEnforcement:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -214,6 +246,8 @@ class TestResourceLimitEnforcement:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -233,6 +267,8 @@ class TestResourceLimitEnforcement:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -258,6 +294,8 @@ class TestEmergencyStopMechanism:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -274,6 +312,8 @@ class TestEmergencyStopMechanism:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         import os
@@ -302,6 +342,8 @@ class TestEmergencyStopMechanism:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -318,6 +360,8 @@ class TestEmergencyStopMechanism:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -334,6 +378,8 @@ class TestEmergencyStopMechanism:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -348,6 +394,8 @@ class TestEmergencyStopMechanism:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         import os
@@ -375,6 +423,8 @@ class TestEmergencyStopMechanism:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         import os
@@ -406,6 +456,8 @@ class TestSafetyContext:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -422,6 +474,8 @@ class TestSafetyContext:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -437,6 +491,8 @@ class TestSafetyContext:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -455,6 +511,8 @@ class TestIncidentLogging:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -478,6 +536,8 @@ class TestIncidentLogging:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         incident_log = tmp_path / "incidents.jsonl"
@@ -511,6 +571,8 @@ class TestIncidentLogging:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -540,6 +602,8 @@ class TestIncidentLogging:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -567,6 +631,8 @@ class TestIncidentLogging:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)
@@ -610,6 +676,8 @@ class TestIncidentLogging:
         mock_config = Mock()
         mock_config.safety.max_memory_mb = 2048
         mock_config.safety.max_execution_time = 300
+        mock_config.safety.ethical_guidelines_path = None
+        mock_config.safety.max_cpu_cores = None
         mock_get_config.return_value = mock_config
 
         guardrails = SafetyGuardrails(enable_signal_handlers=False)

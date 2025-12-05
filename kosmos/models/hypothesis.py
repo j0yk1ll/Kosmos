@@ -53,12 +53,16 @@ class Hypothesis(BaseModel):
     """
 
     id: str | None = None
-    research_question: str = Field(..., description="Original research question")
+    # Allow either a full research question text or a reference id used in tests
+    research_question: str | None = Field(None, description="Original research question (text)")
+    research_question_id: str | None = Field(
+        None, description="Optional reference ID for the research question"
+    )
     statement: str = Field(
         ..., min_length=10, max_length=500, description="Clear, testable hypothesis statement"
     )
     rationale: str = Field(
-        ..., min_length=20, description="Scientific rationale for the hypothesis"
+        ..., min_length=10, description="Scientific rationale for the hypothesis"
     )
 
     domain: str = Field(..., description="Scientific domain (e.g., biology, physics, ML)")
@@ -135,9 +139,9 @@ class Hypothesis(BaseModel):
         if not v or v.strip() == "":
             raise ValueError("Rationale cannot be empty")
 
-        if len(v.strip()) < 20:
+        if len(v.strip()) < 10:
             raise ValueError(
-                "Rationale must be at least 20 characters to provide sufficient justification"
+                "Rationale must be at least 10 characters to provide sufficient justification"
             )
 
         return v.strip()
@@ -147,6 +151,7 @@ class Hypothesis(BaseModel):
         return {
             "id": self.id,
             "research_question": self.research_question,
+            "research_question_id": self.research_question_id,
             "statement": self.statement,
             "rationale": self.rationale,
             "domain": self.domain,

@@ -364,9 +364,9 @@ class UnifiedLiteratureSearch:
 
     def _deduplicate_papers(self, papers: list[PaperMetadata]) -> list[PaperMetadata]:
         """
-        Deduplicate papers by DOI, arXiv ID, PubMed ID, or title similarity.
+        Deduplicate papers by DOI, (source, id) tuple, or title similarity.
 
-        Priority: DOI > arXiv > PubMed > Title
+        Priority: DOI > (source, id) > Title
 
         Args:
             papers: List of papers (may contain duplicates)
@@ -375,8 +375,7 @@ class UnifiedLiteratureSearch:
             Deduplicated list of papers
         """
         seen_dois: set[str] = set()
-        seen_arxiv: set[str] = set()
-        seen_pubmed: set[str] = set()
+        seen_source_ids: set[tuple[str, str]] = set()  # (source, id) tuples
         seen_titles: set[str] = set()
 
         unique_papers = []
@@ -391,27 +390,17 @@ class UnifiedLiteratureSearch:
                 unique_papers.append(paper)
                 continue
 
-            # Check arXiv ID
-            if paper.arxiv_id:
-                arxiv_norm = paper.arxiv_id.lower().strip()
-                if arxiv_norm in seen_arxiv:
-                    continue
-                seen_arxiv.add(arxiv_norm)
-                unique_papers.append(paper)
+            # Check (source, id) tuple
+            # This handles arXiv, PubMed, and other source-specific IDs
+            source_id_tuple = (paper.source.value, paper.id.lower().strip())
+            if source_id_tuple in seen_source_ids:
                 continue
-
-            # Check PubMed ID
-            if paper.pubmed_id:
-                pubmed_norm = paper.pubmed_id.lower().strip()
-                if pubmed_norm in seen_pubmed:
-                    continue
-                seen_pubmed.add(pubmed_norm)
-                unique_papers.append(paper)
-                continue
+            seen_source_ids.add(source_id_tuple)
 
             # Check title similarity (fuzzy match)
             # Skip papers without titles - they can't be properly deduplicated
             if not paper.title:
+                unique_papers.append(paper)
                 continue
             title_norm = self._normalize_title(paper.title)
             if title_norm in seen_titles:

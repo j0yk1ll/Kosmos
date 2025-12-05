@@ -5,6 +5,7 @@ This module provides common fixtures used across all test suites.
 """
 
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -14,6 +15,14 @@ import pytest
 from dotenv import load_dotenv
 
 from kosmos.literature.base_client import PaperMetadata, PaperSource
+
+
+# Reduce verbosity from Faker providers which log a lot at DEBUG level
+# Tests configure file logging at DEBUG which causes Faker internals to
+# flood the test logs; raise those specific loggers to INFO so messages
+# are quieter while preserving other debug output.
+logging.getLogger("faker.factory").setLevel(logging.INFO)
+logging.getLogger("faker").setLevel(logging.INFO)
 
 
 # ============================================================================
@@ -137,8 +146,6 @@ def sample_paper_metadata(sample_papers_data: list[dict]) -> PaperMetadata:
         year=paper_dict["year"],
         venue=paper_dict.get("venue"),
         doi=paper_dict.get("doi"),
-        arxiv_id=paper_dict.get("arxiv_id"),
-        pubmed_id=paper_dict.get("pubmed_id"),
         url=paper_dict.get("url"),
         pdf_url=paper_dict.get("pdf_url"),
         citation_count=paper_dict.get("citation_count", 0),
@@ -166,8 +173,6 @@ def sample_papers_list(sample_papers_data: list[dict]) -> list[PaperMetadata]:
                 year=paper_dict["year"],
                 venue=paper_dict.get("venue"),
                 doi=paper_dict.get("doi"),
-                arxiv_id=paper_dict.get("arxiv_id"),
-                pubmed_id=paper_dict.get("pubmed_id"),
                 url=paper_dict.get("url"),
                 pdf_url=paper_dict.get("pdf_url"),
                 citation_count=paper_dict.get("citation_count", 0),

@@ -35,7 +35,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from kosmos.domains.biology.apis import (
     ENCODEClient,
@@ -132,8 +132,7 @@ class GenomicsResult(BaseModel):
         default=False, description="Whether eQTL/pQTL effects agree with GWAS direction"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class MechanismRanking(BaseModel):
@@ -149,8 +148,7 @@ class MechanismRanking(BaseModel):
     )
     rank: int
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class GenomicsAnalyzer:

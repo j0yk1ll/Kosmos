@@ -378,36 +378,33 @@ def test_req_lsa_006_citation_with_identifiers():
     # Test PaperMetadata identifier properties
     papers = [
         PaperMetadata(
-            id="test1",
+            id="2301.00001",  # arXiv ID as the source ID
             source=PaperSource.ARXIV,
             title="Test Paper 1",
             abstract="Test abstract",
             doi="10.1234/example.doi",
-            arxiv_id="2301.00001",
             authors=[],
         ),
         PaperMetadata(
-            id="test2",
+            id="12345678",  # PubMed ID as the source ID
             source=PaperSource.PUBMED,
             title="Test Paper 2",
             abstract="Test abstract",
-            pubmed_id="12345678",
             doi="10.5678/example.doi2",
             authors=[],
         ),
         PaperMetadata(
-            id="test3",
+            id="s2_paper_123",  # S2 paper ID
             source=PaperSource.SEMANTIC_SCHOLAR,
             title="Test Paper 3",
             abstract="Test abstract",
-            arxiv_id="2302.00001",
             authors=[],
         ),
     ]
 
-    # Assert: Each paper should have at least one identifier
+    # Assert: Each paper should have at least one identifier (source ID always present)
     for paper in papers:
-        has_identifier = bool(paper.doi or paper.arxiv_id or paper.pubmed_id)
+        has_identifier = bool(paper.doi or paper.id)
         assert has_identifier, f"Paper '{paper.title}' must have at least one standard identifier"
 
         # Test primary_identifier property
@@ -427,8 +424,8 @@ def test_req_lsa_006_citation_with_identifiers():
             citation_lower = citation.lower()
             has_id_in_citation = (
                 (paper.doi and "doi" in citation_lower)
-                or (paper.arxiv_id and "arxiv" in citation_lower)
-                or (paper.pubmed_id and "pmid" in citation_lower)
+                or (paper.source == PaperSource.ARXIV and "arxiv" in citation_lower)
+                or (paper.source == PaperSource.PUBMED and "pmid" in citation_lower)
             )
 
             assert (
@@ -448,9 +445,7 @@ def test_req_lsa_006_citation_with_identifiers():
         authors=[],
     )
 
-    has_any_id = bool(
-        paper_no_id.doi or paper_no_id.arxiv_id or paper_no_id.pubmed_id or paper_no_id.id
-    )
+    has_any_id = bool(paper_no_id.doi or paper_no_id.id)
     assert not has_any_id or paper_no_id.id == "", "Paper without identifier should be detectable"
 
 
@@ -1085,8 +1080,7 @@ def test_literature_search_agent_integration():
             # Should have some identifier
             has_id = bool(
                 paper.doi
-                or paper.arxiv_id
-                or paper.pubmed_id
+                or paper.id  # Source ID always present
                 or paper.id
                 or getattr(paper, "source_id", None)
             )
@@ -1109,8 +1103,6 @@ def test_paper_metadata_completeness():
         id="complete-test",
         source=PaperSource.SEMANTIC_SCHOLAR,
         doi="10.1234/test.doi",
-        arxiv_id="2301.12345",
-        pubmed_id="98765432",
         title="Complete Test Paper",
         abstract="Full abstract with comprehensive content for testing.",
         authors=[
@@ -1135,8 +1127,8 @@ def test_paper_metadata_completeness():
     assert paper.id == "complete-test"
     assert paper.source == PaperSource.SEMANTIC_SCHOLAR
     assert paper.doi == "10.1234/test.doi"
-    assert paper.arxiv_id == "2301.12345"
-    assert paper.pubmed_id == "98765432"
+    # arxiv_id and pubmed_id are no longer separate fields
+    # The source+id combination uniquely identifies the paper
     assert paper.title == "Complete Test Paper"
     assert len(paper.abstract) > 0
     assert len(paper.authors) == 2

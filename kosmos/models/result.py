@@ -5,11 +5,14 @@ Defines Pydantic models for experiment results, extending the database Result mo
 with validation and structured data handling.
 """
 
+import logging
+import platform as platform_module
+import sys
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from kosmos.utils.compat import model_to_dict
 
@@ -32,8 +35,13 @@ class ExecutionMetadata(BaseModel):
     duration_seconds: float = Field(..., ge=0, description="Execution duration in seconds")
 
     # System information
-    python_version: str = Field(..., description="Python version used")
-    platform: str = Field(..., description="Operating system platform")
+    # Provide sensible defaults so metadata can be created without explicit system info
+    python_version: str = Field(
+        default_factory=lambda: sys.version, description="Python version used"
+    )
+    platform: str = Field(
+        default_factory=lambda: platform_module.system(), description="Operating system platform"
+    )
     hostname: str | None = Field(None, description="Machine hostname")
 
     # Resource usage
@@ -48,7 +56,8 @@ class ExecutionMetadata(BaseModel):
 
     # Parameters
     experiment_id: str = Field(..., description="Experiment ID")
-    protocol_id: str = Field(..., description="Protocol ID")
+    # protocol_id may be omitted in some contexts (e.g. lightweight test metadata)
+    protocol_id: str | None = Field(None, description="Protocol ID")
     hypothesis_id: str | None = Field(None, description="Hypothesis ID")
 
     # Execution details
@@ -79,10 +88,10 @@ class StatisticalTestResult(BaseModel):
     confidence_level: float | None = Field(None, ge=0, le=1, description="CI confidence level")
 
     # Significance
-    significant_0_05: bool = Field(..., description="Significant at α=0.05")
-    significant_0_01: bool = Field(..., description="Significant at α=0.01")
-    significant_0_001: bool = Field(..., description="Significant at α=0.001")
-    significance_label: str = Field(..., description="Significance label (**, *, ns)")
+    significant_0_05: bool = Field(False, description="Significant at α=0.05")
+    significant_0_01: bool = Field(False, description="Significant at α=0.01")
+    significant_0_001: bool = Field(False, description="Significant at α=0.001")
+    significance_label: str = Field("ns", description="Significance label (**, *, ns)")
 
     # Primary test designation
     is_primary: bool = Field(default=False, description="Whether this is the primary test")
@@ -98,6 +107,46 @@ class StatisticalTestResult(BaseModel):
 
     # Interpretation
     interpretation: str | None = Field(None, description="Human-readable interpretation")
+
+    @model_validator(mode="after")
+    def _infer_significance(self):
+        """Infer significance flags and label from p_value when not explicitly provided."""
+        # Fields explicitly provided during model creation are tracked in
+        # __pydantic_fields_set__ (Pydantic v2). Only infer when flags/label
+        # were not explicitly set.
+        fields_set = getattr(self, "__pydantic_fields_set__", set())
+
+        if self.p_value is not None:
+            inferred_005 = self.p_value < 0.05
+            inferred_001 = self.p_value < 0.01
+            inferred_0001 = self.p_value < 0.001
+
+            if "significant_0_05" not in fields_set:
+                self.significant_0_05 = inferred_005
+            if "significant_0_01" not in fields_set:
+                self.significant_0_01 = inferred_001
+            if "significant_0_001" not in fields_set:
+                self.significant_0_001 = inferred_0001
+
+            if "significance_label" not in fields_set:
+                if inferred_0001:
+                    self.significance_label = "***"
+                elif inferred_001:
+                    self.significance_label = "**"
+                elif inferred_005:
+                    self.significance_label = "*"
+                else:
+                    self.significance_label = "ns"
+
+            logging.getLogger(__name__).debug(
+                "Inferred significance flags for p_value=%s: %s/%s/%s",
+                self.p_value,
+                self.significant_0_05,
+                self.significant_0_01,
+                self.significant_0_001,
+            )
+
+        return self
 
 
 class VariableResult(BaseModel):
@@ -212,7 +261,8 @@ class ExperimentResult(BaseModel):
     @classmethod
     def validate_primary_test(cls, v: str | None, info) -> str | None:
         """Validate primary test exists in statistical_tests."""
-        if v is not None and "statistical_tests" in info.data:
+        # Only validate when a primary_test is provided and there are tests to match against
+        if v is not None and "statistical_tests" in info.data and info.data["statistical_tests"]:
             # In Pydantic V2, info.data contains raw dicts, not model instances
             test_names = [
                 test["test_name"] if isinstance(test, dict) else test.test_name

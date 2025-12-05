@@ -322,7 +322,6 @@ class ArxivClient(BaseLiteratureClient):
             id=arxiv_id,
             source=PaperSource.ARXIV,
             doi=result.doi,
-            arxiv_id=arxiv_id,
             title=result.title,
             abstract=result.summary,
             authors=authors,

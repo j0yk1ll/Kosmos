@@ -16,16 +16,20 @@ from kosmos.core.workflow import NextAction, WorkflowState
 
 @pytest.fixture
 def research_director():
-    """Create research director with test configuration."""
-    return ResearchDirectorAgent(
-        research_question="Does sample size affect statistical power?",
-        domain="statistics",
-        config={
-            "max_iterations": 5,
-            "mandatory_stopping_criteria": ["iteration_limit", "no_testable_hypotheses"],
-            "optional_stopping_criteria": ["novelty_decline", "diminishing_returns"],
-        },
-    )
+    """Create research director with test configuration without real LLM client."""
+    with patch("kosmos.agents.research_director.get_client"):
+        agent = ResearchDirectorAgent(
+            research_question="Does sample size affect statistical power?",
+            domain="statistics",
+            config={
+                "max_iterations": 5,
+                "mandatory_stopping_criteria": ["iteration_limit", "no_testable_hypotheses"],
+                "optional_stopping_criteria": ["novelty_decline", "diminishing_returns"],
+            },
+        )
+        # Mock LLM client
+        agent.llm_client = Mock()
+        return agent
 
 
 @pytest.fixture

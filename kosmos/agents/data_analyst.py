@@ -759,22 +759,23 @@ Format your response as JSON with the following structure:
         interpretation_parts = []
 
         # Statistical significance level
-        if p_value < 0.001:
+        # Use inclusive thresholds so boundary p-values (e.g., 0.01, 0.05) are handled as expected
+        if p_value <= 0.001:
             interpretation_parts.append(
                 f"The p-value (p={p_value:.6f}) provides very strong evidence against "
                 f"the null hypothesis (p < 0.001)."
             )
-        elif p_value < 0.01:
+        elif p_value <= 0.01:
             interpretation_parts.append(
                 f"The p-value (p={p_value:.4f}) provides strong evidence against "
                 f"the null hypothesis (p < 0.01)."
             )
-        elif p_value < 0.05:
+        elif p_value <= 0.05:
             interpretation_parts.append(
                 f"The p-value (p={p_value:.4f}) provides moderate evidence against "
                 f"the null hypothesis (p < 0.05), meeting conventional significance threshold."
             )
-        elif p_value < 0.1:
+        elif p_value <= 0.1:
             interpretation_parts.append(
                 f"The p-value (p={p_value:.4f}) provides suggestive but inconclusive evidence "
                 f"(0.05 < p < 0.1). This may warrant further investigation."

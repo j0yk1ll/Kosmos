@@ -14,10 +14,17 @@ from kosmos.models.hypothesis import ExperimentType, Hypothesis, HypothesisGener
 
 @pytest.fixture
 def hypothesis_agent():
-    """Create HypothesisGeneratorAgent for testing."""
-    return HypothesisGeneratorAgent(
-        config={"num_hypotheses": 3, "use_literature_context": False}  # Disable for faster tests
-    )
+    """Create HypothesisGeneratorAgent for testing without real LLM client."""
+    with patch("kosmos.agents.hypothesis_generator.get_client"):
+        agent = HypothesisGeneratorAgent(
+            config={
+                "num_hypotheses": 3,
+                "use_literature_context": False,
+            }  # Disable for faster tests
+        )
+        # Mock LLM client
+        agent.llm_client = Mock()
+        return agent
 
 
 @pytest.fixture
@@ -54,15 +61,19 @@ def mock_llm_response():
 class TestHypothesisGeneratorInit:
     """Test HypothesisGeneratorAgent initialization."""
 
-    def test_init_default(self):
+    @patch("kosmos.agents.hypothesis_generator.get_client")
+    def test_init_default(self, mock_get_client):
         """Test default initialization."""
+        mock_get_client.return_value = Mock()
         agent = HypothesisGeneratorAgent()
         assert agent.agent_type == "HypothesisGeneratorAgent"
         assert agent.num_hypotheses == 3
         assert agent.use_literature_context is True
 
-    def test_init_with_config(self):
+    @patch("kosmos.agents.hypothesis_generator.get_client")
+    def test_init_with_config(self, mock_get_client):
         """Test initialization with custom config."""
+        mock_get_client.return_value = Mock()
         agent = HypothesisGeneratorAgent(
             config={"num_hypotheses": 5, "use_literature_context": False, "min_novelty_score": 0.7}
         )
@@ -168,26 +179,32 @@ class TestHypothesisValidation:
         assert hypothesis_agent._validate_hypothesis(hyp) is True
 
     def test_validate_statement_too_short(self, hypothesis_agent):
-        """Test rejecting hypothesis with too-short statement."""
-        hyp = Hypothesis(
-            research_question="Test question?",
-            statement="Too short",  # Only 2 words
-            rationale="This is a reasonable rationale with sufficient detail to explain the hypothesis.",
-            domain="test",
-        )
+        """Test that Pydantic rejects hypothesis with too-short statement."""
+        from pydantic import ValidationError
 
-        assert hypothesis_agent._validate_hypothesis(hyp) is False
+        with pytest.raises(ValidationError) as exc_info:
+            Hypothesis(
+                research_question="Test question?",
+                statement="Short",  # Less than min_length=10
+                rationale="This is a reasonable rationale with sufficient detail to explain the hypothesis.",
+                domain="test",
+            )
+
+        assert "statement" in str(exc_info.value)
 
     def test_validate_rationale_too_short(self, hypothesis_agent):
-        """Test rejecting hypothesis with too-short rationale."""
-        hyp = Hypothesis(
-            research_question="Test question?",
-            statement="This is a reasonable hypothesis statement",
-            rationale="Too short",  # Only 2 words
-            domain="test",
-        )
+        """Test that Pydantic rejects hypothesis with too-short rationale."""
+        from pydantic import ValidationError
 
-        assert hypothesis_agent._validate_hypothesis(hyp) is False
+        with pytest.raises(ValidationError) as exc_info:
+            Hypothesis(
+                research_question="Test question?",
+                statement="This is a reasonable hypothesis statement",
+                rationale="Too short",  # Less than min_length=10
+                domain="test",
+            )
+
+        assert "rationale" in str(exc_info.value)
 
     def test_validate_vague_language_warning(self, hypothesis_agent, caplog):
         """Test warning for vague language (but doesn't fail)."""
@@ -268,6 +285,7 @@ class TestLiteratureContext:
         mock_search = Mock()
         mock_papers = [
             PaperMetadata(
+                id="arxiv:1706.03762",
                 title="Attention Is All You Need",
                 authors=["Vaswani"],
                 abstract="We propose the Transformer...",
@@ -275,6 +293,7 @@ class TestLiteratureContext:
                 source="arxiv",
             ),
             PaperMetadata(
+                id="ss:bert-2019",
                 title="BERT",
                 authors=["Devlin"],
                 abstract="BERT is a transformer-based model...",

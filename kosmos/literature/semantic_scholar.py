@@ -315,8 +315,8 @@ class SemanticScholarClient(BaseLiteratureClient):
         # Extract external IDs
         external_ids = result.externalIds or {}
         doi = external_ids.get("DOI")
-        arxiv_id = external_ids.get("ArXiv")
-        pubmed_id = external_ids.get("PubMed")
+        external_ids.get("ArXiv")
+        external_ids.get("PubMed")
 
         # Convert authors
         authors = []
@@ -353,8 +353,6 @@ class SemanticScholarClient(BaseLiteratureClient):
             id=result.paperId,
             source=PaperSource.SEMANTIC_SCHOLAR,
             doi=doi,
-            arxiv_id=arxiv_id,
-            pubmed_id=pubmed_id,
             title=result.title or "",
             abstract=result.abstract or "",
             authors=authors,

@@ -8,7 +8,6 @@ Provides:
 - Library export to multiple formats
 """
 
-import hashlib
 import json
 import logging
 from difflib import SequenceMatcher
@@ -331,8 +330,8 @@ class ReferenceManager:
         stats = {
             "total_count": len(self.references),
             "doi_count": sum(1 for p in self.references.values() if p.doi),
-            "arxiv_count": sum(1 for p in self.references.values() if p.arxiv_id),
-            "pubmed_count": sum(1 for p in self.references.values() if p.pubmed_id),
+            "arxiv_count": sum(1 for p in self.references.values() if p.source.value == "arxiv"),
+            "pubmed_count": sum(1 for p in self.references.values() if p.source.value == "pubmed"),
             "year_distribution": {},
             "citation_links": len(self.citation_links),
         }
@@ -352,16 +351,11 @@ class ReferenceManager:
         """Generate unique reference ID."""
         # Use primary identifier if available
         if paper.doi:
-            return f"doi_{hashlib.md5(paper.doi.encode()).hexdigest()[:8]}"
-        elif paper.arxiv_id:
-            return f"arxiv_{hashlib.md5(paper.arxiv_id.encode()).hexdigest()[:8]}"
-        elif paper.pubmed_id:
-            return f"pubmed_{hashlib.md5(paper.pubmed_id.encode()).hexdigest()[:8]}"
+            # DOIs are already unique, no need to hash
+            return f"doi_{paper.doi.replace('/', '_')}"
         else:
-            # Hash title (with null check)
-            title = paper.title or "untitled"
-            title_hash = hashlib.md5(title.encode()).hexdigest()[:8]
-            return f"ref_{title_hash}"
+            # Source IDs are unique within their source
+            return f"{paper.source.value}_{paper.id.replace('/', '_')}"
 
     def _find_duplicate(self, paper: PaperMetadata) -> str | None:
         """Find if paper is a duplicate of existing reference."""
@@ -391,8 +385,6 @@ class ReferenceManager:
                     "authors": [{"name": a.name} for a in paper.authors],
                     "year": paper.year,
                     "doi": paper.doi,
-                    "arxiv_id": paper.arxiv_id,
-                    "pubmed_id": paper.pubmed_id,
                     "url": paper.url,
                     "journal": paper.journal,
                     "citation_count": paper.citation_count,
@@ -424,8 +416,6 @@ class ReferenceManager:
                     authors=authors,
                     year=paper_data.get("year"),
                     doi=paper_data.get("doi"),
-                    arxiv_id=paper_data.get("arxiv_id"),
-                    pubmed_id=paper_data.get("pubmed_id"),
                     url=paper_data.get("url"),
                     journal=paper_data.get("journal"),
                     citation_count=paper_data.get("citation_count", 0),
@@ -452,8 +442,8 @@ class ReferenceManager:
                 "authors": [a.name for a in (paper.authors or [])],
                 "year": paper.year,
                 "abstract": paper.abstract,
+                "source": paper.source.value,
                 "doi": paper.doi,
-                "arxiv_id": paper.arxiv_id,
                 "url": paper.url,
                 "journal": paper.journal,
                 "citation_count": paper.citation_count,
@@ -588,10 +578,9 @@ class DeduplicationEngine:
             Tuple of (unique_papers, duplicate_groups)
         """
         # Track seen identifiers
-        seen_dois = set()
-        seen_arxiv = set()
-        seen_pubmed = set()
-        seen_titles = []
+        seen_dois: set[str] = set()
+        seen_source_ids: set[tuple[str, str]] = set()  # (source, id) tuples
+        seen_titles: list[str] = []
 
         unique_papers = []
         duplicate_groups = {}
@@ -608,15 +597,10 @@ class DeduplicationEngine:
                 is_duplicate = True
                 group_key = f"DOI:{paper.doi}"
 
-            # Check arXiv
-            elif paper.arxiv_id and paper.arxiv_id in seen_arxiv:
+            # Check (source, id) tuple
+            elif (paper.source.value, paper.id) in seen_source_ids:
                 is_duplicate = True
-                group_key = f"arXiv:{paper.arxiv_id}"
-
-            # Check PubMed
-            elif paper.pubmed_id and paper.pubmed_id in seen_pubmed:
-                is_duplicate = True
-                group_key = f"PubMed:{paper.pubmed_id}"
+                group_key = f"{paper.source.value}:{paper.id}"
 
             # Check fuzzy title
             elif paper.title:
@@ -638,10 +622,7 @@ class DeduplicationEngine:
                 # Track identifiers
                 if paper.doi:
                     seen_dois.add(paper.doi)
-                if paper.arxiv_id:
-                    seen_arxiv.add(paper.arxiv_id)
-                if paper.pubmed_id:
-                    seen_pubmed.add(paper.pubmed_id)
+                seen_source_ids.add((paper.source.value, paper.id))
                 if paper.title:
                     seen_titles.append(paper.title)
 
@@ -679,10 +660,7 @@ class DeduplicationEngine:
                 merged.abstract = paper.abstract
             if not merged.doi and paper.doi:
                 merged.doi = paper.doi
-            if not merged.arxiv_id and paper.arxiv_id:
-                merged.arxiv_id = paper.arxiv_id
-            if not merged.pubmed_id and paper.pubmed_id:
-                merged.pubmed_id = paper.pubmed_id
+            # Source and ID are always present, no need to merge
             if not merged.url and paper.url:
                 merged.url = paper.url
             if not merged.journal and paper.journal:
@@ -720,12 +698,8 @@ class DeduplicationEngine:
         if paper1.doi and paper2.doi and paper1.doi == paper2.doi:
             return True
 
-        # Check arXiv
-        if paper1.arxiv_id and paper2.arxiv_id and paper1.arxiv_id == paper2.arxiv_id:
-            return True
-
-        # Check PubMed
-        if paper1.pubmed_id and paper2.pubmed_id and paper1.pubmed_id == paper2.pubmed_id:
+        # Check (source, id) tuple
+        if (paper1.source.value, paper1.id) == (paper2.source.value, paper2.id):
             return True
 
         # Check fuzzy title

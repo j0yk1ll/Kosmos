@@ -21,12 +21,14 @@ from kosmos.models.result import (
 )
 
 
+####################################################################
 # Fixtures
+####################################################################
 
 
 @pytest.fixture
 def data_analyst_agent():
-    """Create DataAnalystAgent without real Claude client."""
+    """Create DataAnalystAgent without real LLM client."""
     with patch("kosmos.agents.data_analyst.get_client"):
         agent = DataAnalystAgent(
             config={
@@ -172,7 +174,9 @@ def mock_claude_interpretation():
     )
 
 
+####################################################################
 # Result Interpretation Tests
+####################################################################
 
 
 class TestResultInterpretation:
@@ -267,7 +271,9 @@ class TestResultInterpretation:
         assert "Format your response as JSON" in prompt
 
 
+####################################################################
 # Anomaly Detection Tests
+####################################################################
 
 
 class TestAnomalyDetection:
@@ -409,7 +415,9 @@ class TestAnomalyDetection:
         assert len(anomalies) == 0 or all("NOTE:" in a for a in anomalies)
 
 
+####################################################################
 # Pattern Detection Tests
+####################################################################
 
 
 class TestPatternDetection:
@@ -545,7 +553,9 @@ class TestPatternDetection:
         assert len(patterns) == 0
 
 
+####################################################################
 # Significance Interpretation Tests
+####################################################################
 
 
 class TestSignificanceInterpretation:
@@ -594,7 +604,9 @@ class TestSignificanceInterpretation:
         assert "caution" in interpretation.lower()
 
 
-# Agent Lifecycle Tests
+####################################################################
+# Agent Lifecycle and Task Execution Tests
+####################################################################
 
 
 class TestAgentLifecycle:
@@ -686,7 +698,9 @@ class TestAgentLifecycle:
         assert "error" in result
 
 
+####################################################################
 # ResultInterpretation Class Tests
+####################################################################
 
 
 class TestResultInterpretationClass:

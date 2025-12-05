@@ -200,7 +200,7 @@ class CitationParser:
             # Build PaperMetadata
             paper = PaperMetadata(
                 id=entry.get("ID", ""),
-                source=PaperSource.OTHER,
+                source=PaperSource.MANUAL,
                 title=entry.get("title", ""),
                 abstract=entry.get("abstract", ""),
                 authors=authors,
@@ -256,7 +256,7 @@ class CitationParser:
             # Build PaperMetadata
             paper = PaperMetadata(
                 id=data.get("ID", ""),
-                source=PaperSource.OTHER,
+                source=PaperSource.MANUAL,
                 title=data.get("TI", ""),
                 abstract=data.get("AB", ""),
                 authors=authors,
@@ -285,6 +285,12 @@ class CitationFormatter:
     def __init__(self):
         """Initialize citation formatter."""
         logger.info("Initialized CitationFormatter")
+
+    def _get_author_name(self, author) -> str:
+        """Get author name from either string or Author object."""
+        if isinstance(author, str):
+            return author
+        return author.name
 
     def format_citation(self, paper: PaperMetadata, style: str = "apa") -> str:
         """
@@ -347,7 +353,7 @@ class CitationFormatter:
             entry += f"  title = {{{paper.title}}},\n"
 
         if paper.authors:
-            author_str = " and ".join([a.name for a in paper.authors])
+            author_str = " and ".join([self._get_author_name(a) for a in paper.authors])
             entry += f"  author = {{{author_str}}},\n"
 
         if paper.year:
@@ -398,7 +404,7 @@ class CitationFormatter:
 
         # Authors
         for author in paper.authors or []:
-            lines.append(f"AU  - {author.name}")
+            lines.append(f"AU  - {self._get_author_name(author)}")
 
         # Year
         if paper.year:
@@ -455,7 +461,9 @@ class CitationFormatter:
         if sort_by == "author":
             sorted_papers = sorted(
                 valid_papers,
-                key=lambda p: p.authors[0].name if p.authors and len(p.authors) > 0 else "",
+                key=lambda p: (
+                    self._get_author_name(p.authors[0]) if p.authors and len(p.authors) > 0 else ""
+                ),
             )
         elif sort_by == "year":
             sorted_papers = sorted(valid_papers, key=lambda p: p.year or 0, reverse=True)
@@ -481,11 +489,11 @@ class CitationFormatter:
         # Authors
         if paper.authors:
             if len(paper.authors) == 1:
-                author_str = f"{paper.authors[0].name}"
+                author_str = f"{self._get_author_name(paper.authors[0])}"
             elif len(paper.authors) == 2:
-                author_str = f"{paper.authors[0].name} & {paper.authors[1].name}"
+                author_str = f"{self._get_author_name(paper.authors[0])} & {self._get_author_name(paper.authors[1])}"
             else:
-                author_str = f"{paper.authors[0].name} et al."
+                author_str = f"{self._get_author_name(paper.authors[0])} et al."
             parts.append(author_str)
 
         # Year
@@ -513,7 +521,7 @@ class CitationFormatter:
 
         # Authors (Last, First format)
         if paper.authors:
-            author_str = paper.authors[0].name
+            author_str = self._get_author_name(paper.authors[0])
             if len(paper.authors) > 1:
                 author_str += " et al."
             parts.append(f"{author_str}.")
@@ -538,21 +546,28 @@ class CitationFormatter:
         # Authors (initials)
         if paper.authors:
             if len(paper.authors) <= 3:
-                author_str = ", ".join([a.name for a in paper.authors])
+                author_str = ", ".join([self._get_author_name(a) for a in paper.authors])
             else:
-                author_str = f"{paper.authors[0].name} et al."
+                author_str = f"{self._get_author_name(paper.authors[0])} et al."
             parts.append(author_str + ",")
 
         # Title
         if paper.title:
             parts.append(f'"{paper.title},"')
 
-        # Journal
+        # Journal or Venue
         if paper.journal:
             journal_str = f"*{paper.journal}*"
             if paper.year:
                 journal_str += f", {paper.year}"
             parts.append(journal_str + ".")
+        elif paper.venue:
+            venue_str = f"*{paper.venue}*"
+            if paper.year:
+                venue_str += f", {paper.year}"
+            parts.append(venue_str + ".")
+        elif paper.year:
+            parts.append(f"{paper.year}.")
 
         return " ".join(parts)
 
@@ -568,9 +583,11 @@ class CitationFormatter:
         # Authors
         if paper.authors:
             if len(paper.authors) <= 6:
-                author_str = ", ".join([a.name for a in paper.authors])
+                author_str = ", ".join([self._get_author_name(a) for a in paper.authors])
             else:
-                author_str = ", ".join([a.name for a in paper.authors[:6]]) + ", et al."
+                author_str = (
+                    ", ".join([self._get_author_name(a) for a in paper.authors[:6]]) + ", et al."
+                )
             parts.append(author_str + ".")
 
         # Title
@@ -589,10 +606,10 @@ class CitationFormatter:
     def _generate_cite_key(self, paper: PaperMetadata) -> str:
         """Generate BibTeX cite key (author_year)."""
         if paper.authors and paper.year:
-            author_last = paper.authors[0].name.split()[-1]
+            author_last = self._get_author_name(paper.authors[0]).split()[-1]
             return f"{author_last.lower()}{paper.year}"
         elif paper.authors:
-            author_last = paper.authors[0].name.split()[-1]
+            author_last = self._get_author_name(paper.authors[0]).split()[-1]
             return f"{author_last.lower()}unknown"
         else:
             return "unknownauthor"
@@ -779,6 +796,111 @@ class CitationNetwork:
         except Exception as e:
             logger.error(f"Seminal paper identification failed: {e}")
             return []
+
+    def calculate_h_index(self, citation_counts: list[int]) -> int:
+        """
+        Calculate H-index from citation counts.
+
+        Args:
+            citation_counts: List of citation counts for papers
+
+        Returns:
+            H-index value
+
+        Example:
+            ```python
+            citation_counts = [100, 80, 60, 40, 20, 10, 5, 1, 1, 1]
+            h_index = network.calculate_h_index(citation_counts)
+            print(f"H-index: {h_index}")
+            ```
+        """
+        if not citation_counts:
+            return 0
+
+        # Sort in descending order
+        sorted_counts = sorted(citation_counts, reverse=True)
+
+        # Find h-index: largest number h such that h papers have at least h citations
+        h_index = 0
+        for i, count in enumerate(sorted_counts, start=1):
+            if count >= i:
+                h_index = i
+            else:
+                break
+
+        return h_index
+
+    def find_citation_paths(
+        self, graph: nx.DiGraph, paper1_id: str, paper2_id: str
+    ) -> list[list[str]]:
+        """
+        Find all simple citation paths between two papers.
+
+        Args:
+            graph: Citation network graph
+            paper1_id: Source paper ID
+            paper2_id: Target paper ID
+
+        Returns:
+            List of paths, where each path is a list of paper IDs
+
+        Example:
+            ```python
+            paths = network.find_citation_paths(graph, "paper1", "paper2")
+            for path in paths:
+                print(" -> ".join(path))
+            ```
+        """
+        try:
+            # Find all simple paths (limited to avoid excessive computation)
+            paths = list(nx.all_simple_paths(graph, paper1_id, paper2_id, cutoff=5))
+            return paths
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            return []
+
+    def get_network_stats(self, graph: nx.DiGraph) -> dict[str, Any]:
+        """
+        Get statistics about the citation network.
+
+        Args:
+            graph: Citation network graph
+
+        Returns:
+            Dictionary with network statistics
+
+        Example:
+            ```python
+            stats = network.get_network_stats(graph)
+            print(f"Nodes: {stats['num_nodes']}")
+            print(f"Edges: {stats['num_edges']}")
+            print(f"Density: {stats['density']:.4f}")
+            ```
+        """
+        stats = {
+            "num_nodes": graph.number_of_nodes(),
+            "num_edges": graph.number_of_edges(),
+            "density": nx.density(graph) if graph.number_of_nodes() > 0 else 0.0,
+        }
+
+        # Add average degree if graph has nodes
+        if graph.number_of_nodes() > 0:
+            degrees = [d for n, d in graph.degree()]
+            stats["avg_degree"] = sum(degrees) / len(degrees) if degrees else 0.0
+            stats["max_degree"] = max(degrees) if degrees else 0
+        else:
+            stats["avg_degree"] = 0.0
+            stats["max_degree"] = 0
+
+        # Add clustering coefficient if graph has nodes
+        try:
+            if graph.number_of_nodes() > 0:
+                stats["avg_clustering"] = nx.average_clustering(graph.to_undirected())
+            else:
+                stats["avg_clustering"] = 0.0
+        except Exception:
+            stats["avg_clustering"] = 0.0
+
+        return stats
 
 
 class CitationValidator:

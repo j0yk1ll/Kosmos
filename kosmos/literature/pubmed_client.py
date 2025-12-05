@@ -499,7 +499,6 @@ class PubMedClient(BaseLiteratureClient):
                 id=pmid,
                 source=PaperSource.PUBMED,
                 doi=doi,
-                pubmed_id=pmid,
                 title=record.get("TI", ""),
                 abstract=record.get("AB", ""),
                 authors=authors,

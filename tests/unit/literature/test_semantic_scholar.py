@@ -122,7 +122,7 @@ class TestSemanticScholarGetPaper:
 
         assert paper is not None
         assert paper.title == "Attention Is All You Need"
-        assert paper.arxiv_id == "1706.03762"
+        assert paper.source == PaperSource.SEMANTIC_SCHOLAR
         assert paper.doi == "10.5555/3295222.3295349"
 
     def test_get_paper_by_id_not_found(self, s2_client):
@@ -180,7 +180,6 @@ class TestSemanticScholarMetadataConversion:
         assert paper.id == mock_s2_paper.paperId
         assert len(paper.authors) == 2
         assert paper.authors[0].name == "Ashish Vaswani"
-        assert paper.arxiv_id == "1706.03762"
         assert paper.doi == "10.5555/3295222.3295349"
         assert paper.citation_count == 98765
         assert paper.source == PaperSource.SEMANTIC_SCHOLAR

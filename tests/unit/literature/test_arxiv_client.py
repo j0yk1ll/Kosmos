@@ -84,9 +84,9 @@ class TestArxivSearch:
             assert len(papers) == 1
             assert isinstance(papers[0], PaperMetadata)
             assert papers[0].title == "Attention Is All You Need"
-            assert papers[0].arxiv_id == "1706.03762"
-            assert papers[0].year == 2017
+            assert papers[0].id == "1706.03762"
             assert papers[0].source == PaperSource.ARXIV
+            assert papers[0].year == 2017
 
     def test_search_empty_results(self, arxiv_client):
         """Test search with no results."""
@@ -117,7 +117,8 @@ class TestArxivGetPaperById:
             paper = arxiv_client.get_paper_by_id("1706.03762")
 
             assert paper is not None
-            assert paper.arxiv_id == "1706.03762"
+            assert paper.id == "1706.03762"
+            assert paper.source == PaperSource.ARXIV
             assert paper.title == "Attention Is All You Need"
 
     def test_get_paper_by_id_not_found(self, arxiv_client):
@@ -136,7 +137,8 @@ class TestArxivGetPaperById:
             paper = arxiv_client.get_paper_by_id("arXiv:1706.03762")
 
             assert paper is not None
-            assert paper.arxiv_id == "1706.03762"
+            assert paper.id == "1706.03762"
+            assert paper.source == PaperSource.ARXIV
 
 
 @pytest.mark.unit
@@ -148,13 +150,13 @@ class TestArxivMetadataConversion:
         paper = arxiv_client._arxiv_to_metadata(mock_arxiv_result)
 
         assert paper.title == "Attention Is All You Need"
-        assert paper.arxiv_id == "1706.03762"
+        assert paper.id == "1706.03762"
+        assert paper.source == PaperSource.ARXIV
         assert len(paper.authors) == 2
         assert paper.authors[0].name == "Ashish Vaswani"
         assert paper.year == 2017
         assert paper.journal == "NeurIPS 2017"
         assert paper.doi == "10.5555/3295222.3295349"
-        assert paper.source == PaperSource.ARXIV
         assert "cs.cl" in paper.fields
         assert "cs.lg" in paper.fields
 
@@ -177,10 +179,10 @@ class TestArxivMetadataConversion:
         paper = arxiv_client._arxiv_to_metadata(mock_result)
 
         assert paper.title == "Minimal Paper"
-        assert paper.arxiv_id == "2301.00000"
+        assert paper.id == "2301.00000"
+        assert paper.source == PaperSource.ARXIV
         assert paper.journal is None
         assert paper.doi is None
-        assert paper.source == PaperSource.ARXIV
 
 
 @pytest.mark.unit
@@ -240,7 +242,7 @@ class TestArxivClientIntegration:
 
         assert len(papers) > 0
         assert all(isinstance(p, PaperMetadata) for p in papers)
-        assert all(p.arxiv_id is not None for p in papers)
+        assert all(p.id is not None and p.source == PaperSource.ARXIV for p in papers)
 
     def test_real_get_paper_by_id(self):
         """Test fetching a real paper by ID."""
@@ -248,6 +250,7 @@ class TestArxivClientIntegration:
         paper = client.get_paper_by_id("1706.03762")  # "Attention Is All You Need"
 
         assert paper is not None
-        assert paper.arxiv_id == "1706.03762"
+        assert paper.id == "1706.03762"
+        assert paper.source == PaperSource.ARXIV
         assert "Attention" in paper.title
         assert paper.year == 2017
