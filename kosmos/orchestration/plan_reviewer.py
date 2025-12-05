@@ -19,14 +19,29 @@ Approval Criteria:
 Performance Target: ~80% approval rate on first submission
 """
 
-import json
 import logging
 from dataclasses import dataclass
+from typing import Any
+
+import dspy
 
 from kosmos.config import _DEFAULT_CLAUDE_SONNET_MODEL
 
 
 logger = logging.getLogger(__name__)
+
+
+class PlanReviewSignature(dspy.Signature):
+    """Score and review a research plan."""
+
+    research_objective: str = dspy.InputField()
+    plan_tasks: list[dict] = dspy.InputField(desc="Tasks included in the research plan")
+    plan_rationale: str = dspy.InputField()
+
+    scores: dict = dspy.OutputField(desc="Dictionary of score_name -> numeric score")
+    feedback: str = dspy.OutputField()
+    required_changes: list[str] = dspy.OutputField()
+    suggestions: list[str] = dspy.OutputField()
 
 
 @dataclass
@@ -78,8 +93,8 @@ class PlanReviewerAgent:
 
     def __init__(
         self,
-        anthropic_client=None,
         model: str = _DEFAULT_CLAUDE_SONNET_MODEL,
+        llm_client: Any | None = None,
         min_average_score: float = 7.0,
         min_dimension_score: float = 5.0,
     ):
@@ -87,17 +102,17 @@ class PlanReviewerAgent:
         Initialize Plan Reviewer Agent.
 
         Args:
-            anthropic_client: Anthropic client for LLM-based review
+            lm: DSPy language model instance (dspy.LM)
             model: Model to use for review
             min_average_score: Minimum average score for approval
             min_dimension_score: Minimum score on any single dimension
         """
-        self.client = anthropic_client
+        self.llm_client = llm_client
         self.model = model
         self.min_average_score = min_average_score
         self.min_dimension_score = min_dimension_score
 
-    def review_plan(self, plan: dict, context: dict) -> PlanReview:
+    async def review_plan(self, plan: dict, context: dict) -> PlanReview:
         """
         Review research plan on 5 dimensions.
 
@@ -109,23 +124,22 @@ class PlanReviewerAgent:
             PlanReview with scores, approval status, and feedback
         """
         # If no LLM client, use mock review
-        if self.client is None:
+        if self.llm_client is None:
             return self._mock_review(plan, context)
 
-        # Build review prompt
-        prompt = self._build_review_prompt(plan, context)
-
         try:
-            # Query LLM
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,  # More consistent for evaluation
+            prediction = self.llm_client.predict(
+                PlanReviewSignature,
+                research_objective=context.get("research_objective", ""),
+                plan_tasks=plan.get("tasks", []),
+                plan_rationale=plan.get("rationale", ""),
             )
-
-            # Parse review
-            review_data = self._parse_review_response(response.content[0].text)
+            review_data = {
+                "scores": getattr(prediction, "scores", {}),
+                "feedback": getattr(prediction, "feedback", ""),
+                "required_changes": getattr(prediction, "required_changes", []),
+                "suggestions": getattr(prediction, "suggestions", []),
+            }
 
             # Extract scores
             scores = review_data.get("scores", {})
@@ -155,114 +169,6 @@ class PlanReviewerAgent:
         except Exception as e:
             logger.error(f"Plan review failed: {e}, using mock review")
             return self._mock_review(plan, context)
-
-    def _build_review_prompt(self, plan: dict, context: dict) -> str:
-        """Build prompt for plan review."""
-        research_objective = context.get("research_objective", "Not specified")
-        plan_json = json.dumps(plan, indent=2)
-
-        return f"""Review this research plan for quality.
-
-**Research Objective**: {research_objective}
-
-**Plan**:
-{plan_json}
-
-**Scoring Criteria** (0-10 each):
-
-1. **Specificity**: Are tasks concrete and executable?
-   - 10: Fully specified with datasets, methods, expected outputs
-   - 7: Generally clear, minor gaps
-   - 5: Somewhat vague, needs clarification
-   - 0: Too abstract to execute
-
-2. **Relevance**: Do tasks directly address the research objective?
-   - 10: All tasks directly advance the main goal
-   - 7: Most tasks relevant, some tangential
-   - 5: Partially relevant
-   - 0: Off-topic or unrelated
-
-3. **Novelty**: Do tasks avoid redundancy with past work?
-   - 10: All tasks explore new directions or deepen insights
-   - 7: Mostly novel, some repetition
-   - 5: Some redundancy with past work
-   - 0: Highly redundant
-
-4. **Coverage**: Do tasks comprehensively cover the research domain?
-   - 10: Comprehensive coverage of key aspects
-   - 7: Good coverage, minor gaps
-   - 5: Partial coverage, significant gaps
-   - 0: Narrow focus, missing key areas
-
-5. **Feasibility**: Are tasks achievable within time/resource constraints?
-   - 10: All tasks clearly executable with available resources
-   - 7: Most tasks feasible, some may be challenging
-   - 5: Some tasks may be too complex
-   - 0: Unrealistic or impossible tasks
-
-**Structural Requirements**:
-- At least 3 data_analysis tasks
-- At least 2 different task types
-- Each task has description, expected_output, required_skills
-
-**Output Format** (JSON):
-{{
-  "scores": {{
-    "specificity": <0-10>,
-    "relevance": <0-10>,
-    "novelty": <0-10>,
-    "coverage": <0-10>,
-    "feasibility": <0-10>
-  }},
-  "feedback": "Detailed assessment (2-3 sentences)",
-  "required_changes": ["Change 1", "Change 2"] or [],
-  "suggestions": ["Suggestion 1", "Suggestion 2"] or []
-}}
-
-Provide review as JSON only, no additional text."""
-
-    def _parse_review_response(self, response_text: str) -> dict:
-        """Parse LLM response to extract review."""
-        try:
-            # Extract JSON from response
-            start_idx = response_text.find("{")
-            end_idx = response_text.rfind("}") + 1
-
-            if start_idx != -1 and end_idx > start_idx:
-                json_str = response_text[start_idx:end_idx]
-                review_data = json.loads(json_str)
-
-                # Validate scores present
-                if "scores" not in review_data:
-                    review_data["scores"] = {
-                        "specificity": 5.0,
-                        "relevance": 5.0,
-                        "novelty": 5.0,
-                        "coverage": 5.0,
-                        "feasibility": 5.0,
-                    }
-
-                # Clamp scores to [0, 10]
-                for dim, score in review_data["scores"].items():
-                    review_data["scores"][dim] = max(0.0, min(10.0, float(score)))
-
-                return review_data
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse review JSON: {e}")
-
-        return {
-            "scores": {
-                "specificity": 5.0,
-                "relevance": 5.0,
-                "novelty": 5.0,
-                "coverage": 5.0,
-                "feasibility": 5.0,
-            },
-            "feedback": "Failed to parse review",
-            "required_changes": [],
-            "suggestions": [],
-        }
 
     def _meets_structural_requirements(self, plan: dict) -> bool:
         """

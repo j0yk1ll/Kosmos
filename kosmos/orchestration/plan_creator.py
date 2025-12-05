@@ -13,14 +13,30 @@ Exploration/Exploitation Ratios by Cycle:
 Performance Target: Generate plans with ~80% approval rate
 """
 
-import json
 import logging
 from dataclasses import dataclass
+from typing import Any
+
+import dspy
 
 from kosmos.config import _DEFAULT_CLAUDE_SONNET_MODEL
 
 
 logger = logging.getLogger(__name__)
+
+
+class PlanCreationSignature(dspy.Signature):
+    """Generate a set of research tasks and rationale."""
+
+    research_objective: str = dspy.InputField()
+    cycle: int = dspy.InputField(desc="Current research cycle number")
+    exploration_ratio: float = dspy.InputField()
+    recent_findings: list[str] = dspy.InputField()
+    unsupported_hypotheses: list[str] = dspy.InputField()
+    num_tasks: int = dspy.InputField()
+
+    tasks: list[dict] = dspy.OutputField(desc="Ordered list of research tasks with metadata")
+    rationale: str = dspy.OutputField()
 
 
 @dataclass
@@ -85,20 +101,19 @@ class PlanCreatorAgent:
 
     def __init__(
         self,
-        anthropic_client=None,
         model: str = _DEFAULT_CLAUDE_SONNET_MODEL,
+        llm_client: Any | None = None,
         default_num_tasks: int = 10,
     ):
         """
         Initialize Plan Creator Agent.
 
         Args:
-            anthropic_client: Anthropic client for LLM-based planning
             model: Model to use for plan generation
             default_num_tasks: Default number of tasks per cycle
         """
-        self.client = anthropic_client
         self.model = model
+        self.llm_client = llm_client
         self.default_num_tasks = default_num_tasks
 
     def _get_exploration_ratio(self, cycle: int) -> float:
@@ -118,7 +133,7 @@ class PlanCreatorAgent:
         else:
             return 0.30  # Late: exploit findings
 
-    def create_plan(
+    async def create_plan(
         self, research_objective: str, context: dict, num_tasks: int | None = None
     ) -> ResearchPlan:
         """
@@ -139,27 +154,33 @@ class PlanCreatorAgent:
         exploration_ratio = self._get_exploration_ratio(cycle)
 
         # If no LLM client, use mock planning
-        if self.client is None:
+        if self.llm_client is None:
             return self._create_mock_plan(
                 cycle, research_objective, context, num_tasks, exploration_ratio
             )
 
-        # Build prompt
-        prompt = self._build_planning_prompt(
-            research_objective, context, num_tasks, exploration_ratio
-        )
-
         try:
             # Query LLM
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=4000,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,  # Allow creativity
-            )
+            recent_findings = [
+                finding.get("summary", "") for finding in context.get("recent_findings", [])
+            ]
+            unsupported_hypotheses = [
+                hyp.get("statement", "") for hyp in context.get("unsupported_hypotheses", [])
+            ]
 
-            # Parse response
-            plan_data = self._parse_plan_response(response.content[0].text)
+            prediction = self.llm_client.predict(
+                PlanCreationSignature,
+                research_objective=research_objective,
+                cycle=cycle,
+                exploration_ratio=exploration_ratio,
+                recent_findings=recent_findings,
+                unsupported_hypotheses=unsupported_hypotheses,
+                num_tasks=num_tasks,
+            )
+            plan_data = {
+                "tasks": getattr(prediction, "tasks", []),
+                "rationale": getattr(prediction, "rationale", ""),
+            }
 
             # Validate and create ResearchPlan
             tasks = []
@@ -192,94 +213,6 @@ class PlanCreatorAgent:
             return self._create_mock_plan(
                 cycle, research_objective, context, num_tasks, exploration_ratio
             )
-
-    def _build_planning_prompt(
-        self, research_objective: str, context: dict, num_tasks: int, exploration_ratio: float
-    ) -> str:
-        """Build prompt for strategic planning."""
-        cycle = context.get("cycle", 1)
-        findings_count = len(context.get("recent_findings", []))
-        unsupported_hyps = len(context.get("unsupported_hypotheses", []))
-
-        # Format recent findings
-        findings_summary = ""
-        for finding in context.get("recent_findings", [])[:5]:
-            findings_summary += f"- {finding.get('summary', 'N/A')[:100]}\n"
-
-        # Format unsupported hypotheses
-        hypotheses_summary = ""
-        for hyp in context.get("unsupported_hypotheses", [])[:3]:
-            hypotheses_summary += f"- {hyp.get('statement', 'N/A')}\n"
-
-        return f"""You are a strategic research planning agent for an autonomous AI scientist.
-
-**Research Objective**: {research_objective}
-
-**Current State**:
-- Cycle: {cycle}/20
-- Past Findings: {findings_count}
-- Unsupported Hypotheses: {unsupported_hyps}
-
-**Recent Findings**:
-{findings_summary or "No recent findings"}
-
-**Unsupported Hypotheses**:
-{hypotheses_summary or "No unsupported hypotheses"}
-
-**Strategic Guidance**:
-- Exploration ratio: {exploration_ratio*100:.0f}% (new directions)
-- Exploitation ratio: {(1-exploration_ratio)*100:.0f}% (deepen findings)
-
-**Task Requirements**:
-1. Generate exactly {num_tasks} specific, executable tasks
-2. Mix task types:
-   - data_analysis: Analyze datasets, compute statistics
-   - literature_review: Search and synthesize papers
-   - hypothesis_generation: Generate new testable hypotheses
-3. Each task must advance the research objective
-4. Avoid redundancy with past work
-5. Balance exploration ({int(exploration_ratio*num_tasks)} tasks) vs exploitation ({int((1-exploration_ratio)*num_tasks)} tasks)
-
-**Task Types**:
-- exploration=true: New directions, different domains, novel approaches
-- exploration=false: Deepen existing findings, validate discoveries, test hypotheses
-
-**Output Format** (JSON):
-{{
-  "tasks": [
-    {{
-      "id": 1,
-      "type": "data_analysis" | "literature_review" | "hypothesis_generation",
-      "description": "Specific task description (what to do)",
-      "expected_output": "What this should produce",
-      "required_skills": ["library1", "library2"],
-      "exploration": true | false,
-      "target_hypotheses": ["hypothesis_id"] (if applicable),
-      "priority": 1-5 (1=highest)
-    }},
-    ...
-  ],
-  "rationale": "Strategic reasoning for this plan (2-3 sentences)"
-}}
-
-Generate a research plan as JSON (no additional text)."""
-
-    def _parse_plan_response(self, response_text: str) -> dict:
-        """Parse LLM response to extract plan."""
-        try:
-            # Extract JSON from response
-            start_idx = response_text.find("{")
-            end_idx = response_text.rfind("}") + 1
-
-            if start_idx != -1 and end_idx > start_idx:
-                json_str = response_text[start_idx:end_idx]
-                plan_data = json.loads(json_str)
-                return plan_data
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse plan JSON: {e}")
-
-        return {"tasks": [], "rationale": "Failed to parse plan"}
 
     def _create_mock_plan(
         self,
@@ -363,7 +296,7 @@ Generate a research plan as JSON (no additional text)."""
             priority=3,
         )
 
-    def revise_plan(
+    async def revise_plan(
         self, original_plan: ResearchPlan, review_feedback: dict, context: dict
     ) -> ResearchPlan:
         """
@@ -387,7 +320,7 @@ Generate a research plan as JSON (no additional text)."""
         context_with_feedback["required_changes"] = required_changes
 
         # Regenerate plan
-        return self.create_plan(
+        return await self.create_plan(
             research_objective=context.get("research_objective", ""),
             context=context_with_feedback,
             num_tasks=len(original_plan.tasks),

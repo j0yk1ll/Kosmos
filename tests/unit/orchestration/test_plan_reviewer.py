@@ -139,30 +139,24 @@ def sample_context():
 @pytest.fixture
 def plan_reviewer():
     """Create PlanReviewerAgent without LLM client."""
-    return PlanReviewerAgent(anthropic_client=None)
+    return PlanReviewerAgent(llm_client=None)
 
 
 @pytest.fixture
 def mock_llm_response():
     """Mock LLM response for plan review."""
-    response_content = json.dumps(
-        {
-            "scores": {
-                "specificity": 8.0,
-                "relevance": 8.5,
-                "novelty": 7.5,
-                "coverage": 8.0,
-                "feasibility": 8.0,
-            },
-            "feedback": "Good plan overall",
-            "required_changes": [],
-            "suggestions": ["Consider adding more validation tasks"],
-        }
-    )
-
-    mock_response = Mock()
-    mock_response.content = [Mock(text=response_content)]
-    return mock_response
+    return {
+        "scores": {
+            "specificity": 8.0,
+            "relevance": 8.5,
+            "novelty": 7.5,
+            "coverage": 8.0,
+            "feasibility": 8.0,
+        },
+        "feedback": "Good plan overall",
+        "required_changes": [],
+        "suggestions": ["Consider adding more validation tasks"],
+    }
 
 
 # ============================================================================
@@ -220,7 +214,7 @@ class TestPlanReviewerAgentInit:
         """Test default initialization."""
         reviewer = PlanReviewerAgent()
 
-        assert reviewer.client is None
+        assert reviewer.llm_client is None
         assert reviewer.min_average_score == 7.0
         assert reviewer.min_dimension_score == 5.0
 
@@ -228,10 +222,10 @@ class TestPlanReviewerAgentInit:
         """Test custom initialization."""
         mock_client = Mock()
         reviewer = PlanReviewerAgent(
-            anthropic_client=mock_client, min_average_score=8.0, min_dimension_score=6.0
+            llm_client=mock_client, min_average_score=8.0, min_dimension_score=6.0
         )
 
-        assert reviewer.client == mock_client
+        assert reviewer.llm_client == mock_client
         assert reviewer.min_average_score == 8.0
         assert reviewer.min_dimension_score == 6.0
 
@@ -392,22 +386,22 @@ class TestLLMReview:
     async def test_review_with_llm(self, valid_plan, sample_context, mock_llm_response):
         """Test review with LLM client."""
         mock_client = Mock()
-        mock_client.messages.create = AsyncMock(return_value=mock_llm_response)
+        mock_client.generate_structured = Mock(return_value=mock_llm_response)
 
-        reviewer = PlanReviewerAgent(anthropic_client=mock_client)
+        reviewer = PlanReviewerAgent(llm_client=mock_client)
 
         review = await reviewer.review_plan(valid_plan, sample_context)
 
         assert isinstance(review, PlanReview)
-        mock_client.messages.create.assert_called_once()
+        mock_client.generate_structured.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_llm_failure_fallback(self, valid_plan, sample_context):
         """Test fallback to mock review on LLM failure."""
         mock_client = Mock()
-        mock_client.messages.create = AsyncMock(side_effect=Exception("API Error"))
+        mock_client.generate_structured = AsyncMock(side_effect=Exception("API Error"))
 
-        reviewer = PlanReviewerAgent(anthropic_client=mock_client)
+        reviewer = PlanReviewerAgent(llm_client=mock_client)
 
         review = await reviewer.review_plan(valid_plan, sample_context)
 

@@ -41,7 +41,7 @@ class ResearchWorkflow:
     Example:
         workflow = ResearchWorkflow(
             research_objective="Investigate KRAS mutations in cancer",
-            anthropic_api_key="your-key"
+            lm=dspy.LM("anthropic/claude-3-5-sonnet", api_key="your-key"),
         )
 
         # Run 5 cycles
@@ -54,7 +54,7 @@ class ResearchWorkflow:
     def __init__(
         self,
         research_objective: str,
-        anthropic_client=None,
+        lm=None,
         artifacts_dir: str = "artifacts",
         world_model=None,
         max_cycles: int = 20,
@@ -64,7 +64,7 @@ class ResearchWorkflow:
 
         Args:
             research_objective: Main research goal
-            anthropic_client: Anthropic client for LLM calls
+            lm: DSPy language model for LLM calls
             artifacts_dir: Directory for artifact storage
             world_model: Optional knowledge graph
             max_cycles: Maximum research cycles
@@ -76,7 +76,7 @@ class ResearchWorkflow:
         logger.info("Initializing Kosmos Research Workflow...")
 
         # Gap 0: Context Compression
-        self.context_compressor = ContextCompressor(anthropic_client)
+        self.context_compressor = ContextCompressor(lm)
         logger.info("✓ Gap 0: Context Compression initialized")
 
         # Gap 1: State Manager
@@ -90,12 +90,12 @@ class ResearchWorkflow:
         logger.info("✓ Gap 3: Skill Loader initialized")
 
         # Gap 5: Discovery Validation
-        self.scholar_eval = ScholarEvalValidator(anthropic_client)
+        self.scholar_eval = ScholarEvalValidator(lm)
         logger.info("✓ Gap 5: ScholarEval Validator initialized")
 
         # Gap 2: Orchestration Components
-        self.plan_creator = PlanCreatorAgent(anthropic_client)
-        self.plan_reviewer = PlanReviewerAgent(anthropic_client)
+        self.plan_creator = PlanCreatorAgent(lm)
+        self.plan_reviewer = PlanReviewerAgent(lm)
         self.delegation_manager = DelegationManager()
         self.novelty_detector = NoveltyDetector()
         logger.info("✓ Gap 2: Orchestration components initialized")
@@ -162,7 +162,7 @@ class ResearchWorkflow:
         logger.info(f"  Context: {context.get('findings_count', 0)} recent findings")
 
         # Step 2: Plan Creator generates tasks
-        plan = self.plan_creator.create_plan(
+        plan = await self.plan_creator.create_plan(
             research_objective=self.research_objective, context=context, num_tasks=num_tasks
         )
 
@@ -178,7 +178,7 @@ class ResearchWorkflow:
             )
 
         # Step 4: Plan Reviewer validates quality
-        review = self.plan_reviewer.review_plan(plan.to_dict(), context)
+        review = await self.plan_reviewer.review_plan(plan.to_dict(), context)
 
         logger.info(
             f"  Plan review: {'APPROVED' if review.approved else 'REJECTED'} "
@@ -188,8 +188,8 @@ class ResearchWorkflow:
         # If rejected, attempt revision (once)
         if not review.approved:
             logger.info("  Revising plan based on feedback...")
-            plan = self.plan_creator.revise_plan(plan, review.to_dict(), context)
-            review = self.plan_reviewer.review_plan(plan.to_dict(), context)
+            plan = await self.plan_creator.revise_plan(plan, review.to_dict(), context)
+            review = await self.plan_reviewer.review_plan(plan.to_dict(), context)
 
             logger.info(f"  Revised plan: {'APPROVED' if review.approved else 'REJECTED'}")
 

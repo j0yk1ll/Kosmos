@@ -23,6 +23,7 @@ classifiers = [
 
 dependencies = [
     # LLM Providers
+    "dspy-ai>=2.4.9",    # DSPy language model abstraction
     "anthropic>=0.40.0", # Claude/Anthropic provider
     "openai>=1.0.0",     # OpenAI provider and OpenAI-compatible APIs
 
