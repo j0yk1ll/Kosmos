@@ -4,6 +4,8 @@ Tests for ConvergenceDetector (Phase 7).
 Tests convergence metrics, stopping criteria, and convergence reporting.
 """
 
+from datetime import datetime
+
 import pytest
 
 from kosmos.core.convergence import (
@@ -15,7 +17,7 @@ from kosmos.core.convergence import (
 )
 from kosmos.core.workflow import ResearchPlan
 from kosmos.models.hypothesis import Hypothesis, HypothesisStatus
-from kosmos.models.result import ExperimentResult, ResultStatus
+from kosmos.models.result import ExecutionMetadata, ExperimentResult, ResultStatus
 
 
 # ============================================================================
@@ -61,16 +63,16 @@ def sample_hypotheses():
             id="hyp_001",
             research_question="Question",
             statement="Caffeine improves memory",
-            rationale="Rationale 1",
+            rationale="Detailed rationale for hypothesis 1",
             domain="neuroscience",
             novelty_score=0.8,
-            status=HypothesisStatus.TESTED,
+            status=HypothesisStatus.TESTING,
         ),
         Hypothesis(
             id="hyp_002",
             research_question="Question",
             statement="Caffeine enhances attention",
-            rationale="Rationale 2",
+            rationale="Detailed rationale for hypothesis 2",
             domain="neuroscience",
             novelty_score=0.6,
             status=HypothesisStatus.GENERATED,
@@ -79,7 +81,7 @@ def sample_hypotheses():
             id="hyp_003",
             research_question="Question",
             statement="Caffeine reduces fatigue",
-            rationale="Rationale 3",
+            rationale="Detailed rationale for hypothesis 3",
             domain="neuroscience",
             novelty_score=0.5,
             status=HypothesisStatus.GENERATED,
@@ -93,21 +95,37 @@ def sample_results():
     return [
         ExperimentResult(
             id="result_001",
+            experiment_id="exp_001",
+            protocol_id="proto_001",
             hypothesis_id="hyp_001",
             supports_hypothesis=True,
             primary_p_value=0.01,
             primary_effect_size=0.75,
             primary_test="t-test",
             status=ResultStatus.SUCCESS,
+            metadata=ExecutionMetadata(
+                experiment_id="exp_001",
+                start_time=datetime.now(),
+                end_time=datetime.now(),
+                duration_seconds=1.0,
+            ),
         ),
         ExperimentResult(
             id="result_002",
+            experiment_id="exp_002",
+            protocol_id="proto_002",
             hypothesis_id="hyp_002",
             supports_hypothesis=False,
             primary_p_value=0.65,
             primary_effect_size=0.12,
             primary_test="t-test",
             status=ResultStatus.SUCCESS,
+            metadata=ExecutionMetadata(
+                experiment_id="exp_002",
+                start_time=datetime.now(),
+                end_time=datetime.now(),
+                duration_seconds=1.0,
+            ),
         ),
     ]
 
@@ -117,6 +135,7 @@ def sample_results():
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestConvergenceDetectorInitialization:
     """Test ConvergenceDetector initialization."""
 
@@ -128,7 +147,7 @@ class TestConvergenceDetectorInitialization:
         assert detector.optional_criteria == ["novelty_decline", "diminishing_returns"]
         assert detector.novelty_decline_threshold == 0.3
         assert detector.novelty_decline_window == 5
-        assert detector.cost_threshold == 100.0
+        assert detector.cost_per_discovery_threshold == 1000.0
 
     def test_initialization_custom_criteria(self):
         """Test detector initializes with custom criteria."""
@@ -145,14 +164,14 @@ class TestConvergenceDetectorInitialization:
         config = {
             "novelty_decline_threshold": 0.5,
             "novelty_decline_window": 10,
-            "cost_threshold": 200.0,
+            "cost_per_discovery_threshold": 200.0,
         }
 
         detector = ConvergenceDetector(config=config)
 
         assert detector.novelty_decline_threshold == 0.5
         assert detector.novelty_decline_window == 10
-        assert detector.cost_threshold == 200.0
+        assert detector.cost_per_discovery_threshold == 200.0
 
     def test_metrics_initialization(self):
         """Test metrics are initialized."""
@@ -167,6 +186,7 @@ class TestConvergenceDetectorInitialization:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestProgressMetrics:
     """Test progress metrics calculation."""
 
@@ -175,12 +195,20 @@ class TestProgressMetrics:
         results = [
             ExperimentResult(
                 id=f"result_{i}",
+                experiment_id=f"exp_{i}",
+                protocol_id=f"proto_{i}",
                 hypothesis_id=f"hyp_{i}",
                 supports_hypothesis=True,
                 primary_p_value=0.01,
                 primary_effect_size=0.7,
                 primary_test="t-test",
                 status=ResultStatus.SUCCESS,
+                metadata=ExecutionMetadata(
+                    experiment_id=f"exp_{i}",
+                    start_time=datetime.now(),
+                    end_time=datetime.now(),
+                    duration_seconds=1.0,
+                ),
             )
             for i in range(5)
         ]
@@ -194,21 +222,37 @@ class TestProgressMetrics:
         results = [
             ExperimentResult(
                 id="result_1",
+                experiment_id="exp_1",
+                protocol_id="proto_1",
                 hypothesis_id="hyp_1",
                 supports_hypothesis=True,
                 primary_p_value=0.01,
                 primary_effect_size=0.7,
                 primary_test="t-test",
                 status=ResultStatus.SUCCESS,
+                metadata=ExecutionMetadata(
+                    experiment_id="exp_1",
+                    start_time=datetime.now(),
+                    end_time=datetime.now(),
+                    duration_seconds=1.0,
+                ),
             ),
             ExperimentResult(
                 id="result_2",
+                experiment_id="exp_2",
+                protocol_id="proto_2",
                 hypothesis_id="hyp_2",
                 supports_hypothesis=False,
                 primary_p_value=0.65,
                 primary_effect_size=0.1,
                 primary_test="t-test",
                 status=ResultStatus.SUCCESS,
+                metadata=ExecutionMetadata(
+                    experiment_id="exp_2",
+                    start_time=datetime.now(),
+                    end_time=datetime.now(),
+                    duration_seconds=1.0,
+                ),
             ),
         ]
 
@@ -230,7 +274,7 @@ class TestProgressMetrics:
                 id=f"hyp_{i}",
                 research_question="Question",
                 statement=f"Statement {i}",
-                rationale="Rationale",
+                rationale="Detailed rationale",
                 domain="test",
                 novelty_score=1.0 - (i * 0.1),  # 1.0, 0.9, 0.8, ...
             )
@@ -251,7 +295,7 @@ class TestProgressMetrics:
                 id=f"hyp_{i}",
                 research_question="Question",
                 statement=f"Statement {i}",
-                rationale="Rationale",
+                rationale="Detailed rationale",
                 domain="test",
                 novelty_score=0.5 + (i * 0.1),  # 0.5, 0.6, 0.7, ...
             )
@@ -283,30 +327,54 @@ class TestProgressMetrics:
         results = [
             ExperimentResult(
                 id="result_1",
+                experiment_id="exp_1",
+                protocol_id="proto_1",
                 hypothesis_id="hyp_1",
                 supports_hypothesis=True,
                 primary_p_value=0.01,
                 primary_effect_size=0.7,
                 primary_test="t-test",
                 status=ResultStatus.SUCCESS,
+                metadata=ExecutionMetadata(
+                    experiment_id="exp_1",
+                    start_time=datetime.now(),
+                    end_time=datetime.now(),
+                    duration_seconds=1.0,
+                ),
             ),
             ExperimentResult(
                 id="result_2",
+                experiment_id="exp_2",
+                protocol_id="proto_2",
                 hypothesis_id="hyp_2",
                 supports_hypothesis=True,
                 primary_p_value=0.02,
                 primary_effect_size=0.6,
                 primary_test="t-test",
                 status=ResultStatus.SUCCESS,
+                metadata=ExecutionMetadata(
+                    experiment_id="exp_2",
+                    start_time=datetime.now(),
+                    end_time=datetime.now(),
+                    duration_seconds=1.0,
+                ),
             ),
             ExperimentResult(
                 id="result_3",
+                experiment_id="exp_3",
+                protocol_id="proto_3",
                 hypothesis_id="hyp_3",
                 supports_hypothesis=False,
                 primary_p_value=0.65,
                 primary_effect_size=0.1,
                 primary_test="t-test",
                 status=ResultStatus.SUCCESS,
+                metadata=ExecutionMetadata(
+                    experiment_id="exp_3",
+                    start_time=datetime.now(),
+                    end_time=datetime.now(),
+                    duration_seconds=1.0,
+                ),
             ),
         ]
 
@@ -327,6 +395,7 @@ class TestProgressMetrics:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestMandatoryCriteria:
     """Test mandatory stopping criteria."""
 
@@ -388,7 +457,7 @@ class TestMandatoryCriteria:
         )
 
         assert decision.should_stop is True
-        assert decision.reason == StoppingReason.HYPOTHESIS_EXHAUSTION
+        assert decision.reason == StoppingReason.ALL_HYPOTHESES_TESTED
 
     def test_check_hypothesis_exhaustion_with_queued_experiments(
         self, convergence_detector, research_plan, sample_hypotheses
@@ -410,6 +479,7 @@ class TestMandatoryCriteria:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestOptionalCriteria:
     """Test optional stopping criteria."""
 
@@ -482,6 +552,7 @@ class TestOptionalCriteria:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestConvergenceDecision:
     """Test overall convergence decision logic."""
 
@@ -527,7 +598,7 @@ class TestConvergenceDecision:
         )
 
         assert decision.should_stop is True
-        assert decision.reason == StoppingReason.HYPOTHESIS_EXHAUSTION
+        assert decision.reason == StoppingReason.ALL_HYPOTHESES_TESTED
 
     def test_check_convergence_optional_criteria(
         self, convergence_detector, research_plan, sample_hypotheses, sample_results
@@ -565,12 +636,12 @@ class TestConvergenceDecision:
         self, convergence_detector, research_plan, sample_hypotheses, sample_results
     ):
         """Test convergence check updates metrics."""
-        initial_timestamp = convergence_detector.metrics.last_updated
+        initial_timestamp = convergence_detector.metrics.last_update
 
         convergence_detector.check_convergence(research_plan, sample_hypotheses, sample_results)
 
         # Metrics should be updated
-        assert convergence_detector.metrics.last_updated >= initial_timestamp
+        assert convergence_detector.metrics.last_update >= initial_timestamp
         assert convergence_detector.metrics.iteration_count == research_plan.iteration_count
 
 
@@ -579,6 +650,7 @@ class TestConvergenceDecision:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestConvergenceReport:
     """Test convergence report generation."""
 
@@ -674,7 +746,7 @@ class TestConvergenceReport:
         """Test report generation when not converged."""
         decision = StoppingDecision(
             should_stop=False,
-            reason=None,
+            reason=StoppingReason.ITERATION_LIMIT,
             is_mandatory=False,
             confidence=0.0,
             details="Not converged",
@@ -693,6 +765,7 @@ class TestConvergenceReport:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestRecommendedNextSteps:
     """Test recommended next steps generation."""
 
@@ -700,7 +773,7 @@ class TestRecommendedNextSteps:
         self, convergence_detector, research_plan, sample_hypotheses, sample_results
     ):
         """Test recommendations for iteration limit."""
-        decision = StoppingDecision(
+        StoppingDecision(
             should_stop=True,
             reason=StoppingReason.ITERATION_LIMIT,
             is_mandatory=True,
@@ -709,7 +782,7 @@ class TestRecommendedNextSteps:
         )
 
         steps = convergence_detector._recommend_next_steps(
-            decision, research_plan, sample_hypotheses, sample_results
+            research_plan, sample_hypotheses, sample_results
         )
 
         assert isinstance(steps, list)
@@ -722,16 +795,16 @@ class TestRecommendedNextSteps:
         self, convergence_detector, research_plan, sample_hypotheses, sample_results
     ):
         """Test recommendations for hypothesis exhaustion."""
-        decision = StoppingDecision(
+        StoppingDecision(
             should_stop=True,
-            reason=StoppingReason.HYPOTHESIS_EXHAUSTION,
+            reason=StoppingReason.ALL_HYPOTHESES_TESTED,
             is_mandatory=True,
             confidence=1.0,
             details="No more hypotheses",
         )
 
         steps = convergence_detector._recommend_next_steps(
-            decision, research_plan, sample_hypotheses, sample_results
+            research_plan, sample_hypotheses, sample_results
         )
 
         assert len(steps) > 0
@@ -742,7 +815,7 @@ class TestRecommendedNextSteps:
         self, convergence_detector, research_plan, sample_hypotheses, sample_results
     ):
         """Test recommendations for novelty decline."""
-        decision = StoppingDecision(
+        StoppingDecision(
             should_stop=True,
             reason=StoppingReason.NOVELTY_DECLINE,
             is_mandatory=False,
@@ -751,7 +824,7 @@ class TestRecommendedNextSteps:
         )
 
         steps = convergence_detector._recommend_next_steps(
-            decision, research_plan, sample_hypotheses, sample_results
+            research_plan, sample_hypotheses, sample_results
         )
 
         assert len(steps) > 0
@@ -762,7 +835,7 @@ class TestRecommendedNextSteps:
         self, convergence_detector, research_plan, sample_hypotheses, sample_results
     ):
         """Test recommendations for diminishing returns."""
-        decision = StoppingDecision(
+        StoppingDecision(
             should_stop=True,
             reason=StoppingReason.DIMINISHING_RETURNS,
             is_mandatory=False,
@@ -771,7 +844,7 @@ class TestRecommendedNextSteps:
         )
 
         steps = convergence_detector._recommend_next_steps(
-            decision, research_plan, sample_hypotheses, sample_results
+            research_plan, sample_hypotheses, sample_results
         )
 
         assert len(steps) > 0

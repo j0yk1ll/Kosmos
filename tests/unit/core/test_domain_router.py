@@ -4,7 +4,6 @@ Unit tests for DomainRouter (Phase 9).
 Tests domain classification, routing, expertise assessment, and cross-domain capabilities.
 """
 
-from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -41,29 +40,27 @@ def domain_router(mock_llm_client, mock_env_vars):
 
 
 @pytest.fixture
-def sample_classification_response() -> dict[str, Any]:
+def sample_classification_response() -> str:
     """Sample classification response from Claude"""
-    return {
-        "primary_domain": "biology",
-        "confidence": "very_high",
-        "secondary_domains": ["neuroscience"],
-        "is_multi_domain": False,
-        "keywords": ["gene", "protein", "expression"],
-        "rationale": "Focus on genetic and protein analysis",
-    }
+    return """PRIMARY DOMAIN: biology
+CONFIDENCE: very_high
+CONFIDENCE_SCORE: 0.95
+SECONDARY DOMAINS: neuroscience
+KEY TERMS: gene, protein, expression
+IS MULTI-DOMAIN: no
+REASONING: Focus on genetic and protein analysis"""
 
 
 @pytest.fixture
-def multi_domain_classification_response() -> dict[str, Any]:
+def multi_domain_classification_response() -> str:
     """Sample multi-domain classification response"""
-    return {
-        "primary_domain": "neuroscience",
-        "confidence": "high",
-        "secondary_domains": ["biology", "materials"],
-        "is_multi_domain": True,
-        "keywords": ["neural", "conductance", "materials"],
-        "rationale": "Combines neuroscience with materials science",
-    }
+    return """PRIMARY DOMAIN: neuroscience
+CONFIDENCE: high
+CONFIDENCE_SCORE: 0.85
+SECONDARY DOMAINS: biology, materials
+KEY TERMS: neural, conductance, materials
+IS MULTI-DOMAIN: yes
+REASONING: Combines neuroscience with materials science"""
 
 
 # ============================================================================

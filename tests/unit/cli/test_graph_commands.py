@@ -14,6 +14,7 @@ from typer.testing import CliRunner
 from kosmos.cli.main import app
 
 
+@pytest.mark.unit
 class TestGraphInfoCommand:
     """Test graph info/stats command."""
 
@@ -90,6 +91,7 @@ class TestGraphInfoCommand:
         assert "Paper" in result.stdout or "Concept" in result.stdout
 
 
+@pytest.mark.unit
 class TestGraphExportCommand:
     """Test graph export command."""
 
@@ -175,6 +177,7 @@ class TestGraphExportCommand:
         assert "failed" in result.stdout.lower() or "error" in result.stdout.lower()
 
 
+@pytest.mark.unit
 class TestGraphImportCommand:
     """Test graph import command."""
 
@@ -274,6 +277,7 @@ class TestGraphImportCommand:
         assert "150" in result.stdout or "300" in result.stdout
 
 
+@pytest.mark.unit
 class TestGraphResetCommand:
     """Test graph reset command."""
 
@@ -351,6 +355,7 @@ class TestGraphResetCommand:
         mock_wm.reset.assert_not_called()
 
 
+@pytest.mark.unit
 class TestGraphCommandIntegration:
     """Integration tests for graph commands."""
 
@@ -429,6 +434,7 @@ class TestGraphCommandIntegration:
         assert "failed" in result.stdout.lower() or "error" in result.stdout.lower()
 
 
+@pytest.mark.unit
 class TestGraphCommandHelp:
     """Test graph command help and documentation."""
 

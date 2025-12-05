@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from kosmos.cli.main import app
 
 
+@pytest.mark.unit
 class TestCLIBasics:
     """Test basic CLI functionality."""
 
@@ -46,6 +47,7 @@ class TestCLIBasics:
             assert "Diagnostic" in result.stdout or result.exit_code >= 0
 
 
+@pytest.mark.unit
 class TestInfoCommand:
     """Test info command."""
 
@@ -68,6 +70,7 @@ class TestInfoCommand:
             assert "claude-3-5-sonnet" in result.stdout.lower() or result.exit_code >= 0
 
 
+@pytest.mark.unit
 class TestRunCommand:
     """Test run command."""
 
@@ -109,6 +112,7 @@ class TestRunCommand:
         assert result.exit_code >= 0
 
 
+@pytest.mark.unit
 class TestStatusCommand:
     """Test status command."""
 
@@ -143,6 +147,7 @@ class TestStatusCommand:
         assert result.exit_code >= 0 or "timeout" in str(result.exception).lower()
 
 
+@pytest.mark.unit
 class TestHistoryCommand:
     """Test history command."""
 
@@ -185,6 +190,7 @@ class TestHistoryCommand:
         assert result.exit_code >= 0
 
 
+@pytest.mark.unit
 class TestCacheCommand:
     """Test cache command."""
 
@@ -228,6 +234,7 @@ class TestCacheCommand:
         assert result.exit_code >= 0
 
 
+@pytest.mark.unit
 class TestConfigCommand:
     """Test config command."""
 
@@ -268,6 +275,7 @@ class TestConfigCommand:
             assert result.exit_code >= 0
 
 
+@pytest.mark.unit
 class TestProfileCommand:
     """Test profile command."""
 
@@ -309,6 +317,7 @@ class TestProfileCommand:
         assert result.exit_code >= 0
 
 
+@pytest.mark.unit
 class TestCLIOptions:
     """Test global CLI options."""
 
@@ -335,6 +344,7 @@ class TestCLIOptions:
         assert result.exit_code == 0
 
 
+@pytest.mark.unit
 class TestCLIErrorHandling:
     """Test CLI error handling."""
 
@@ -367,6 +377,7 @@ class TestCLIErrorHandling:
         assert "error" in result.stdout.lower() or result.exit_code != 0
 
 
+@pytest.mark.unit
 class TestCLIOutputFormatting:
     """Test CLI output formatting."""
 
@@ -402,6 +413,7 @@ class TestCLIOutputFormatting:
             assert result.exit_code >= 0
 
 
+@pytest.mark.unit
 class TestCLIIntegration:
     """Integration tests for CLI."""
 

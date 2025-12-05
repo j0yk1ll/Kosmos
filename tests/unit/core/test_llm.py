@@ -53,6 +53,7 @@ def cli_env():
         del os.environ["ANTHROPIC_API_KEY"]
 
 
+@pytest.mark.unit
 class TestClaudeClientInitialization:
     """Test Claude client initialization."""
 
@@ -97,6 +98,7 @@ class TestClaudeClientInitialization:
         assert client.temperature == 0.5
 
 
+@pytest.mark.unit
 class TestClaudeClientGeneration:
     """Test Claude text generation."""
 
@@ -152,6 +154,7 @@ class TestClaudeClientGeneration:
         assert call_args[1]["messages"] == messages
 
 
+@pytest.mark.unit
 class TestClaudeClientStructured:
     """Test structured output generation."""
 
@@ -203,6 +206,7 @@ class TestClaudeClientStructured:
             client.generate_structured(prompt="Test", output_schema={"type": "object"})
 
 
+@pytest.mark.unit
 class TestClaudeClientStatistics:
     """Test usage statistics tracking."""
 
@@ -261,6 +265,7 @@ class TestClaudeClientStatistics:
         assert client.total_output_tokens == 0
 
 
+@pytest.mark.unit
 class TestClaudeClientSingleton:
     """Test singleton client instance."""
 

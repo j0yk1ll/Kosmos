@@ -156,6 +156,7 @@ def mock_anthropic_response():
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestCompressedContext:
     """Tests for CompressedContext dataclass."""
 
@@ -184,6 +185,7 @@ class TestCompressedContext:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestNotebookCompressor:
     """Tests for NotebookCompressor class."""
 
@@ -191,7 +193,7 @@ class TestNotebookCompressor:
         """Test initialization without Anthropic client."""
         compressor = NotebookCompressor()
         assert compressor.client is None
-        assert compressor.model == "claude-3-5-sonnet-20241022"
+        assert compressor.model == "claude-sonnet-4-5"
 
     def test_init_with_client(self):
         """Test initialization with Anthropic client."""
@@ -332,6 +334,7 @@ class TestNotebookCompressor:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestLiteratureCompressor:
     """Tests for LiteratureCompressor class."""
 
@@ -399,6 +402,7 @@ class TestLiteratureCompressor:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestContextCompressor:
     """Tests for ContextCompressor class."""
 
@@ -504,6 +508,7 @@ class TestContextCompressor:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestCompressionEdgeCases:
     """Tests for edge cases and error handling."""
 
@@ -555,6 +560,7 @@ class TestCompressionEdgeCases:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestCompressionPipeline:
     """Tests for the full compression pipeline."""
 

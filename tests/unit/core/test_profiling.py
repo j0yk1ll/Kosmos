@@ -16,6 +16,7 @@ from kosmos.core.profiling import (
 )
 
 
+@pytest.mark.unit
 class TestProfilingMode:
     """Test ProfilingMode enum."""
 
@@ -26,6 +27,7 @@ class TestProfilingMode:
         assert ProfilingMode.FULL == "full"
 
 
+@pytest.mark.unit
 class TestExecutionProfiler:
     """Test ExecutionProfiler class."""
 
@@ -116,6 +118,7 @@ class TestExecutionProfiler:
         assert profiler.get_result() is None
 
 
+@pytest.mark.unit
 class TestProfileResult:
     """Test ProfileResult data model."""
 
@@ -147,6 +150,7 @@ class TestProfileResult:
         assert result.execution_time == result.wall_time
 
 
+@pytest.mark.unit
 class TestProfileExperiment:
     """Test profiling experiment code."""
 
@@ -184,6 +188,7 @@ class TestProfileExperiment:
             profiler.profile_experiment(experiment_id="test_003", code=code)
 
 
+@pytest.mark.unit
 class TestConvenienceFunctions:
     """Test convenience functions."""
 
@@ -214,6 +219,7 @@ class TestConvenienceFunctions:
         assert "Memory peak" in summary
 
 
+@pytest.mark.unit
 class TestMemoryTracking:
     """Test memory tracking functionality."""
 
@@ -244,6 +250,7 @@ class TestMemoryTracking:
         assert result is not None
 
 
+@pytest.mark.unit
 class TestBottleneckDetection:
     """Test bottleneck detection."""
 
@@ -266,6 +273,7 @@ class TestBottleneckDetection:
         assert result.profiling_mode == ProfilingMode.STANDARD
 
 
+@pytest.mark.unit
 class TestProfilerOverhead:
     """Test profiler overhead."""
 

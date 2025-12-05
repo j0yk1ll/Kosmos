@@ -17,6 +17,7 @@ from kosmos.core.cache import (
 )
 
 
+@pytest.mark.unit
 class TestMemoryCache:
     """Test MemoryCache implementation."""
 
@@ -106,6 +107,7 @@ class TestMemoryCache:
         assert stats["size"] == 1
 
 
+@pytest.mark.unit
 class TestDiskCache:
     """Test DiskCache implementation."""
 
@@ -166,6 +168,7 @@ class TestDiskCache:
         assert cache.get("valid") == "value"
 
 
+@pytest.mark.unit
 class TestHybridCache:
     """Test HybridCache implementation."""
 
@@ -208,6 +211,7 @@ class TestHybridCache:
 
 
 @pytest.mark.skip(reason="CacheManager class not implemented")
+@pytest.mark.unit
 class TestCacheManager:
     """Test CacheManager orchestration."""
 
@@ -236,6 +240,7 @@ class TestCacheManager:
 
 
 @pytest.mark.skip(reason="CacheStats dataclass not implemented (CacheStats is a tracker class)")
+@pytest.mark.unit
 class TestCacheStats:
     """Test CacheStats data class."""
 
@@ -249,6 +254,7 @@ class TestCacheStats:
 
 
 @pytest.mark.skip(reason="CacheEntry class not implemented")
+@pytest.mark.unit
 class TestCacheEntry:
     """Test CacheEntry data class."""
 
@@ -261,6 +267,7 @@ class TestCacheEntry:
         pass
 
 
+@pytest.mark.unit
 class TestRedisCache:
     """Test RedisCache implementation (requires Redis running)."""
 

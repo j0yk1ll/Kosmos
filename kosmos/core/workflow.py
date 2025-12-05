@@ -346,8 +346,8 @@ class ResearchWorkflow:
             "transition_count": len(self.transition_history),
             "recent_transitions": [
                 {
-                    "from": t.from_state.value,
-                    "to": t.to_state.value,
+                    "from": t.from_state,
+                    "to": t.to_state,
                     "action": t.action,
                     "timestamp": t.timestamp.isoformat(),
                 }

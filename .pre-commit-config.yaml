@@ -38,7 +38,7 @@ repos:
   - repo: local
     hooks:
       - id: smoke-test
-        name: Run Production Verification
+        name: run production verification
         # Use the script directly so pre-commit runs it via its shebang
         # (entry was previously `bash scripts/verify_production.sh` which
         # caused pre-commit to look for `bash` inside the repo root).

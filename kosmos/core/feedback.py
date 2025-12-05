@@ -252,7 +252,7 @@ class FeedbackLoop:
         Returns:
             str: Failure category
         """
-        if result.status == ResultStatus.FAILURE:
+        if result.status in (ResultStatus.ERROR, ResultStatus.TIMEOUT):
             return "execution_error"
 
         # Check statistical issues

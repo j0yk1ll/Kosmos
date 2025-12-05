@@ -23,6 +23,7 @@ SKIP_INTEGRATION = pytest.mark.skipif(
 )
 
 
+@pytest.mark.unit
 class TestBatchRequest:
     """Test BatchRequest data class."""
 
@@ -41,6 +42,7 @@ class TestBatchRequest:
         assert req.temperature == 0.7
 
 
+@pytest.mark.unit
 class TestBatchResponse:
     """Test BatchResponse data class."""
 
@@ -61,6 +63,7 @@ class TestBatchResponse:
         assert resp.error == "Rate limit exceeded"
 
 
+@pytest.mark.unit
 class TestRateLimiter:
     """Test RateLimiter implementation."""
 
@@ -95,6 +98,7 @@ class TestRateLimiter:
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 class TestAsyncClaudeClient:
     """Test AsyncClaudeClient."""
 
@@ -267,6 +271,7 @@ class TestAsyncClaudeClient:
 
 
 @SKIP_INTEGRATION
+@pytest.mark.unit
 class TestAsyncClaudeClientIntegration:
     """Integration tests requiring actual API key.
 
@@ -324,6 +329,7 @@ class TestAsyncClaudeClientIntegration:
 
 
 @pytest.mark.asyncio
+@pytest.mark.unit
 class TestErrorHandling:
     """Test error handling scenarios."""
 

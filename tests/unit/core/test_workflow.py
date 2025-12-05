@@ -12,6 +12,7 @@ from kosmos.core.workflow import ResearchPlan, ResearchWorkflow, WorkflowState, 
 # Test WorkflowTransition
 
 
+@pytest.mark.unit
 class TestWorkflowTransition:
     """Test workflow transition model."""
 
@@ -44,6 +45,7 @@ class TestWorkflowTransition:
 # Test ResearchPlan
 
 
+@pytest.mark.unit
 class TestResearchPlan:
     """Test research plan model."""
 
@@ -219,6 +221,7 @@ class TestResearchPlan:
 # Test ResearchWorkflow
 
 
+@pytest.mark.unit
 class TestResearchWorkflow:
     """Test workflow state machine."""
 
@@ -388,6 +391,7 @@ class TestResearchWorkflow:
 # Test State Machine Transitions
 
 
+@pytest.mark.unit
 class TestStateMachineTransitions:
     """Test all valid and invalid state transitions."""
 
