@@ -114,7 +114,9 @@ pip-log.txt
 pip-wheel-metadata/
 ipython_config.py
 
+# ------------------------------
 # Virtual environments
+# ------------------------------
 env/
 ENV/
 venv/
@@ -131,6 +133,7 @@ htmlcov/
 # ------------------------------
 # Local development databases
 # ------------------------------
+:memory:
 *.db
 *.sqlite
 *.sqlite3
@@ -151,6 +154,7 @@ logs/
 *.jsonl
 human_review_audit.jsonl
 req_to_paper_analysis_*.md
+data/
 
 # ------------------------------
 # Cache directories
@@ -158,6 +162,8 @@ req_to_paper_analysis_*.md
 .literature_cache/
 .literature_analysis_cache/
 .concept_extraction_cache/
+.pdf_cache/
+.ruff_cache/
 
 # ------------------------------
 # Screenshots / images containing sensitive info
