@@ -10,9 +10,8 @@ Performance Features:
 import logging
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Optional
 
-from sqlalchemy import create_engine, event, pool
+from sqlalchemy import create_engine, pool
 from sqlalchemy.orm import Session, sessionmaker
 
 from kosmos.db.models import Base

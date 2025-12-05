@@ -43,7 +43,6 @@ from .docker_manager import ContainerConfig, ContainerInstance, ContainerStatus,
 from .executor import (
     CodeExecutor,
     CodeValidator,
-    ExecutionResult as LegacyExecutionResult,
     RetryStrategy,
     execute_protocol_code,
 )
