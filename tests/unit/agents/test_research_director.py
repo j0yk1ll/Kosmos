@@ -1,5 +1,5 @@
 """
-Unit tests for ResearchDirectorAgent (Phase 7).
+Unit tests for ResearchDirectorAgent.
 """
 
 from unittest.mock import Mock, patch
@@ -172,6 +172,11 @@ class TestMessageHandling:
 
     def test_handle_executor_response(self, research_director):
         """Test handling experiment execution response."""
+        # Move to proper state first
+        research_director.workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Start")
+        research_director.workflow.transition_to(WorkflowState.DESIGNING_EXPERIMENTS, "Design")
+        research_director.workflow.transition_to(WorkflowState.EXECUTING, "Execute")
+
         # Add experiment to queue first
         research_director.research_plan.add_experiment("proto-1")
 
@@ -200,6 +205,12 @@ class TestMessageHandling:
 
     def test_handle_data_analyst_response_supported(self, research_director):
         """Test handling analysis response (hypothesis supported)."""
+        # Move to proper state first
+        research_director.workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Start")
+        research_director.workflow.transition_to(WorkflowState.DESIGNING_EXPERIMENTS, "Design")
+        research_director.workflow.transition_to(WorkflowState.EXECUTING, "Execute")
+        research_director.workflow.transition_to(WorkflowState.ANALYZING, "Analyze")
+
         research_director.research_plan.add_hypothesis("hyp-1")
 
         message = AgentMessage(
@@ -228,6 +239,12 @@ class TestMessageHandling:
 
     def test_handle_data_analyst_response_rejected(self, research_director):
         """Test handling analysis response (hypothesis rejected)."""
+        # Move to proper state first
+        research_director.workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Start")
+        research_director.workflow.transition_to(WorkflowState.DESIGNING_EXPERIMENTS, "Design")
+        research_director.workflow.transition_to(WorkflowState.EXECUTING, "Execute")
+        research_director.workflow.transition_to(WorkflowState.ANALYZING, "Analyze")
+
         research_director.research_plan.add_hypothesis("hyp-1")
 
         message = AgentMessage(
@@ -281,6 +298,13 @@ class TestMessageHandling:
 
     def test_handle_convergence_detector_response_converged(self, research_director):
         """Test handling convergence detection (research complete)."""
+        # Move to REFINING state where convergence is possible
+        research_director.workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Start")
+        research_director.workflow.transition_to(WorkflowState.DESIGNING_EXPERIMENTS, "Design")
+        research_director.workflow.transition_to(WorkflowState.EXECUTING, "Execute")
+        research_director.workflow.transition_to(WorkflowState.ANALYZING, "Analyze")
+        research_director.workflow.transition_to(WorkflowState.REFINING, "Refine")
+
         message = AgentMessage(
             type=MessageType.RESPONSE,
             from_agent="convergence_detector",
@@ -423,6 +447,7 @@ class TestDecisionMaking:
 
     def test_decide_next_action_design_experiment(self, research_director):
         """Test decision when in DESIGNING_EXPERIMENTS state with untested hypotheses."""
+        research_director.workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Start")
         research_director.workflow.transition_to(WorkflowState.DESIGNING_EXPERIMENTS, "Test")
         research_director.research_plan.add_hypothesis("hyp-1")
 
@@ -432,7 +457,11 @@ class TestDecisionMaking:
 
     def test_decide_next_action_execute_experiment(self, research_director):
         """Test decision when in EXECUTING state with queued experiments."""
+        research_director.workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Start")
+        research_director.workflow.transition_to(WorkflowState.DESIGNING_EXPERIMENTS, "Design")
         research_director.workflow.transition_to(WorkflowState.EXECUTING, "Test")
+        # Add both experiment and untested hypothesis to prevent convergence check
+        research_director.research_plan.add_hypothesis("hyp-1")
         research_director.research_plan.add_experiment("proto-1")
 
         action = research_director.decide_next_action()
@@ -441,7 +470,12 @@ class TestDecisionMaking:
 
     def test_decide_next_action_analyze_result(self, research_director):
         """Test decision when in ANALYZING state."""
+        research_director.workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Start")
+        research_director.workflow.transition_to(WorkflowState.DESIGNING_EXPERIMENTS, "Design")
+        research_director.workflow.transition_to(WorkflowState.EXECUTING, "Execute")
         research_director.workflow.transition_to(WorkflowState.ANALYZING, "Test")
+        # Add result and untested hypothesis to prevent convergence
+        research_director.research_plan.add_hypothesis("hyp-1")
         research_director.research_plan.add_result("result-1")
 
         action = research_director.decide_next_action()
@@ -450,9 +484,15 @@ class TestDecisionMaking:
 
     def test_decide_next_action_refine_hypothesis(self, research_director):
         """Test decision when in REFINING state with tested hypotheses."""
+        research_director.workflow.transition_to(WorkflowState.GENERATING_HYPOTHESES, "Start")
+        research_director.workflow.transition_to(WorkflowState.DESIGNING_EXPERIMENTS, "Design")
+        research_director.workflow.transition_to(WorkflowState.EXECUTING, "Execute")
+        research_director.workflow.transition_to(WorkflowState.ANALYZING, "Analyze")
         research_director.workflow.transition_to(WorkflowState.REFINING, "Test")
+        # Add both tested and untested hypotheses to prevent convergence
         research_director.research_plan.add_hypothesis("hyp-1")
         research_director.research_plan.mark_tested("hyp-1")
+        research_director.research_plan.add_hypothesis("hyp-2")  # Keep an untested one
 
         action = research_director.decide_next_action()
 

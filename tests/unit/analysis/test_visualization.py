@@ -104,6 +104,7 @@ def sample_experiment_result():
 # Formatting Tests
 
 
+@pytest.mark.unit
 class TestFormattingStandards:
     """Tests for visualization formatting compliance."""
 
@@ -129,6 +130,7 @@ class TestFormattingStandards:
 # Volcano Plot Tests
 
 
+@pytest.mark.unit
 class TestVolcanoPlot:
     """Tests for volcano plot generation."""
 
@@ -185,6 +187,7 @@ class TestVolcanoPlot:
 # Heatmap Tests
 
 
+@pytest.mark.unit
 class TestHeatmap:
     """Tests for heatmap generation."""
 
@@ -245,6 +248,7 @@ class TestHeatmap:
 # Scatter with Regression Tests
 
 
+@pytest.mark.unit
 class TestScatterWithRegression:
     """Tests for scatter plot with regression."""
 
@@ -281,6 +285,7 @@ class TestScatterWithRegression:
 # Log-Log Plot Tests
 
 
+@pytest.mark.unit
 class TestLogLogPlot:
     """Tests for log-log scaling plot."""
 
@@ -326,6 +331,7 @@ class TestLogLogPlot:
 # Box Plot Tests
 
 
+@pytest.mark.unit
 class TestBoxPlot:
     """Tests for box plot with points."""
 
@@ -361,6 +367,7 @@ class TestBoxPlot:
 # Violin Plot Tests
 
 
+@pytest.mark.unit
 class TestViolinPlot:
     """Tests for violin plot."""
 
@@ -382,9 +389,10 @@ class TestViolinPlot:
         assert result_path == output_path
 
 
-# Q-Q Plot Tests
+# QQ Plot Tests
 
 
+@pytest.mark.unit
 class TestQQPlot:
     """Tests for Q-Q plot."""
 
@@ -416,9 +424,10 @@ class TestQQPlot:
         assert os.path.exists(output_path)
 
 
-# Auto-Selection Tests
+# Auto-selection Tests
 
 
+@pytest.mark.unit
 class TestAutoSelection:
     """Tests for automatic plot type selection."""
 
@@ -475,7 +484,7 @@ class TestAutoSelection:
             hypothesis_id="hyp-003",
             protocol_id="proto-003",
             status=ResultStatus.SUCCESS,
-            primary_test="Multiple Tests",
+            primary_test="Test 0",  # Must match one of the test names below
             primary_p_value=0.01,
             primary_effect_size=0.5,
             supports_hypothesis=True,
@@ -553,6 +562,7 @@ class TestAutoSelection:
 # Error Handling Tests
 
 
+@pytest.mark.unit
 class TestErrorHandling:
     """Tests for error handling in visualization."""
 
@@ -604,6 +614,7 @@ class TestErrorHandling:
 # DPI and Quality Tests
 
 
+@pytest.mark.unit
 class TestOutputQuality:
     """Tests for output quality and DPI settings."""
 
