@@ -179,6 +179,7 @@ def mock_claude_interpretation():
 ####################################################################
 
 
+@pytest.mark.unit
 class TestResultInterpretation:
     """Tests for result interpretation functionality."""
 
@@ -276,6 +277,7 @@ class TestResultInterpretation:
 ####################################################################
 
 
+@pytest.mark.unit
 class TestAnomalyDetection:
     """Tests for anomaly detection functionality."""
 
@@ -420,6 +422,7 @@ class TestAnomalyDetection:
 ####################################################################
 
 
+@pytest.mark.unit
 class TestPatternDetection:
     """Tests for pattern detection across multiple results."""
 
@@ -558,6 +561,7 @@ class TestPatternDetection:
 ####################################################################
 
 
+@pytest.mark.unit
 class TestSignificanceInterpretation:
     """Tests for statistical significance interpretation."""
 
@@ -609,6 +613,7 @@ class TestSignificanceInterpretation:
 ####################################################################
 
 
+@pytest.mark.unit
 class TestAgentLifecycle:
     """Tests for agent lifecycle and task execution."""
 
@@ -703,6 +708,7 @@ class TestAgentLifecycle:
 ####################################################################
 
 
+@pytest.mark.unit
 class TestResultInterpretationClass:
     """Tests for ResultInterpretation data class."""
 

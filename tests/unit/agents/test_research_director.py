@@ -43,6 +43,7 @@ def mock_llm_client():
 # Test Initialization
 
 
+@pytest.mark.unit
 class TestResearchDirectorInitialization:
     """Test research director initialization."""
 
@@ -85,6 +86,7 @@ class TestResearchDirectorInitialization:
 # Test Lifecycle
 
 
+@pytest.mark.unit
 class TestResearchDirectorLifecycle:
     """Test research director lifecycle management."""
 
@@ -115,6 +117,7 @@ class TestResearchDirectorLifecycle:
 # Test Message Handling
 
 
+@pytest.mark.unit
 class TestMessageHandling:
     """Test message handling for different agent responses."""
 
@@ -322,6 +325,7 @@ class TestMessageHandling:
 # Test Message Sending
 
 
+@pytest.mark.unit
 class TestMessageSending:
     """Test sending messages to other agents."""
 
@@ -377,6 +381,7 @@ class TestMessageSending:
 # Test Research Planning
 
 
+@pytest.mark.unit
 class TestResearchPlanning:
     """Test research planning with Claude."""
 
@@ -404,6 +409,7 @@ class TestResearchPlanning:
 # Test Decision Making
 
 
+@pytest.mark.unit
 class TestDecisionMaking:
     """Test decision-making logic."""
 
@@ -493,6 +499,7 @@ class TestDecisionMaking:
 # Test Strategy Adaptation
 
 
+@pytest.mark.unit
 class TestStrategyAdaptation:
     """Test strategy selection and adaptation."""
 
@@ -544,6 +551,7 @@ class TestStrategyAdaptation:
 # Test Agent Registry
 
 
+@pytest.mark.unit
 class TestAgentRegistry:
     """Test agent registration and lookup."""
 
@@ -563,6 +571,7 @@ class TestAgentRegistry:
 # Test Execute
 
 
+@pytest.mark.unit
 class TestExecute:
     """Test execute method (BaseAgent interface)."""
 
@@ -603,6 +612,7 @@ class TestExecute:
 # Test Status & Reporting
 
 
+@pytest.mark.unit
 class TestStatusReporting:
     """Test status and reporting methods."""
 

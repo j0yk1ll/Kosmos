@@ -126,6 +126,7 @@ def empty_skill_loader(temp_dir):
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestSkillLoaderInit:
     """Tests for SkillLoader initialization."""
 
@@ -180,6 +181,7 @@ class TestSkillLoaderInit:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestSkillDiscovery:
     """Tests for skill discovery."""
 
@@ -220,6 +222,7 @@ class TestSkillDiscovery:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestSkillLoading:
     """Tests for loading individual skills."""
 
@@ -268,6 +271,7 @@ class TestSkillLoading:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestSkillParsing:
     """Tests for skill markdown parsing."""
 
@@ -306,6 +310,7 @@ class TestSkillParsing:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestSkillBundles:
     """Tests for skill bundles."""
 
@@ -339,6 +344,7 @@ class TestSkillBundles:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestLoadSkillsForTask:
     """Tests for loading skills based on task requirements."""
 
@@ -407,6 +413,7 @@ class TestLoadSkillsForTask:
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestPromptFormatting:
     """Tests for skill prompt formatting."""
 
@@ -461,10 +468,11 @@ class TestPromptFormatting:
 
 
 # ============================================================================
-# Search Tests
+# Skill Search Tests
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestSkillSearch:
     """Tests for skill searching."""
 
@@ -500,10 +508,11 @@ class TestSkillSearch:
 
 
 # ============================================================================
-# Statistics Tests
+# Skill Statistics Tests
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestSkillStatistics:
     """Tests for skill statistics."""
 
@@ -526,10 +535,11 @@ class TestSkillStatistics:
 
 
 # ============================================================================
-# Edge Cases and Error Handling
+# Edge Cases and Error Handling Tests
 # ============================================================================
 
 
+@pytest.mark.unit
 class TestSkillLoaderEdgeCases:
     """Tests for edge cases and error handling."""
 

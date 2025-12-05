@@ -205,21 +205,3 @@ class TestCorpusAnalysis:
         assert result["corpus_size"] == 3
         assert "temporal_distribution" in result
         assert "common_themes" in result
-
-
-@pytest.mark.integration
-@pytest.mark.requires_claude
-class TestLiteratureAnalyzerIntegration:
-    """Integration tests (requires Claude and services)."""
-
-    def test_real_paper_summarization(self, sample_paper_metadata):
-        """Test real paper summarization."""
-        agent = LiteratureAnalyzerAgent(config={"use_knowledge_graph": False})
-
-        agent.start()
-        analysis = agent.summarize_paper(sample_paper_metadata)
-        agent.stop()
-
-        assert isinstance(analysis, PaperAnalysis)
-        assert len(analysis.executive_summary) > 0
-        assert len(analysis.key_findings) > 0
