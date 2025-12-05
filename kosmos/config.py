@@ -9,8 +9,8 @@ import os
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BeforeValidator, Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from kosmos.utils.compat import model_to_dict
 
@@ -177,16 +177,23 @@ class ResearchConfig(BaseSettings):
         description="Maximum research iterations",
         alias="MAX_RESEARCH_ITERATIONS",
     )
-    enabled_domains: Annotated[list[str], BeforeValidator(parse_comma_separated)] = Field(
+    enabled_domains: Annotated[list[str], NoDecode] = Field(
         default=["biology", "physics", "chemistry", "neuroscience"],
         description="Enabled scientific domains",
         alias="ENABLED_DOMAINS",
     )
-    enabled_experiment_types: Annotated[list[str], BeforeValidator(parse_comma_separated)] = Field(
+    enabled_experiment_types: Annotated[list[str], NoDecode] = Field(
         default=["computational", "data_analysis", "literature_synthesis"],
         description="Enabled experiment types",
         alias="ENABLED_EXPERIMENT_TYPES",
     )
+
+    @field_validator("enabled_domains", "enabled_experiment_types", mode="before")
+    @classmethod
+    def parse_comma_separated_lists(cls, v):
+        """Parse comma-separated strings into lists."""
+        return parse_comma_separated(v)
+
     min_novelty_score: float = Field(
         default=0.6,
         ge=0.0,
@@ -335,11 +342,25 @@ class LoggingConfig(BaseSettings):
         alias="DEBUG_LEVEL",
     )
 
-    debug_modules: Annotated[list[str] | None, BeforeValidator(parse_comma_separated)] = Field(
+    debug_modules: Annotated[list[str] | None, NoDecode] = Field(
         default=None,
         description="Modules to debug (None=all when debug_mode=True)",
         alias="DEBUG_MODULES",
     )
+
+    @field_validator("debug_level", mode="before")
+    @classmethod
+    def parse_debug_level(cls, v):
+        """Convert string debug level to int for Literal compatibility."""
+        if isinstance(v, str):
+            return int(v)
+        return v
+
+    @field_validator("debug_modules", mode="before")
+    @classmethod
+    def parse_debug_modules(cls, v):
+        """Parse comma-separated strings into list."""
+        return parse_comma_separated(v)
 
     log_llm_calls: bool = Field(
         default=False, description="Log LLM request/response summaries", alias="LOG_LLM_CALLS"
