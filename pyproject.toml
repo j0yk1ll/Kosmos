@@ -99,17 +99,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    # Testing
-    "pytest>=7.4.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.1.0",
-    "pytest-mock>=3.12.0",
-    "pytest-timeout>=2.2.0",
-    "pytest-xdist>=3.5.0",    # Parallel test execution
-    "responses>=0.24.0",      # Mock HTTP responses
-    "freezegun>=1.4.0",       # Mock datetime
-    "faker>=22.0.0",          # Generate fake data for tests
-
     # Code quality
     "black>=23.0.0",
     "ruff>=0.1.0",
@@ -122,7 +111,14 @@ test = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
     "pytest-timeout>=2.2.0",
+    "pytest-xdist>=3.5.0",    # Parallel test execution
+
+    # Test utilities
+    "responses>=0.24.0",      # Mock HTTP responses
+    "freezegun>=1.4.0",       # Mock datetime
+    "faker>=22.0.0",          # Generate fake data for tests
 
     # Mocking
     "responses>=0.24.0",
@@ -211,17 +207,55 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
+    "--verbose",
     "--strict-markers",
     "--strict-config",
+    "--tb=short",
     "--cov=kosmos",
     "--cov-report=term-missing",
-    "--cov-report=html",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml",
+    "--cov-branch",
+    "--cov-fail-under=80",
+    "-ra",
 ]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "e2e: marks tests as end-to-end tests",
+    "unit: Unit tests (fast, no external dependencies)",
+    "integration: Integration tests (may require external services)",
+    "e2e: End-to-end tests (full workflow tests)",
+    "slow: Slow tests that take significant time",
+    "docker: Docker deployment tests",
+    "requires_api_key: Tests requiring API keys",
+    "requires_neo4j: Tests requiring Neo4j database",
+    "requires_chromadb: Tests requiring ChromaDB",
+    "requires_claude: Tests requiring Claude API",
+    "requirement: Requirement ID marker for traceability",
+    "category: Test category (data_analysis, scientific, etc.)",
+    "priority: Priority level (MUST, SHOULD, MAY)",
+    "manual: Tests that require manual intervention or inspection",
+    "timeout: Tests with specific timeout requirements",
 ]
+asyncio_mode = "auto"
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::pytest.PytestCacheWarning",
+]
+log_cli = false
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+log_file = "tests/test_run.log"
+log_file_level = "DEBUG"
+log_file_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_file_date_format = "%Y-%m-%d %H:%M:%S"
+timeout = 300
+timeout_method = "thread"
+console_output_style = "progress"
+# Explicit cache directory to avoid permission issues in some CI/environments
+cache_dir = "tests/.pytest_cache"
 
 [tool.coverage.run]
 source = ["kosmos"]
@@ -291,10 +325,6 @@ combine-as-imports = true
 lines-after-imports = 2
 force-wrap-aliases = true
 split-on-trailing-comma = true
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"] # Allow unused imports in __init__.py
-"tests/unit/core/test_litellm_provider.py" = ["E402"] # pytest.importorskip must come before imports
 
 [tool.mypy]
 python_version = "3.11"
