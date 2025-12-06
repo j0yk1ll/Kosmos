@@ -184,9 +184,7 @@ class TestPlanCreatorAgentInit:
     def test_custom_initialization(self):
         """Test custom initialization."""
         mock_client = Mock()
-        agent = PlanCreatorAgent(
-            llm_client=mock_client, model="claude-3-opus", default_num_tasks=5
-        )
+        agent = PlanCreatorAgent(llm_client=mock_client, model="claude-3-opus", default_num_tasks=5)
 
         assert agent.lm == mock_client
         assert agent.model == "claude-3-opus"

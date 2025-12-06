@@ -184,9 +184,9 @@ class TestParallelExecutionWithRealExperiments:
     @pytest.fixture
     def mock_llm_client(self):
         """Mock LLM client for experiment execution."""
-        with patch("kosmos.core.llm.ClaudeClient") as mock:
+        with patch("dspy.LM") as mock:
             client = MagicMock()
-            client.generate.return_value = "Experiment analysis: The results show..."
+            client.return_value = "Experiment analysis: The results show..."
             mock.return_value = client
             yield client
 

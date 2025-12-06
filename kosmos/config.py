@@ -5,9 +5,9 @@ Loads configuration from environment variables and provides validated settings
 for all Kosmos components.
 """
 
-import os
+import logging
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -29,142 +29,112 @@ def parse_comma_separated(v):
     return v
 
 
-class ClaudeConfig(BaseSettings):
+class LLMConfig(BaseSettings):
     """
-    Claude/Anthropic configuration.
+    Unified LLM configuration for DSPy.
 
-    Note: This class is maintained for backward compatibility.
-    New code should use AnthropicConfig or the provider-agnostic interface.
+    DSPy supports all major LLM providers with a unified interface:
+    - Anthropic: model="anthropic/claude-sonnet-4-5", api_key=ANTHROPIC_API_KEY
+    - OpenAI: model="openai/gpt-4", api_key=OPENAI_API_KEY
+    - Ollama (local): model="ollama_chat/llama3.1:8b", api_base="http://localhost:11434"
+    - DeepSeek: model="deepseek/deepseek-chat", api_key=DEEPSEEK_API_KEY
+    - And 100+ more providers via LiteLLM
+
+    Example .env configurations:
+    ```
+    # Anthropic Claude
+    LLM_MODEL=anthropic/claude-sonnet-4-5
+    LLM_API_KEY=sk-ant-...
+
+    # OpenAI
+    LLM_MODEL=openai/gpt-4
+    LLM_API_KEY=sk-...
+
+    # Local Ollama
+    LLM_MODEL=ollama_chat/llama3.1:8b
+    LLM_API_BASE=http://localhost:11434
+    ```
     """
 
-    api_key: str = Field(
-        description="Anthropic API key or '999...' for CLI mode", alias="ANTHROPIC_API_KEY"
-    )
     model: str = Field(
-        default=_DEFAULT_CLAUDE_SONNET_MODEL,
-        description="Claude model to use",
-        alias="CLAUDE_MODEL",
+        default="anthropic/claude-sonnet-4-5",
+        description="Model identifier in DSPy/LiteLLM format (provider/model-name)",
+        alias="LLM_MODEL",
+    )
+    api_key: str | None = Field(
+        default=None,
+        description="API key for the provider (not required for local models)",
+        alias="LLM_API_KEY",
+    )
+    api_base: str | None = Field(
+        default=None,
+        description="Custom base URL for API (e.g., http://localhost:11434 for Ollama)",
+        alias="LLM_API_BASE",
     )
     max_tokens: int = Field(
         default=4096,
         ge=1,
         le=200000,
         description="Maximum tokens per request",
-        alias="CLAUDE_MAX_TOKENS",
+        alias="LLM_MAX_TOKENS",
     )
     temperature: float = Field(
-        default=0.7, ge=0.0, le=1.0, description="Sampling temperature", alias="CLAUDE_TEMPERATURE"
-    )
-    enable_cache: bool = Field(
-        default=True,
-        description="Enable prompt caching to reduce API costs",
-        alias="CLAUDE_ENABLE_CACHE",
-    )
-
-    base_url: str | None = Field(
-        default=None,
-        description="Custom base URL for Claude-compatible APIs",
-        alias="CLAUDE_BASE_URL",
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        description="Sampling temperature",
+        alias="LLM_TEMPERATURE",
     )
     timeout: int = Field(
-        default=120, ge=1, le=600, description="Request timeout in seconds", alias="CLAUDE_TIMEOUT"
+        default=120,
+        ge=1,
+        le=600,
+        description="Request timeout in seconds",
+        alias="LLM_TIMEOUT",
     )
+    cache_seed: int | None = Field(
+        default=None,
+        description="Cache seed for deterministic caching (DSPy feature)",
+        alias="LLM_CACHE_SEED",
+    )
+
+    def to_dspy_config(self) -> dict[str, Any]:
+        """
+        Convert to DSPy LM configuration dictionary.
+
+        Returns:
+            dict: Configuration dict for dspy.LM(**config)
+        """
+        config = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+        }
+
+        if self.api_key:
+            config["api_key"] = self.api_key
+        if self.api_base:
+            config["api_base"] = self.api_base
+        if self.cache_seed is not None:
+            config["cache_seed"] = self.cache_seed
+
+        return config
 
     @property
-    def is_cli_mode(self) -> bool:
-        """Check if using CLI mode (API key is all 9s)."""
-        return self.api_key.replace("9", "") == ""
+    def provider(self) -> str:
+        """Extract provider from model string (e.g., 'anthropic' from 'anthropic/claude-sonnet-4-5')."""
+        if "/" in self.model:
+            return self.model.split("/")[0]
+        return "unknown"
 
     model_config = SettingsConfigDict(populate_by_name=True)
 
 
-# Alias for clarity
-AnthropicConfig = ClaudeConfig
-
-
-class OpenAIConfig(BaseSettings):
-    """
-    OpenAI configuration.
-
-    Supports OpenAI official API and OpenAI-compatible providers
-    (Ollama, OpenRouter, Together AI, LM Studio, etc.)
-    """
-
-    api_key: str = Field(
-        description="OpenAI API key (or dummy key for local models)", alias="OPENAI_API_KEY"
-    )
-    model: str = Field(
-        default="gpt-4-turbo",
-        description="Model name (e.g., gpt-4-turbo, llama3.1:70b)",
-        alias="OPENAI_MODEL",
-    )
-    max_tokens: int = Field(
-        default=4096,
-        ge=1,
-        le=128000,
-        description="Maximum tokens per request",
-        alias="OPENAI_MAX_TOKENS",
-    )
-    temperature: float = Field(
-        default=0.7, ge=0.0, le=2.0, description="Sampling temperature", alias="OPENAI_TEMPERATURE"
-    )
-    base_url: str | None = Field(
-        default=None,
-        description="Custom base URL for OpenAI-compatible APIs (e.g., http://localhost:11434/v1 for Ollama)",
-        alias="OPENAI_BASE_URL",
-    )
-    organization: str | None = Field(
-        default=None, description="OpenAI organization ID (optional)", alias="OPENAI_ORGANIZATION"
-    )
-    timeout: int = Field(
-        default=120, ge=1, le=600, description="Request timeout in seconds", alias="OPENAI_TIMEOUT"
-    )
-
-    model_config = SettingsConfigDict(populate_by_name=True)
-
-
-class LiteLLMConfig(BaseSettings):
-    """
-    LiteLLM provider configuration.
-
-    Supports 100+ LLM providers via LiteLLM including:
-    - Ollama (local): ollama/llama3.1:8b
-    - OpenAI: gpt-4-turbo
-    - Anthropic: claude-3-5-sonnet-20241022
-    - DeepSeek: deepseek/deepseek-chat
-    - Azure, Bedrock, and many more
-    """
-
-    model: str = Field(
-        default="gpt-3.5-turbo",
-        description="Model name in LiteLLM format (e.g., ollama/llama3.1:8b, deepseek/deepseek-chat)",
-        alias="LITELLM_MODEL",
-    )
-    api_key: str | None = Field(
-        default=None,
-        description="API key (not required for local models like Ollama)",
-        alias="LITELLM_API_KEY",
-    )
-    api_base: str | None = Field(
-        default=None,
-        description="Custom base URL (e.g., http://localhost:11434 for Ollama)",
-        alias="LITELLM_API_BASE",
-    )
-    max_tokens: int = Field(
-        default=4096,
-        ge=1,
-        le=128000,
-        description="Maximum tokens per request",
-        alias="LITELLM_MAX_TOKENS",
-    )
-    temperature: float = Field(
-        default=0.7, ge=0.0, le=2.0, description="Sampling temperature", alias="LITELLM_TEMPERATURE"
-    )
-    timeout: int = Field(
-        default=120, ge=1, le=600, description="Request timeout in seconds", alias="LITELLM_TIMEOUT"
-    )
-
-    model_config = SettingsConfigDict(populate_by_name=True)
+# Backward compatibility aliases (deprecated)
+ClaudeConfig = LLMConfig
+AnthropicConfig = LLMConfig
+OpenAIConfig = LLMConfig
+LiteLLMConfig = LLMConfig
 
 
 class ResearchConfig(BaseSettings):
@@ -804,27 +774,9 @@ class WorldModelConfig(BaseSettings):
     model_config = SettingsConfigDict(populate_by_name=True)
 
 
-def _optional_openai_config() -> OpenAIConfig | None:
-    """Create OpenAIConfig only if OPENAI_API_KEY is set."""
-    if os.getenv("OPENAI_API_KEY"):
-        return OpenAIConfig()
-    return None
-
-
-def _optional_anthropic_config() -> AnthropicConfig | None:
-    """Create AnthropicConfig only if configured."""
-    # Anthropic config is created by default via claude field
-    # This is for the anthropic alias field
-    if os.getenv("ANTHROPIC_API_KEY"):
-        return AnthropicConfig()
-    return None
-
-
-def _optional_claude_config() -> ClaudeConfig | None:
-    """Create ClaudeConfig only if ANTHROPIC_API_KEY is set."""
-    if os.getenv("ANTHROPIC_API_KEY"):
-        return ClaudeConfig()
-    return None
+def _create_llm_config() -> LLMConfig:
+    """Create LLMConfig from environment variables."""
+    return LLMConfig()
 
 
 class KosmosConfig(BaseSettings):
@@ -857,26 +809,38 @@ class KosmosConfig(BaseSettings):
         ```
     """
 
-    # LLM Provider Selection
-    llm_provider: Literal["anthropic", "openai", "litellm"] = Field(
-        default="anthropic",
-        description="LLM provider to use (anthropic, openai, or litellm)",
-        alias="LLM_PROVIDER",
+    # LLM Configuration (unified for all providers via DSPy)
+    llm: LLMConfig = Field(
+        default_factory=_create_llm_config,
+        description="Unified LLM configuration for DSPy",
     )
 
-    # Component configurations
-    claude: ClaudeConfig | None = Field(
-        default_factory=_optional_claude_config
-    )  # Backward compatibility
-    anthropic: AnthropicConfig | None = Field(
-        default_factory=_optional_anthropic_config
-    )  # New name (optional, defaults to claude)
-    openai: OpenAIConfig | None = Field(
-        default_factory=_optional_openai_config
-    )  # OpenAI provider config
-    litellm: LiteLLMConfig | None = Field(
-        default_factory=LiteLLMConfig
-    )  # LiteLLM multi-provider config
+    # Backward compatibility aliases (deprecated - use llm instead)
+    @property
+    def claude(self) -> LLMConfig:
+        """Backward compatibility: use llm instead."""
+        return self.llm
+
+    @property
+    def anthropic(self) -> LLMConfig:
+        """Backward compatibility: use llm instead."""
+        return self.llm
+
+    @property
+    def openai(self) -> LLMConfig:
+        """Backward compatibility: use llm instead."""
+        return self.llm
+
+    @property
+    def litellm(self) -> LLMConfig:
+        """Backward compatibility: use llm instead."""
+        return self.llm
+
+    @property
+    def llm_provider(self) -> str:
+        """Backward compatibility: extract provider from model string."""
+        return self.llm.provider
+
     local_model: LocalModelConfig = Field(
         default_factory=LocalModelConfig
     )  # Local model settings (Ollama, etc.)
@@ -902,23 +866,22 @@ class KosmosConfig(BaseSettings):
 
     @model_validator(mode="after")
     def validate_provider_config(self):
-        """Validate that required API keys are set for the selected provider."""
-        if self.llm_provider == "openai":
-            if not self.openai or not self.openai.api_key:
-                raise ValueError(
-                    "OPENAI_API_KEY is required when LLM_PROVIDER=openai. "
-                    "Please set OPENAI_API_KEY in your environment or .env file."
-                )
-        elif self.llm_provider == "anthropic":
-            if not self.claude or not self.claude.api_key:
-                raise ValueError(
-                    "ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic. "
-                    "Please set ANTHROPIC_API_KEY in your environment or .env file."
-                )
-        elif self.llm_provider == "litellm":
-            # LiteLLM validation is lenient - local models (Ollama) don't need API keys
-            # API keys are only required for cloud providers and are validated at runtime
-            pass
+        """Validate LLM configuration."""
+        # Check if model is specified
+        if not self.llm.model:
+            raise ValueError(
+                "LLM_MODEL is required. " "Example: LLM_MODEL=anthropic/claude-sonnet-4-5"
+            )
+
+        # Warn if API key might be needed but not set
+        provider = self.llm.provider
+        if provider in ["anthropic", "openai", "deepseek"] and not self.llm.api_key:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"LLM_API_KEY not set for {provider} provider. "
+                f"This is required for cloud providers. Set LLM_API_KEY in your environment."
+            )
+
         return self
 
     def create_directories(self):
@@ -941,15 +904,14 @@ class KosmosConfig(BaseSettings):
         """
         missing = []
 
-        # Check LLM provider configuration
-        if self.llm_provider == "anthropic":
-            if not self.claude or not self.claude.api_key:
-                missing.append("ANTHROPIC_API_KEY not set (required for anthropic provider)")
-        elif self.llm_provider == "openai":
-            if self.openai is None:
-                missing.append("OpenAI configuration missing (OPENAI_API_KEY not set)")
-            elif not self.openai.api_key:
-                missing.append("OPENAI_API_KEY not set (required for openai provider)")
+        # Check LLM configuration
+        if not self.llm.model:
+            missing.append("LLM_MODEL not set (required for LLM operations)")
+
+        # Check API key for cloud providers
+        provider = self.llm.provider
+        if provider in ["anthropic", "openai", "deepseek"] and not self.llm.api_key:
+            missing.append(f"LLM_API_KEY not set (required for {provider} provider)")
 
         # Check Pinecone if selected
         if self.vector_db.type == "pinecone" and not self.vector_db.pinecone_api_key:
@@ -965,8 +927,8 @@ class KosmosConfig(BaseSettings):
             dict: Configuration as dictionary
         """
         config_dict = {
-            "llm_provider": self.llm_provider,
-            "claude": model_to_dict(self.claude),
+            "llm": model_to_dict(self.llm),
+            "llm_provider": self.llm_provider,  # Backward compatibility
             "research": model_to_dict(self.research),
             "database": model_to_dict(self.database),
             "redis": model_to_dict(self.redis),
@@ -979,13 +941,8 @@ class KosmosConfig(BaseSettings):
             "monitoring": model_to_dict(self.monitoring),
             "development": model_to_dict(self.development),
             "world_model": model_to_dict(self.world_model),
+            "local_model": model_to_dict(self.local_model),
         }
-
-        # Add provider-specific configs if present
-        if self.anthropic:
-            config_dict["anthropic"] = model_to_dict(self.anthropic)
-        if self.openai:
-            config_dict["openai"] = model_to_dict(self.openai)
 
         return config_dict
 

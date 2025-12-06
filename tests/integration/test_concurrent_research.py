@@ -13,9 +13,9 @@ import pytest
 from kosmos.agents.research_director import ResearchDirectorAgent
 
 
-# Skip all tests in this file - requires Phase 2/3 async features
+# Skip all tests in this file - requires integration testing
 pytestmark = pytest.mark.skip(
-    reason="Requires Phase 2/3 async implementation (AsyncClaudeClient, ParallelExperimentExecutor)"
+    reason="Requires integration testing with DSPy Parallel and ParallelExperimentExecutor"
 )
 
 
@@ -23,33 +23,27 @@ class TestConcurrentHypothesisEvaluation:
     """Test concurrent hypothesis evaluation."""
 
     @pytest.fixture
-    def mock_async_client(self):
-        """Mock AsyncClaudeClient."""
-        with patch("kosmos.agents.research_director.AsyncClaudeClient") as mock:
-            client = AsyncMock()
+    def mock_dspy_parallel(self):
+        """Mock DSPy Parallel processor."""
+        with patch("dspy.Parallel") as mock:
+            parallel_processor = MagicMock()
 
-            # Mock batch_generate to return evaluations
-            async def mock_batch_generate(requests):
-                from kosmos.core.async_llm import BatchResponse
+            # Mock parallel execution to return evaluations
+            def mock_call(exec_pairs):
+                results = []
+                for _predictor, _kwargs in exec_pairs:
+                    result = MagicMock()
+                    result.recommendation = "proceed"
+                    result.reasoning = "Strong hypothesis"
+                    results.append(result)
+                return results
 
-                return [
-                    BatchResponse(
-                        id=req.id,
-                        response='{"testability": 8, "novelty": 7, "impact": 9, "recommendation": "proceed", "reasoning": "Strong hypothesis"}',
-                        success=True,
-                        tokens_used=50,
-                        latency_ms=100.0,
-                    )
-                    for req in requests
-                ]
+            parallel_processor.__call__ = mock_call
+            mock.return_value = parallel_processor
 
-            client.batch_generate = mock_batch_generate
-            mock.return_value = client
+            yield parallel_processor
 
-            yield client
-
-    @pytest.mark.asyncio
-    async def test_evaluate_multiple_hypotheses_concurrently(self, mock_async_client):
+    def test_evaluate_multiple_hypotheses_concurrently(self, mock_dspy_parallel):
         """Test evaluating multiple hypotheses concurrently."""
         config = {
             "enable_concurrent_operations": True,
@@ -57,17 +51,17 @@ class TestConcurrentHypothesisEvaluation:
             "max_concurrent_experiments": 4,
         }
 
-        director = ResearchDirectorAgent(research_question="Test question", config=config)
-        director.async_llm_client = mock_async_client
+        with patch("kosmos.agents.research_director.get_session"):
+            director = ResearchDirectorAgent(research_question="Test question", config=config)
 
-        # Mock hypothesis IDs
-        hypothesis_ids = [f"hyp_{i}" for i in range(5)]
+            # Mock hypothesis IDs
+            hypothesis_ids = [f"hyp_{i}" for i in range(5)]
 
-        # Evaluate concurrently
-        results = await director.evaluate_hypotheses_concurrently(hypothesis_ids)
+            # Evaluate concurrently (now synchronous with DSPy)
+            results = director.evaluate_hypotheses_concurrently(hypothesis_ids)
 
-        assert len(results) == 5
-        assert all(r.get("recommendation") == "proceed" for r in results)
+            assert len(results) == 5
+            assert all(r.get("recommendation") == "proceed" for r in results)
 
     @pytest.mark.asyncio
     async def test_concurrent_evaluation_faster_than_sequential(self, mock_async_client):
@@ -173,44 +167,40 @@ class TestConcurrentResultAnalysis:
     """Test concurrent result analysis."""
 
     @pytest.fixture
-    def mock_async_client(self):
-        """Mock AsyncClaudeClient for result analysis."""
-        with patch("kosmos.agents.research_director.AsyncClaudeClient") as mock:
-            client = AsyncMock()
+    def mock_dspy_parallel(self):
+        """Mock DSPy Parallel for result analysis."""
+        with patch("dspy.Parallel") as mock:
+            parallel_processor = MagicMock()
 
-            async def mock_batch_generate(requests):
-                from kosmos.core.async_llm import BatchResponse
+            def mock_call(exec_pairs):
+                results = []
+                for _predictor, _kwargs in exec_pairs:
+                    result = MagicMock()
+                    result.hypothesis_supported = "yes"
+                    result.confidence = "0.9"
+                    result.summary = "Positive result"
+                    results.append(result)
+                return results
 
-                return [
-                    BatchResponse(
-                        id=req.id,
-                        response='{"significance": "high", "hypothesis_supported": true, "key_finding": "Positive result", "next_steps": "Continue research"}',
-                        success=True,
-                        tokens_used=75,
-                        latency_ms=150.0,
-                    )
-                    for req in requests
-                ]
+            parallel_processor.__call__ = mock_call
+            mock.return_value = parallel_processor
 
-            client.batch_generate = mock_batch_generate
-            mock.return_value = client
+            yield parallel_processor
 
-            yield client
-
-    @pytest.mark.asyncio
-    async def test_analyze_multiple_results_concurrently(self, mock_async_client):
+    def test_analyze_multiple_results_concurrently(self, mock_dspy_parallel):
         """Test analyzing multiple results concurrently."""
         config = {"enable_concurrent_operations": True}
 
-        director = ResearchDirectorAgent(research_question="Test", config=config)
-        director.async_llm_client = mock_async_client
+        with patch("kosmos.agents.research_director.get_session"):
+            director = ResearchDirectorAgent(research_question="Test", config=config)
 
-        result_ids = [f"result_{i}" for i in range(5)]
+            result_ids = [f"result_{i}" for i in range(5)]
 
-        analyses = await director.analyze_results_concurrently(result_ids)
+            # Analyze concurrently (now synchronous with DSPy)
+            analyses = director.analyze_results_concurrently(result_ids)
 
-        assert len(analyses) == 5
-        assert all(a.get("significance") == "high" for a in analyses)
+            assert len(analyses) == 5
+            assert all(a.get("hypothesis_supported") is True for a in analyses)
 
 
 class TestThreadSafetyInConcurrentOperations:
@@ -275,7 +265,7 @@ class TestConcurrentOperationsIntegration:
         """Create director with all dependencies mocked."""
         with patch.multiple(
             "kosmos.agents.research_director",
-            AsyncClaudeClient=MagicMock(),
+            dspy=MagicMock(),
             ParallelExperimentExecutor=MagicMock(),
         ):
             config = {
@@ -284,20 +274,18 @@ class TestConcurrentOperationsIntegration:
                 "max_concurrent_experiments": 4,
             }
 
-            director = ResearchDirectorAgent(
-                research_question="Test concurrent operations", config=config
-            )
+            with patch("kosmos.agents.research_director.get_session"):
+                director = ResearchDirectorAgent(
+                    research_question="Test concurrent operations", config=config
+                )
 
-            # Setup mocks
-            async_client = AsyncMock()
+            # DSPy handles parallel processing internally
+            # Setup mock async client for batch operations
+            async_client = MagicMock()
 
             async def mock_batch(requests):
-                from kosmos.core.async_llm import BatchResponse
-
                 return [
-                    BatchResponse(
-                        id=r.id, response="test", success=True, tokens_used=10, latency_ms=50.0
-                    )
+                    MagicMock(id=r.get("id"), success=True, response='{"result": "test"}')
                     for r in requests
                 ]
 

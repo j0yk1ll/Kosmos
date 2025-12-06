@@ -11,11 +11,9 @@ from datetime import datetime
 from typing import Any
 
 import dspy
-
 import numpy as np
 
 from kosmos.agents.base import AgentStatus, BaseAgent
-from kosmos.agents.dspy_client import DSPyAgentClient
 from kosmos.models.hypothesis import Hypothesis
 from kosmos.models.result import ExperimentResult
 
@@ -143,7 +141,7 @@ class DataAnalystAgent(BaseAgent):
         agent_id: str | None = None,
         agent_type: str | None = None,
         config: dict[str, Any] | None = None,
-        llm_client: DSPyAgentClient | None = None,
+        llm_config: dict[str, Any] | None = None,
     ):
         """
         Initialize Data Analyst Agent.
@@ -167,7 +165,7 @@ class DataAnalystAgent(BaseAgent):
         self.effect_size_threshold = self.config.get("effect_size_threshold", 0.3)
 
         # Components
-        self.llm_client = llm_client
+        self.llm = dspy.LM(**llm_config) if llm_config else None
 
         # State: Store interpretations for pattern detection
         self.interpretation_history: list[ResultInterpretation] = []
@@ -350,30 +348,31 @@ class DataAnalystAgent(BaseAgent):
         # Extract key information from result
         result_summary = self._extract_result_summary(result)
 
-        if not self.llm_client:
-            raise ValueError("Language model client is not configured")
+        if not self.llm:
+            raise ValueError("LLM is not configured")
 
-        # Get DSPy LM interpretation
         try:
-            prediction = self.llm_client.predict(
-                ResultInterpretationSignature,
-                result_summary=result_summary,
-                hypothesis_statement=hypothesis.statement if hypothesis else "",
-                literature_context=literature_context or "",
-            )
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(ResultInterpretationSignature)
 
-            interpretation = self._parse_interpretation_response(
-                getattr(prediction, "interpretation", ""), result.experiment_id, result
-            )
+                response = predictor(
+                    result_summary=json.dumps(result_summary),
+                    hypothesis_statement=hypothesis.statement if hypothesis else "",
+                    literature_context=literature_context or "",
+                )
 
-            # Store in history for pattern detection
-            self.interpretation_history.append(interpretation)
+                interpretation = self._parse_interpretation_response(
+                    getattr(response, "interpretation", ""), result.experiment_id, result
+                )
 
-            logger.info(f"Completed interpretation for {result.experiment_id}")
-            return interpretation
+                # Store in history for pattern detection
+                self.interpretation_history.append(interpretation)
+
+                logger.info(f"Completed interpretation for {result.experiment_id}")
+                return interpretation
 
         except Exception as e:
-            logger.error(f"Error getting DSPy LM interpretation: {e}")
+            logger.error(f"Error getting interpretation: {e}")
             # Return fallback interpretation
             return self._create_fallback_interpretation(result)
 

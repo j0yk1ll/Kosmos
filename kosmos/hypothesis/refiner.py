@@ -4,7 +4,7 @@ Hypothesis Refiner - Refines, retires, and spawns hypotheses based on experiment
 Implements hybrid retirement logic:
 - Rule-based: Consecutive failures
 - Confidence-based: Bayesian updating
-- Claude-powered: Ambiguous cases
+- LLM-powered: Ambiguous cases
 """
 
 import json
@@ -14,9 +14,10 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+import dspy
 from pydantic import BaseModel, Field
 
-from kosmos.core.llm import get_client
+from kosmos.config import get_config
 from kosmos.knowledge.vector_db import (
     HAS_CHROMADB,
     PaperVectorDB as VectorDB,
@@ -26,6 +27,58 @@ from kosmos.models.result import ExperimentResult, ResultStatus
 
 
 logger = logging.getLogger(__name__)
+
+
+class RetirementEvaluationSignature(dspy.Signature):
+    """Evaluate whether a hypothesis should be retired based on experimental evidence."""
+
+    hypothesis_statement: str = dspy.InputField(desc="The hypothesis statement")
+    hypothesis_rationale: str = dspy.InputField(desc="The hypothesis rationale")
+    domain: str = dspy.InputField(desc="Scientific domain")
+    results_summary: str = dspy.InputField(desc="Summary of experimental results")
+
+    decision: str = dspy.OutputField(desc="Decision: retire, refine, or continue")
+    confidence: str = dspy.OutputField(desc="Confidence level 0.0-1.0")
+    rationale: str = dspy.OutputField(desc="2-3 sentence explanation")
+    suggested_action: str = dspy.OutputField(desc="What to do next if not retire")
+
+
+class HypothesisRefinementSignature(dspy.Signature):
+    """Refine a hypothesis based on experimental results."""
+
+    original_statement: str = dspy.InputField(desc="Original hypothesis statement")
+    original_rationale: str = dspy.InputField(desc="Original hypothesis rationale")
+    domain: str = dspy.InputField(desc="Scientific domain")
+    result_summary: str = dspy.InputField(desc="Experimental result details")
+
+    refined_statement: str = dspy.OutputField(desc="Refined hypothesis statement")
+    refined_rationale: str = dspy.OutputField(desc="Updated rationale incorporating evidence")
+    changes_made: str = dspy.OutputField(desc="What was changed and why")
+    confidence: str = dspy.OutputField(desc="Confidence level 0.0-1.0")
+
+
+class VariantSpawningSignature(dspy.Signature):
+    """Generate variant hypotheses based on experimental findings."""
+
+    original_statement: str = dspy.InputField(desc="Original hypothesis statement")
+    original_rationale: str = dspy.InputField(desc="Original hypothesis rationale")
+    result_summary: str = dspy.InputField(desc="Experimental result details")
+    num_variants: str = dspy.InputField(desc="Number of variants to generate")
+
+    variants_json: str = dspy.OutputField(
+        desc="JSON array of variant hypotheses with statement, rationale, and relationship"
+    )
+
+
+class HypothesisMergingSignature(dspy.Signature):
+    """Merge similar hypotheses into a unified hypothesis."""
+
+    statements: str = dspy.InputField(desc="Hypothesis statements to merge")
+    rationales: str = dspy.InputField(desc="Hypothesis rationales")
+
+    merged_statement: str = dspy.OutputField(desc="Unified hypothesis statement")
+    merged_rationale: str = dspy.OutputField(desc="Integrated rationale")
+    synthesis_explanation: str = dspy.OutputField(desc="How the hypotheses were combined")
 
 
 class RetirementDecision(str, Enum):
@@ -78,7 +131,7 @@ class HypothesisRefiner:
 
     def __init__(
         self,
-        llm_client=None,
+        llm_config: dict[str, Any] | None = None,
         vector_db: VectorDB | None = None,
         config: dict[str, Any] | None = None,
     ):
@@ -86,11 +139,15 @@ class HypothesisRefiner:
         Initialize hypothesis refiner.
 
         Args:
-            llm_client: Claude LLM client
+            llm_config: Optional LLM configuration dict for DSPy
             vector_db: Vector database for semantic similarity
             config: Configuration dict
         """
-        self.llm_client = llm_client or get_client()
+        # Initialize DSPy LM
+        if llm_config is None:
+            cfg = get_config()
+            llm_config = cfg.llm.to_dspy_config()
+        self.llm = dspy.LM(**llm_config)
         self.vector_db = vector_db
 
         # Configuration
@@ -176,11 +233,11 @@ class HypothesisRefiner:
             else:
                 return RetirementDecision.CONTINUE_TESTING
 
-    def should_retire_hypothesis_claude(
+    def should_retire_hypothesis_llm(
         self, hypothesis: Hypothesis, results: list[ExperimentResult]
     ) -> tuple[bool, str]:
         """
-        Use Claude to decide if hypothesis should be retired (for ambiguous cases).
+        Use LLM to decide if hypothesis should be retired (for ambiguous cases).
 
         Args:
             hypothesis: Hypothesis to evaluate
@@ -189,59 +246,37 @@ class HypothesisRefiner:
         Returns:
             Tuple of (should_retire: bool, rationale: str)
         """
-        # Build prompt
-        results_summary = self._format_results_for_claude(results)
-
-        prompt = f"""You are evaluating whether a scientific hypothesis should be retired based on experimental evidence.
-
-Hypothesis: {hypothesis.statement}
-Rationale: {hypothesis.rationale}
-Domain: {hypothesis.domain}
-
-Experimental Results ({len(results)} experiments):
-{results_summary}
-
-Analysis:
-1. Overall pattern: Are results consistently rejecting, supporting, or mixed?
-2. Effect sizes: Even if statistically significant, are effects meaningful?
-3. Quality of evidence: Are there methodological concerns?
-4. Theoretical implications: Does the pattern suggest the hypothesis is fundamentally flawed?
-
-Decision: Should this hypothesis be retired, refined, or continue testing?
-
-Respond with JSON:
-{{
-    "decision": "retire" | "refine" | "continue",
-    "confidence": 0.0-1.0,
-    "rationale": "2-3 sentence explanation",
-    "suggested_action": "What to do next (if not retire)"
-}}
-"""
+        # Build results summary
+        results_summary = self._format_results_for_llm(results)
 
         try:
-            response = self.llm_client.generate(prompt, max_tokens=500)
-
-            # Parse JSON
-            json_start = response.find("{")
-            json_end = response.rfind("}") + 1
-            if json_start >= 0 and json_end > json_start:
-                json_str = response[json_start:json_end]
-                result = json.loads(json_str)
-
-                should_retire = result.get("decision") == "retire"
-                rationale = result.get("rationale", "")
-
-                logger.info(
-                    f"Claude decision for {hypothesis.id}: {result.get('decision')} (confidence: {result.get('confidence')})"
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(RetirementEvaluationSignature)
+                response = predictor(
+                    hypothesis_statement=hypothesis.statement,
+                    hypothesis_rationale=hypothesis.rationale or "No rationale provided",
+                    domain=hypothesis.domain or "General",
+                    results_summary=results_summary,
                 )
 
-                return should_retire, rationale
-            else:
-                logger.warning("Could not parse Claude response as JSON")
-                return False, "Parsing error"
+            # Parse response
+            decision = response.decision if hasattr(response, "decision") else "continue"
+            confidence_str = response.confidence if hasattr(response, "confidence") else "0.5"
+            rationale = response.rationale if hasattr(response, "rationale") else ""
+
+            try:
+                confidence = float(confidence_str)
+            except (ValueError, TypeError):
+                confidence = 0.5
+
+            should_retire = "retire" in decision.lower()
+
+            logger.info(f"LLM decision for {hypothesis.id}: {decision} (confidence: {confidence})")
+
+            return should_retire, rationale
 
         except Exception as e:
-            logger.error(f"Error getting Claude decision: {e}")
+            logger.error(f"Error getting LLM decision: {e}")
             return False, f"Error: {str(e)}"
 
     def _count_consecutive_failures(self, results: list[ExperimentResult]) -> int:
@@ -334,78 +369,71 @@ Respond with JSON:
         """
         logger.info(f"Refining hypothesis {hypothesis.id}")
 
-        # Use Claude to generate refined hypothesis
-        prompt = f"""You are refining a scientific hypothesis based on experimental results.
-
-Original Hypothesis:
-Statement: {hypothesis.statement}
-Rationale: {hypothesis.rationale}
-Domain: {hypothesis.domain}
-
-Experimental Result:
-- Supported: {result.supports_hypothesis}
-- P-value: {result.primary_p_value}
-- Effect size: {result.primary_effect_size}
-- Primary test: {result.primary_test}
-
-Task: Refine the hypothesis to better align with the evidence. The refined hypothesis should:
-1. Keep the core idea but adjust the statement to match observed effects
-2. Update the rationale to incorporate new evidence
-3. Be more precise or nuanced based on what was learned
-
-Respond with JSON:
-{{
-    "refined_statement": "Refined hypothesis statement",
-    "refined_rationale": "Updated rationale incorporating evidence",
-    "changes_made": "What was changed and why",
-    "confidence": 0.0-1.0
-}}
-"""
+        # Build result summary
+        result_summary = f"""Supported: {result.supports_hypothesis}
+P-value: {result.primary_p_value}
+Effect size: {result.primary_effect_size}
+Primary test: {result.primary_test}"""
 
         try:
-            response = self.llm_client.generate(prompt, max_tokens=800)
-
-            # Parse JSON
-            json_start = response.find("{")
-            json_end = response.rfind("}") + 1
-            if json_start >= 0 and json_end > json_start:
-                json_str = response[json_start:json_end]
-                refinement = json.loads(json_str)
-
-                # Create refined hypothesis with new ID
-                refined = Hypothesis(
-                    id=f"hyp_{uuid.uuid4().hex[:12]}",
-                    research_question=hypothesis.research_question,
-                    statement=refinement.get("refined_statement", hypothesis.statement),
-                    rationale=refinement.get("refined_rationale", hypothesis.rationale),
-                    domain=hypothesis.domain,
-                    status=HypothesisStatus.GENERATED,
-                    testability_score=hypothesis.testability_score,
-                    novelty_score=hypothesis.novelty_score,  # May decrease slightly
-                    confidence_score=refinement.get("confidence", 0.5),
-                    priority_score=hypothesis.priority_score,
-                    parent_hypothesis_id=hypothesis.id,
-                    generation=hypothesis.generation + 1,
-                    refinement_count=0,
-                    evolution_history=[
-                        {
-                            "action": "refined",
-                            "based_on_result": result.id,
-                            "changes": refinement.get("changes_made", ""),
-                            "timestamp": datetime.utcnow().isoformat(),
-                        }
-                    ],
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(HypothesisRefinementSignature)
+                response = predictor(
+                    original_statement=hypothesis.statement,
+                    original_rationale=hypothesis.rationale or "No rationale provided",
+                    domain=hypothesis.domain or "General",
+                    result_summary=result_summary,
                 )
 
-                # Track lineage
-                self._track_lineage(refined, hypothesis, "refined", [result.id])
+            # Parse response
+            refined_statement = (
+                response.refined_statement
+                if hasattr(response, "refined_statement")
+                else hypothesis.statement
+            )
+            refined_rationale = (
+                response.refined_rationale
+                if hasattr(response, "refined_rationale")
+                else hypothesis.rationale
+            )
+            changes_made = response.changes_made if hasattr(response, "changes_made") else ""
+            confidence_str = response.confidence if hasattr(response, "confidence") else "0.5"
 
-                logger.info(f"Created refined hypothesis (generation {refined.generation})")
-                return refined
+            try:
+                confidence = float(confidence_str)
+            except (ValueError, TypeError):
+                confidence = 0.5
 
-            else:
-                logger.warning("Could not parse refinement JSON")
-                return hypothesis
+            # Create refined hypothesis with new ID
+            refined = Hypothesis(
+                id=f"hyp_{uuid.uuid4().hex[:12]}",
+                research_question=hypothesis.research_question,
+                statement=refined_statement,
+                rationale=refined_rationale,
+                domain=hypothesis.domain,
+                status=HypothesisStatus.GENERATED,
+                testability_score=hypothesis.testability_score,
+                novelty_score=hypothesis.novelty_score,  # May decrease slightly
+                confidence_score=confidence,
+                priority_score=hypothesis.priority_score,
+                parent_hypothesis_id=hypothesis.id,
+                generation=hypothesis.generation + 1,
+                refinement_count=0,
+                evolution_history=[
+                    {
+                        "action": "refined",
+                        "based_on_result": result.id,
+                        "changes": changes_made,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                ],
+            )
+
+            # Track lineage
+            self._track_lineage(refined, hypothesis, "refined", [result.id])
+
+            logger.info(f"Created refined hypothesis (generation {refined.generation})")
+            return refined
 
         except Exception as e:
             logger.error(f"Error refining hypothesis: {e}")
@@ -434,41 +462,28 @@ Respond with JSON:
         """
         logger.info(f"Spawning {num_variants} variants from hypothesis {hypothesis.id}")
 
-        prompt = f"""You are generating variant hypotheses based on experimental findings.
-
-Original Hypothesis:
-Statement: {hypothesis.statement}
-Rationale: {hypothesis.rationale}
-
-Experimental Result:
-- Supported: {result.supports_hypothesis}
-- P-value: {result.primary_p_value}
-- Effect size: {result.primary_effect_size}
-
-Task: Generate {num_variants} related but distinct hypotheses that:
-1. Explore related aspects or mechanisms
-2. Test boundary conditions or moderating factors
-3. Investigate related phenomena
-
-Respond with JSON array:
-[
-    {{
-        "statement": "Variant hypothesis statement",
-        "rationale": "Why this variant is worth testing",
-        "relationship": "How it relates to original"
-    }},
-    ...
-]
-"""
+        result_summary = f"""Supported: {result.supports_hypothesis}
+P-value: {result.primary_p_value}
+Effect size: {result.primary_effect_size}"""
 
         try:
-            response = self.llm_client.generate(prompt, max_tokens=1000)
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(VariantSpawningSignature)
+                response = predictor(
+                    original_statement=hypothesis.statement,
+                    original_rationale=hypothesis.rationale or "No rationale provided",
+                    result_summary=result_summary,
+                    num_variants=str(num_variants),
+                )
 
-            # Parse JSON
-            json_start = response.find("[")
-            json_end = response.rfind("]") + 1
+            # Parse JSON from response
+            variants_json = response.variants_json if hasattr(response, "variants_json") else "[]"
+
+            # Extract JSON array
+            json_start = variants_json.find("[")
+            json_end = variants_json.rfind("]") + 1
             if json_start >= 0 and json_end > json_start:
-                json_str = response[json_start:json_end]
+                json_str = variants_json[json_start:json_end]
                 variants_data = json.loads(json_str)
 
                 variants = []
@@ -496,7 +511,6 @@ Respond with JSON array:
 
                 logger.info(f"Spawned {len(variants)} variant hypotheses")
                 return variants
-
             else:
                 logger.warning("Could not parse variants JSON")
                 return []
@@ -680,66 +694,48 @@ Respond with JSON array:
         """
         logger.info(f"Merging {len(hypotheses)} hypotheses")
 
-        # Build prompt
+        # Build inputs
         statements = "\n".join([f"- {h.statement}" for h in hypotheses])
         rationales = "\n".join([f"- {h.rationale}" for h in hypotheses])
 
-        prompt = f"""You are synthesizing multiple related hypotheses into a single unified hypothesis.
-
-Hypotheses to merge:
-{statements}
-
-Rationales:
-{rationales}
-
-Task: Create a single hypothesis that captures the essence of all inputs. The merged hypothesis should:
-1. Integrate the key claims from all hypotheses
-2. Be more comprehensive than any single hypothesis
-3. Remain testable and falsifiable
-
-Respond with JSON:
-{{
-    "merged_statement": "Unified hypothesis statement",
-    "merged_rationale": "Integrated rationale",
-    "synthesis_explanation": "How the hypotheses were combined"
-}}
-"""
-
         try:
-            response = self.llm_client.generate(prompt, max_tokens=800)
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(HypothesisMergingSignature)
+                response = predictor(statements=statements, rationales=rationales)
 
-            json_start = response.find("{")
-            json_end = response.rfind("}") + 1
-            if json_start >= 0 and json_end > json_start:
-                json_str = response[json_start:json_end]
-                merge_data = json.loads(json_str)
+            # Parse response
+            merged_statement = (
+                response.merged_statement if hasattr(response, "merged_statement") else ""
+            )
+            merged_rationale = (
+                response.merged_rationale if hasattr(response, "merged_rationale") else ""
+            )
+            synthesis_explanation = (
+                response.synthesis_explanation if hasattr(response, "synthesis_explanation") else ""
+            )
 
-                # Create merged hypothesis with new ID
-                merged = Hypothesis(
-                    id=f"hyp_{uuid.uuid4().hex[:12]}",
-                    research_question=hypotheses[0].research_question,
-                    statement=merge_data.get("merged_statement", ""),
-                    rationale=merge_data.get("merged_rationale", ""),
-                    domain=hypotheses[0].domain,
-                    status=HypothesisStatus.GENERATED,
-                    parent_hypothesis_id=hypotheses[0].id,  # First as parent
-                    generation=max(h.generation for h in hypotheses) + 1,
-                    evolution_history=[
-                        {
-                            "action": "merged",
-                            "merged_from": [h.id for h in hypotheses],
-                            "synthesis": merge_data.get("synthesis_explanation", ""),
-                            "timestamp": datetime.utcnow().isoformat(),
-                        }
-                    ],
-                )
+            # Create merged hypothesis with new ID
+            merged = Hypothesis(
+                id=f"hyp_{uuid.uuid4().hex[:12]}",
+                research_question=hypotheses[0].research_question,
+                statement=merged_statement,
+                rationale=merged_rationale,
+                domain=hypotheses[0].domain,
+                status=HypothesisStatus.GENERATED,
+                parent_hypothesis_id=hypotheses[0].id,  # First as parent
+                generation=max(h.generation for h in hypotheses) + 1,
+                evolution_history=[
+                    {
+                        "action": "merged",
+                        "merged_from": [h.id for h in hypotheses],
+                        "synthesis": synthesis_explanation,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                ],
+            )
 
-                logger.info("Created merged hypothesis")
-                return merged
-
-            else:
-                logger.warning("Could not parse merge JSON")
-                return hypotheses[0]
+            logger.info("Created merged hypothesis")
+            return merged
 
         except Exception as e:
             logger.error(f"Error merging hypotheses: {e}")
@@ -822,8 +818,8 @@ Respond with JSON:
     # UTILITIES
     # ========================================================================
 
-    def _format_results_for_claude(self, results: list[ExperimentResult]) -> str:
-        """Format results for Claude prompt."""
+    def _format_results_for_llm(self, results: list[ExperimentResult]) -> str:
+        """Format results for LLM prompt."""
         formatted = []
 
         for i, result in enumerate(results, 1):

@@ -1,19 +1,36 @@
 """
 Result Summarization.
 
-Natural language summaries of experiment results using Claude.
+Natural language summaries of experiment results using DSPy.
 """
 
 import logging
 from datetime import datetime
 from typing import Any
 
-from kosmos.core.llm import get_client
+import dspy
+
+from kosmos.config import get_config
 from kosmos.models.hypothesis import Hypothesis
 from kosmos.models.result import ExperimentResult
 
 
 logger = logging.getLogger(__name__)
+
+
+class ResultSummarySignature(dspy.Signature):
+    """Generate comprehensive scientific summary of experiment results."""
+
+    hypothesis: str = dspy.InputField(desc="Original hypothesis statement")
+    experimental_results: str = dspy.InputField(desc="Experimental results summary")
+    interpretation: str = dspy.InputField(desc="Data analysis interpretation")
+    literature_context: str = dspy.InputField(desc="Relevant literature context")
+
+    summary: str = dspy.OutputField(desc="2-3 paragraph natural language summary")
+    key_findings: str = dspy.OutputField(desc="Numbered list of 3-5 key findings")
+    hypothesis_assessment: str = dspy.OutputField(desc="How results relate to hypothesis")
+    limitations: str = dspy.OutputField(desc="Bullet list of limitations")
+    future_work: str = dspy.OutputField(desc="Numbered list of suggested follow-up experiments")
 
 
 class ResultSummary:
@@ -104,10 +121,18 @@ class ResultSummarizer:
         ```
     """
 
-    def __init__(self):
-        """Initialize result summarizer."""
-        self.llm_client = get_client()
-        logger.info("ResultSummarizer initialized")
+    def __init__(self, llm_config: dict[str, Any] | None = None):
+        """Initialize result summarizer.
+
+        Args:
+            llm_config: Optional LLM configuration dict for DSPy (uses default config if not provided)
+        """
+        # Initialize DSPy LM
+        if llm_config is None:
+            config = get_config()
+            llm_config = config.llm.to_dspy_config()
+        self.llm = dspy.LM(**llm_config)
+        logger.info("ResultSummarizer initialized with DSPy")
 
     def generate_summary(
         self,
@@ -130,21 +155,38 @@ class ResultSummarizer:
         """
         logger.info(f"Generating summary for experiment {result.experiment_id}")
 
-        # Build prompt
-        prompt = self._build_summary_prompt(result, hypothesis, interpretation, literature_context)
+        # Prepare inputs for DSPy
+        hypothesis_str = hypothesis.statement if hypothesis else "No hypothesis provided"
 
-        # Get Claude summary
+        experimental_results = f"""Primary Test: {result.primary_test}
+P-value: {result.primary_p_value}
+Effect Size: {result.primary_effect_size}
+Hypothesis Supported: {result.supports_hypothesis}
+Status: {result.status}"""
+
+        interpretation_str = (
+            str(interpretation.get("summary", "No interpretation provided"))
+            if interpretation
+            else "No interpretation provided"
+        )
+
+        literature_context_str = (
+            literature_context[:500] if literature_context else "No literature context provided"
+        )
+
+        # Get DSPy summary
         try:
-            response = self.llm_client.generate(
-                prompt=prompt,
-                system="You are a scientific writer creating clear, accurate summaries of "
-                "experimental results for a scientific audience. Be precise but accessible.",
-                max_tokens=1500,
-                temperature=0.4,
-            )
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(ResultSummarySignature)
+                response = predictor(
+                    hypothesis=hypothesis_str,
+                    experimental_results=experimental_results,
+                    interpretation=interpretation_str,
+                    literature_context=literature_context_str,
+                )
 
             # Parse response
-            summary = self._parse_summary_response(response, result.experiment_id)
+            summary = self._parse_dspy_response(response, result.experiment_id)
 
             logger.info(f"Completed summary for {result.experiment_id}")
             return summary
@@ -322,108 +364,41 @@ class ResultSummarizer:
     # INTERNAL METHODS
     # ========================================================================
 
-    def _build_summary_prompt(
-        self,
-        result: ExperimentResult,
-        hypothesis: Hypothesis | None,
-        interpretation: dict[str, Any] | None,
-        literature_context: str | None,
-    ) -> str:
-        """Build prompt for summary generation."""
-        prompt_parts = []
+    def _parse_dspy_response(self, response: Any, experiment_id: str) -> ResultSummary:
+        """Parse DSPy response into ResultSummary."""
+        # Extract summary text
+        summary = response.summary if hasattr(response, "summary") else "No summary generated"
 
-        if hypothesis:
-            prompt_parts.append(f"HYPOTHESIS: {hypothesis.statement}\n")
-
-        prompt_parts.append(
-            f"""
-EXPERIMENTAL RESULTS:
-- Primary Test: {result.primary_test}
-- P-value: {result.primary_p_value}
-- Effect Size: {result.primary_effect_size}
-- Hypothesis Supported: {result.supports_hypothesis}
-- Status: {result.status}
-"""
-        )
-
-        if interpretation:
-            prompt_parts.append(f"\nINTERPRETATION: {interpretation.get('summary', '')}\n")
-
-        if literature_context:
-            prompt_parts.append(f"\nLITERATURE CONTEXT: {literature_context[:500]}\n")
-
-        prompt_parts.append(
-            """
-Please provide a comprehensive summary in the following format:
-
-SUMMARY: (2-3 paragraphs explaining the experiment, results, and implications)
-
-KEY FINDINGS:
-1. [First key finding]
-2. [Second key finding]
-3. [Third key finding]
-
-HYPOTHESIS ASSESSMENT: (How do results relate to the hypothesis?)
-
-LIMITATIONS:
-- [Limitation 1]
-- [Limitation 2]
-- [Limitation 3]
-
-FUTURE WORK:
-1. [Suggested experiment 1]
-2. [Suggested experiment 2]
-3. [Suggested experiment 3]
-"""
-        )
-
-        return "\n".join(prompt_parts)
-
-    def _parse_summary_response(self, response: str, experiment_id: str) -> ResultSummary:
-        """Parse Claude response into ResultSummary."""
-        # Simple parsing (in production, would use more robust parsing)
-        lines = response.split("\n")
-
-        summary = ""
+        # Parse key findings (numbered list)
+        key_findings_text = response.key_findings if hasattr(response, "key_findings") else ""
         key_findings = []
-        hypothesis_comparison = ""
-        limitations = []
-        future_work = []
-
-        current_section = None
-
-        for line in lines:
+        for line in key_findings_text.split("\n"):
             line = line.strip()
+            if line and (line[0].isdigit() or line.startswith("-")):
+                key_findings.append(line.lstrip("0123456789.-) "))
 
-            if line.startswith("SUMMARY:"):
-                current_section = "summary"
-                summary = line.replace("SUMMARY:", "").strip()
-            elif line.startswith("KEY FINDINGS:"):
-                current_section = "findings"
-            elif line.startswith("HYPOTHESIS ASSESSMENT:"):
-                current_section = "hypothesis"
-                hypothesis_comparison = line.replace("HYPOTHESIS ASSESSMENT:", "").strip()
-            elif line.startswith("LIMITATIONS:"):
-                current_section = "limitations"
-            elif line.startswith("FUTURE WORK:"):
-                current_section = "future_work"
-            elif line and current_section:
-                if current_section == "summary" and not line.startswith(
-                    ("KEY", "HYPOTHESIS", "LIMITATIONS", "FUTURE")
-                ):
-                    summary += " " + line
-                elif current_section == "findings" and (line[0].isdigit() or line.startswith("-")):
-                    key_findings.append(line.lstrip("0123456789.-) "))
-                elif current_section == "hypothesis" and not line.startswith(
-                    ("LIMITATIONS", "FUTURE")
-                ):
-                    hypothesis_comparison += " " + line
-                elif current_section == "limitations" and line.startswith("-"):
-                    limitations.append(line.lstrip("- "))
-                elif current_section == "future_work" and (
-                    line[0].isdigit() or line.startswith("-")
-                ):
-                    future_work.append(line.lstrip("0123456789.-) "))
+        # Extract hypothesis assessment
+        hypothesis_comparison = (
+            response.hypothesis_assessment
+            if hasattr(response, "hypothesis_assessment")
+            else "No hypothesis assessment"
+        )
+
+        # Parse limitations (bullet list)
+        limitations_text = response.limitations if hasattr(response, "limitations") else ""
+        limitations = []
+        for line in limitations_text.split("\n"):
+            line = line.strip()
+            if line and line.startswith("-"):
+                limitations.append(line.lstrip("- "))
+
+        # Parse future work (numbered list)
+        future_work_text = response.future_work if hasattr(response, "future_work") else ""
+        future_work = []
+        for line in future_work_text.split("\n"):
+            line = line.strip()
+            if line and (line[0].isdigit() or line.startswith("-")):
+                future_work.append(line.lstrip("0123456789.-) "))
 
         return ResultSummary(
             experiment_id=experiment_id,
@@ -437,7 +412,7 @@ FUTURE WORK:
     def _create_fallback_summary(
         self, result: ExperimentResult, hypothesis: Hypothesis | None
     ) -> ResultSummary:
-        """Create fallback summary if Claude fails."""
+        """Create fallback summary if DSPy fails."""
         summary = f"Experiment {result.experiment_id} completed with status {result.status}. "
         summary += (
             f"Primary test ({result.primary_test}) yielded p-value of {result.primary_p_value}. "

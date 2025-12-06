@@ -13,7 +13,6 @@ from typing import Any
 import dspy
 
 from kosmos.agents.base import AgentMessage, AgentStatus, BaseAgent, MessageType
-from kosmos.agents.dspy_client import DSPyAgentClient
 from kosmos.db import get_session
 from kosmos.db.models import (
     Hypothesis as DBHypothesis,
@@ -37,7 +36,9 @@ class DomainClassificationSignature(dspy.Signature):
     """Identify the primary scientific domain for a research question."""
 
     research_question: str = dspy.InputField()
-    domain: str = dspy.OutputField(desc="Normalized domain label such as machine_learning or biology")
+    domain: str = dspy.OutputField(
+        desc="Normalized domain label such as machine_learning or biology"
+    )
 
 
 class HypothesisGenerationSignature(dspy.Signature):
@@ -46,16 +47,13 @@ class HypothesisGenerationSignature(dspy.Signature):
     research_question: str = dspy.InputField()
     domain: str = dspy.InputField()
     num_hypotheses: int = dspy.InputField()
-    literature_context: str = dspy.InputField(desc="Optional recent literature context as plain text")
+    literature_context: str = dspy.InputField(
+        desc="Optional recent literature context as plain text"
+    )
 
     hypotheses: list[dict] = dspy.OutputField(
         desc="List of hypotheses with statement, rationale, confidence_score, testability_score, and suggested_experiment_types"
     )
-
-
-def get_client():
-    """Deprecated compatibility shim for legacy patches."""
-    return None
 
 
 class HypothesisGeneratorAgent(BaseAgent):
@@ -92,7 +90,7 @@ class HypothesisGeneratorAgent(BaseAgent):
         agent_id: str | None = None,
         agent_type: str | None = None,
         config: dict[str, Any] | None = None,
-        llm_client: DSPyAgentClient | None = None,
+        llm_config: dict[str, Any] | None = None,
     ):
         """
         Initialize Hypothesis Generator Agent.
@@ -101,6 +99,7 @@ class HypothesisGeneratorAgent(BaseAgent):
             agent_id: Unique agent identifier
             agent_type: Agent type name
             config: Configuration dictionary
+            llm_config: Configuration for dspy.LM
         """
         super().__init__(agent_id, agent_type or "HypothesisGeneratorAgent", config)
 
@@ -112,7 +111,7 @@ class HypothesisGeneratorAgent(BaseAgent):
         self.min_novelty_score = self.config.get("min_novelty_score", 0.5)
 
         # Components
-        self.llm_client = llm_client
+        self.llm = dspy.LM(**llm_config) if llm_config else None
         self.literature_search = UnifiedLiteratureSearch() if self.use_literature_context else None
 
         logger.info(f"Initialized HypothesisGeneratorAgent {self.agent_id}")
@@ -277,18 +276,18 @@ class HypothesisGeneratorAgent(BaseAgent):
             str: Detected domain
         """
         try:
-            if not self.llm_client:
-                raise ValueError("Language model client is not configured")
+            if not self.llm:
+                raise ValueError("LLM is not configured")
 
-            prediction = self.llm_client.predict(
-                DomainClassificationSignature, research_question=research_question
-            )
-            domain = (
-                prediction.domain.strip().lower().replace(" ", "_").replace("-", "_")
-                if prediction and getattr(prediction, "domain", None)
-                else None
-            )
-            return domain if domain else "general"
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(DomainClassificationSignature)
+                prediction = predictor(research_question=research_question)
+                domain = (
+                    prediction.domain.strip().lower().replace(" ", "_").replace("-", "_")
+                    if prediction and getattr(prediction, "domain", None)
+                    else None
+                )
+                return domain if domain else "general"
 
         except Exception as e:
             logger.error(f"Error detecting domain: {e}")
@@ -356,18 +355,19 @@ class HypothesisGeneratorAgent(BaseAgent):
                 literature_context += "\n"
 
         try:
-            if not self.llm_client:
-                raise ValueError("Language model client is not configured")
+            if not self.llm:
+                raise ValueError("LLM is not configured")
 
-            prediction = self.llm_client.predict(
-                HypothesisGenerationSignature,
-                research_question=research_question,
-                domain=domain,
-                num_hypotheses=num_hypotheses,
-                literature_context=literature_context
-                or "No specific literature context provided.",
-            )
-            response = prediction.hypotheses if prediction else []
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(HypothesisGenerationSignature)
+                prediction = predictor(
+                    research_question=research_question,
+                    domain=domain,
+                    num_hypotheses=num_hypotheses,
+                    literature_context=literature_context
+                    or "No specific literature context provided.",
+                )
+                response = prediction.hypotheses if prediction else []
 
             # Parse response into Hypothesis objects
             hypotheses = []

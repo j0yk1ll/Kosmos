@@ -5,7 +5,7 @@ These tests verify that all Phase 2 components work together correctly
 in realistic workflows.
 """
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -33,17 +33,15 @@ class TestSearchAndAnalyzeWorkflow:
             papers = search.search("machine learning", max_results=2, sources=["arxiv"])
 
         # 2. Analyze with agent (mocked)
-        with patch("kosmos.agents.literature_analyzer.get_client") as mock_client:
-            mock_client.return_value.generate_structured.return_value = {
-                "executive_summary": "Test summary",
-                "key_findings": ["Finding 1"],
-                "methodology": "Test methods",
-                "significance": "Important",
-                "limitations": ["Limitation 1"],
-                "confidence_score": 0.8,
-            }
+        with patch("kosmos.agents.literature_analyzer.dspy.LM") as mock_dspy_lm:
+            mock_lm = Mock()
+            mock_dspy_lm.return_value = mock_lm
 
-            agent = LiteratureAnalyzerAgent(config={"use_knowledge_graph": False})
+            agent = LiteratureAnalyzerAgent(
+                config={"use_knowledge_graph": False},
+                llm_config={"model": "test", "api_key": "test"},
+            )
+            agent.llm = mock_lm
             if papers:
                 analysis = agent.summarize_paper(papers[0])
                 assert analysis is not None
@@ -62,12 +60,9 @@ class TestKnowledgeGraphWorkflow:
                     kg = KnowledgeGraph(auto_start_container=False, create_indexes=False)
                     kg.graph = patch("py2neo.Graph").start()
 
-                    with patch("kosmos.knowledge.concept_extractor.get_client") as mock_client:
-                        mock_client.return_value.generate_structured.return_value = {
-                            "concepts": [{"name": "ML", "category": "Field", "relevance": 0.9}],
-                            "methods": [],
-                            "relationships": [],
-                        }
+                    with patch("kosmos.knowledge.concept_extractor.dspy.LM") as mock_dspy_lm:
+                        mock_lm = Mock()
+                        mock_dspy_lm.return_value = mock_lm
 
                         builder = GraphBuilder(knowledge_graph=kg)
 
@@ -159,12 +154,9 @@ class TestFullPipeline:
                         kg = KnowledgeGraph(auto_start_container=False, create_indexes=False)
                         kg.graph = patch("py2neo.Graph").start()
 
-                        with patch("kosmos.knowledge.concept_extractor.get_client") as mock_client:
-                            mock_client.return_value.generate_structured.return_value = {
-                                "concepts": [],
-                                "methods": [],
-                                "relationships": [],
-                            }
+                        with patch("kosmos.knowledge.concept_extractor.dspy.LM") as mock_dspy_lm:
+                            mock_lm = Mock()
+                            mock_dspy_lm.return_value = mock_lm
 
                             builder = GraphBuilder(knowledge_graph=kg)
 
@@ -173,19 +165,15 @@ class TestFullPipeline:
                                     builder.add_paper(paper, extract_concepts=False)
 
                         # 4. Analyze with agent (mocked)
-                        with patch(
-                            "kosmos.agents.literature_analyzer.get_client"
-                        ) as mock_agent_client:
-                            mock_agent_client.return_value.generate_structured.return_value = {
-                                "executive_summary": "Test summary",
-                                "key_findings": ["Finding 1"],
-                                "methodology": "Methods",
-                                "significance": "Important",
-                                "limitations": [],
-                                "confidence_score": 0.85,
-                            }
+                        with patch("kosmos.agents.literature_analyzer.dspy.LM") as mock_dspy_lm:
+                            mock_lm = Mock()
+                            mock_dspy_lm.return_value = mock_lm
 
-                            agent = LiteratureAnalyzerAgent(config={"use_knowledge_graph": False})
+                            agent = LiteratureAnalyzerAgent(
+                                config={"use_knowledge_graph": False},
+                                llm_config={"model": "test", "api_key": "test"},
+                            )
+                            agent.llm = mock_lm
                             analyses = agent.analyze_papers_batch(papers)
 
                             assert len(analyses) == len(papers)
@@ -215,18 +203,16 @@ class TestErrorHandling:
 
     def test_missing_services_degradation(self, sample_paper_metadata):
         """Test degraded functionality when services unavailable."""
-        with patch("kosmos.agents.literature_analyzer.get_client") as mock_client:
-            mock_client.return_value.generate_structured.return_value = {
-                "executive_summary": "Summary",
-                "key_findings": [],
-                "methodology": "Methods",
-                "significance": "Important",
-                "limitations": [],
-                "confidence_score": 0.7,
-            }
+        with patch("kosmos.agents.literature_analyzer.dspy.LM") as mock_dspy_lm:
+            mock_lm = Mock()
+            mock_dspy_lm.return_value = mock_lm
 
             # Agent with disabled knowledge graph
-            agent = LiteratureAnalyzerAgent(config={"use_knowledge_graph": False})
+            agent = LiteratureAnalyzerAgent(
+                config={"use_knowledge_graph": False},
+                llm_config={"model": "test", "api_key": "test"},
+            )
+            agent.llm = mock_lm
 
             # Should still work without knowledge graph
             analysis = agent.summarize_paper(sample_paper_metadata)

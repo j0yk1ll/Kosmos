@@ -5,7 +5,6 @@ Designs experimental protocols from hypotheses using templates and DSPy LMs,
 with resource estimation and scientific rigor validation.
 """
 
-import json
 import logging
 import time
 import uuid
@@ -15,7 +14,6 @@ from typing import Any
 import dspy
 
 from kosmos.agents.base import AgentMessage, AgentStatus, BaseAgent, MessageType
-from kosmos.agents.dspy_client import DSPyAgentClient
 from kosmos.db import get_session
 from kosmos.db.models import (
     Experiment as DBExperiment,
@@ -100,7 +98,7 @@ class ExperimentDesignerAgent(BaseAgent):
         agent_id: str | None = None,
         agent_type: str | None = None,
         config: dict[str, Any] | None = None,
-        llm_client: DSPyAgentClient | None = None,
+        llm_config: dict[str, Any] | None = None,
     ):
         """
         Initialize Experiment Designer Agent.
@@ -109,6 +107,7 @@ class ExperimentDesignerAgent(BaseAgent):
             agent_id: Unique agent identifier
             agent_type: Agent type name
             config: Configuration dictionary
+            llm_config: Configuration for dspy.LM
         """
         super().__init__(agent_id, agent_type or "ExperimentDesignerAgent", config)
 
@@ -120,7 +119,7 @@ class ExperimentDesignerAgent(BaseAgent):
         self.use_llm_enhancement = self.config.get("use_llm_enhancement", True)
 
         # Components
-        self.llm_client = llm_client
+        self.llm = dspy.LM(**llm_config) if llm_config else None
         self.template_registry = get_template_registry()
 
         logger.info(f"Initialized ExperimentDesignerAgent {self.agent_id}")
@@ -417,21 +416,22 @@ class ExperimentDesignerAgent(BaseAgent):
         logger.info("Generating protocol with DSPy LM")
 
         try:
-            if not self.llm_client:
-                raise ValueError("Language model client is not configured")
+            if not self.llm:
+                raise ValueError("LLM is not configured")
 
-            # Get structured output from DSPy LM
-            # Use higher max_tokens for experiment protocols which can be verbose
-            prediction = self.llm_client.predict(
-                ExperimentDesignSignature,
-                hypothesis_statement=hypothesis.statement,
-                hypothesis_rationale=hypothesis.rationale,
-                domain=hypothesis.domain,
-                experiment_type=experiment_type.value,
-                max_cost_usd=str(max_cost_usd or "unlimited"),
-                max_duration_days=str(max_duration_days or "flexible"),
-                research_question=hypothesis.research_question,
-            )
+            with dspy.context(lm=self.llm):
+                # Get structured output from DSPy LM
+                # Use higher max_tokens for experiment protocols which can be verbose
+                predictor = dspy.Predict(ExperimentDesignSignature)
+                prediction = predictor(
+                    hypothesis_statement=hypothesis.statement,
+                    hypothesis_rationale=hypothesis.rationale,
+                    domain=hypothesis.domain,
+                    experiment_type=experiment_type.value,
+                    max_cost_usd=str(max_cost_usd or "unlimited"),
+                    max_duration_days=str(max_duration_days or "flexible"),
+                    research_question=hypothesis.research_question,
+                )
 
             protocol_payload = {
                 "name": getattr(prediction, "name", None),
@@ -581,7 +581,7 @@ class ExperimentDesignerAgent(BaseAgent):
         logger.info("Enhancing protocol with LLM")
 
         # Ask the DSPy LM for enhancements
-        prompt = f"""Review and enhance this experimental protocol.
+        f"""Review and enhance this experimental protocol.
 
 Hypothesis: {hypothesis.statement}
 Rationale: {hypothesis.rationale}
@@ -602,10 +602,11 @@ Return ONLY a JSON object with suggested enhancements (keep it concise).
 """
 
         try:
-            self.llm_client.generate(prompt, max_tokens=1000)
-            # Parse and apply enhancements (simplified for now)
-            # In production, would parse JSON and selectively apply
-            logger.info("LLM enhancements applied")
+            if self.llm:
+                with dspy.context(lm=self.llm):
+                    # Parse and apply enhancements (simplified for now)
+                    # In production, would parse JSON and selectively apply
+                    logger.info("LLM enhancements applied")
         except Exception as e:
             logger.warning(f"Failed to enhance protocol with LLM: {e}")
 

@@ -11,11 +11,12 @@ from kosmos.literature.base_client import PaperMetadata
 
 
 @pytest.fixture
-def concept_extractor(mock_llm_client):
-    """Create ConceptExtractor with mocked LLM."""
-    with patch("kosmos.knowledge.concept_extractor.get_client", return_value=mock_llm_client):
-        extractor = ConceptExtractor()
-        extractor.llm_client = mock_llm_client
+def concept_extractor():
+    """Create ConceptExtractor with mocked Anthropic client."""
+    with patch("kosmos.knowledge.concept_extractor.anthropic.Anthropic") as mock_anthropic:
+        mock_client = mock_anthropic.return_value
+        extractor = ConceptExtractor(api_key="test_key")
+        extractor.client = mock_client
         return extractor
 
 
@@ -23,16 +24,16 @@ def concept_extractor(mock_llm_client):
 class TestConceptExtractorInit:
     """Test concept extractor initialization."""
 
-    def test_init_default(self, mock_llm_client):
+    def test_init_default(self):
         """Test default initialization."""
-        with patch("kosmos.knowledge.concept_extractor.get_client", return_value=mock_llm_client):
-            extractor = ConceptExtractor()
+        with patch("kosmos.knowledge.concept_extractor.anthropic.Anthropic"):
+            extractor = ConceptExtractor(api_key="test_key")
             assert extractor.model == "claude-sonnet-4-5"
 
-    def test_init_custom_model(self, mock_llm_client):
+    def test_init_custom_model(self):
         """Test initialization with custom model."""
-        with patch("kosmos.knowledge.concept_extractor.get_client", return_value=mock_llm_client):
-            extractor = ConceptExtractor(model="claude-opus-4")
+        with patch("kosmos.knowledge.concept_extractor.anthropic.Anthropic"):
+            extractor = ConceptExtractor(api_key="test_key", model="claude-opus-4")
             assert extractor.model == "claude-opus-4"
 
 

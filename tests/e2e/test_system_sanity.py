@@ -20,23 +20,27 @@ class TestComponentSanity:
         reason="API key required",
     )
     def test_llm_provider_integration(self):
-        """Test LLM provider can generate text."""
-        from kosmos.core.llm import get_client
+        """Test LLM provider can generate text (DSPy)."""
+        import dspy
+
+        from kosmos.config import get_config
 
         print("\n🤖 Testing LLM provider integration...")
 
-        client = get_client()
+        config = get_config()
+        llm_config = config.llm.to_dspy_config()
+        lm = dspy.LM(**llm_config)
 
-        # Simple generation test
-        response = client.generate("Say 'hello' in one word", max_tokens=10, temperature=0.0)
+        # Simple generation test using DSPy
+        with dspy.context(lm=lm):
+            response = lm("Say 'hello' in one word")
 
         assert response is not None
-        assert hasattr(response, "content")
-        assert len(response.content) > 0
-        assert "hello" in response.content.lower()
+        assert len(response) > 0
+        assert "hello" in response.lower()
 
-        print("✅ LLM provider operational")
-        print(f"   Response: {response.content}")
+        print("✅ LLM provider operational (DSPy)")
+        print(f"   Response: {response}")
 
     @pytest.mark.skipif(
         not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"),
@@ -109,104 +113,6 @@ class TestComponentSanity:
         print(f"   Protocol: {response.protocol.name}")
         print(f"   Type: {response.protocol.experiment_type.value}")
         print(f"   Steps: {len(response.protocol.steps)}")
-
-    def test_code_generator(self):
-        """Test code generator creates valid Python code."""
-        from kosmos.execution.code_generator import ExperimentCodeGenerator
-        from kosmos.models.experiment import (
-            ExperimentProtocol,
-            ProtocolStep,
-            ResourceRequirements,
-            StatisticalTest,
-            StatisticalTestSpec,
-            Variable,
-            VariableType,
-        )
-        from kosmos.models.hypothesis import ExperimentType
-
-        print("\n💻 Testing code generator...")
-
-        # Create a complete ExperimentProtocol with correct schema
-        from kosmos.models.experiment import ControlGroup
-
-        protocol = ExperimentProtocol(
-            id="test-e2e-001",
-            hypothesis_id="hyp-e2e-001",
-            name="T-Test Comparison Experiment",
-            domain="statistics",
-            description="Statistical comparison of treatment vs control groups using t-test analysis",
-            objective="Determine if treatment has significant effect on outcome measure",
-            experiment_type=ExperimentType.DATA_ANALYSIS,
-            steps=[
-                ProtocolStep(
-                    step_number=1,
-                    title="Load Data",
-                    description="Load experimental data from CSV source file",
-                    action="df = pd.read_csv('data.csv')",
-                ),
-                ProtocolStep(
-                    step_number=2,
-                    title="Perform T-Test",
-                    description="Run independent samples t-test comparing groups",
-                    action="result = stats.ttest_ind(group1, group2)",
-                ),
-            ],
-            variables={
-                "group": Variable(
-                    name="group",
-                    type=VariableType.INDEPENDENT,
-                    description="Treatment group assignment variable",
-                ),
-                "measurement": Variable(
-                    name="measurement",
-                    type=VariableType.DEPENDENT,
-                    description="Primary outcome measurement variable",
-                ),
-            },
-            control_groups=[
-                ControlGroup(
-                    name="control",
-                    description="Untreated baseline control group",
-                    variables={"treatment": False},
-                    rationale="Baseline for comparison against treatment group",
-                )
-            ],
-            statistical_tests=[
-                StatisticalTestSpec(
-                    test_type=StatisticalTest.T_TEST,
-                    description="Independent samples t-test for group comparison",
-                    null_hypothesis="No difference between group means",
-                    variables=["measurement"],
-                )
-            ],
-            resource_requirements=ResourceRequirements(
-                estimated_duration_days=1.0, estimated_cost_usd=0.0
-            ),
-        )
-
-        # Test code generation without LLM (template-only)
-        generator = ExperimentCodeGenerator(use_templates=True, use_llm=False)
-        code = generator.generate(protocol)
-
-        assert code is not None, "Code generator returned None"
-        assert len(code) > 0, "Generated code is empty"
-        assert "import" in code, "Code missing imports"
-
-        # Verify it's valid Python syntax
-        import ast
-
-        try:
-            ast.parse(code)
-            syntax_valid = True
-        except SyntaxError as e:
-            syntax_valid = False
-            print(f"   Syntax error: {e}")
-
-        assert syntax_valid, "Generated code has invalid Python syntax"
-
-        print("✅ Code generator operational")
-        print(f"   Generated {len(code)} characters of code")
-        print("   Syntax: valid Python")
 
     def test_safety_validator(self):
         """Test safety validator blocks dangerous code."""

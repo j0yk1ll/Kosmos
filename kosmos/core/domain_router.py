@@ -1,15 +1,16 @@
 """
 Domain Router for intelligent routing of research questions to domain-specific agents.
 
-Uses Claude to classify research questions, detect multi-domain research, and route
+Uses DSPy to classify research questions, detect multi-domain research, and route
 to appropriate domain-specific tools, templates, and agents.
 """
 
 import logging
 from typing import Any
 
+import dspy
+
 from kosmos.config import get_config
-from kosmos.core.llm import ClaudeClient
 from kosmos.models.domain import (
     DomainCapability,
     DomainClassification,
@@ -23,12 +24,45 @@ from kosmos.models.domain import (
 logger = logging.getLogger(__name__)
 
 
+class DomainClassificationSignature(dspy.Signature):
+    """Classify research question into scientific domains."""
+
+    research_question: str = dspy.InputField()
+    context: str = dspy.InputField(desc="Additional context if available")
+    domains_list: str = dspy.InputField(desc="Available scientific domains")
+
+    primary_domain: str = dspy.OutputField(desc="Primary domain name")
+    confidence: str = dspy.OutputField(
+        desc="Confidence level: very_high, high, medium, low, very_low"
+    )
+    confidence_score: str = dspy.OutputField(desc="Numeric confidence score between 0 and 1")
+    secondary_domains: str = dspy.OutputField(desc="Comma-separated secondary domains or 'none'")
+    key_terms: str = dspy.OutputField(desc="Comma-separated key terms")
+    is_multi_domain: str = dspy.OutputField(desc="yes or no")
+    reasoning: str = dspy.OutputField(desc="Explanation of classification")
+
+
+class MultiDomainStrategySignature(dspy.Signature):
+    """Determine routing strategy for multi-domain research."""
+
+    primary_domain: str = dspy.InputField(desc="Primary scientific domain")
+    secondary_domains: str = dspy.InputField(desc="Comma-separated secondary domains")
+    research_context: str = dspy.InputField(desc="Research question context")
+    classification_reasoning: str = dspy.InputField(desc="Why these domains were identified")
+
+    strategy: str = dspy.OutputField(
+        desc="Either 'parallel_multi_domain' or 'sequential_multi_domain'"
+    )
+    dependencies: str = dspy.OutputField(desc="Description of any domain dependencies")
+    reasoning: str = dspy.OutputField(desc="Explanation for chosen strategy")
+
+
 class DomainRouter:
     """
     Routes research questions to appropriate scientific domains.
 
     Capabilities:
-    - Domain classification using Claude
+    - Domain classification
     - Multi-domain research detection
     - Agent and tool selection per domain
     - Cross-domain synthesis routing
@@ -227,15 +261,19 @@ class DomainRouter:
         ],
     }
 
-    def __init__(self, claude_client: ClaudeClient | None = None):
+    def __init__(self, llm_config: dict[str, Any] | None = None):
         """
         Initialize domain router.
 
         Args:
-            claude_client: Optional Claude client (creates new one if not provided)
+            llm_config: Optional LLM configuration dict for DSPy (uses default config if not provided)
         """
         self.config = get_config()
-        self.claude = claude_client or ClaudeClient()
+
+        # Initialize DSPy LM
+        if llm_config is None:
+            llm_config = self.config.llm.to_dspy_config()
+        self.llm = dspy.LM(**llm_config)
 
         # Domain capabilities registry
         self.capabilities: dict[ScientificDomain, DomainCapability] = {}
@@ -288,19 +326,20 @@ class DomainRouter:
         """
         logger.info(f"Classifying research question: {question[:100]}...")
 
-        # Build classification prompt
-        prompt = self._build_classification_prompt(question, context)
+        # Prepare inputs for DSPy
+        domains_list = ", ".join([d.value for d in ScientificDomain])
+        context_str = str(context) if context else "No additional context provided"
 
-        # Get classification from Claude
+        # Get classification using DSPy
         try:
-            response = self.claude.complete(
-                prompt,
-                temperature=0.3,  # Lower temperature for more consistent classification
-                max_tokens=1000,
-            )
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(DomainClassificationSignature)
+                response = predictor(
+                    research_question=question, context=context_str, domains_list=domains_list
+                )
 
-            # Parse Claude's response into DomainClassification
-            classification = self._parse_classification_response(response, question)
+            # Parse response into DomainClassification
+            classification = self._parse_dspy_response(response, question)
 
             logger.info(
                 f"Classified to {classification.primary_domain.value} "
@@ -314,75 +353,40 @@ class DomainRouter:
             # Fallback to keyword-based classification
             return self._keyword_based_classification(question)
 
-    def _build_classification_prompt(
-        self, question: str, context: dict[str, Any] | None = None
-    ) -> str:
-        """Build prompt for Claude to classify research question."""
-        domains_list = ", ".join([d.value for d in ScientificDomain])
-
-        prompt = f"""Classify the following research question into one or more scientific domains.
-
-Research Question:
-{question}
-
-"""
-
-        if context:
-            prompt += f"""Additional Context:
-{context}
-
-"""
-
-        prompt += f"""Available Domains:
-{domains_list}
-
-Instructions:
-1. Identify the PRIMARY domain that best matches this research question
-2. Assign a confidence level: very_high (>0.9), high (0.7-0.9), medium (0.5-0.7), low (0.3-0.5), very_low (<0.3)
-3. Identify any SECONDARY domains if this is multi-domain research
-4. Extract key terms that influenced your classification
-5. Explain your reasoning
-
-Respond in the following format:
-
-PRIMARY DOMAIN: <domain_name>
-CONFIDENCE: <confidence_level>
-CONFIDENCE_SCORE: <0-1 numeric score>
-SECONDARY DOMAINS: <comma-separated list or "none">
-KEY TERMS: <comma-separated key terms>
-IS MULTI-DOMAIN: <yes/no>
-REASONING: <your explanation>
-"""
-        return prompt
-
-    def _parse_classification_response(self, response: str, question: str) -> DomainClassification:
-        """Parse Claude's classification response into DomainClassification object."""
-        lines = response.strip().split("\n")
-        data = {}
-
-        for line in lines:
-            if ":" in line:
-                key, value = line.split(":", 1)
-                data[key.strip()] = value.strip()
-
+    def _parse_dspy_response(self, response: Any, question: str) -> DomainClassification:
+        """Parse DSPy response into DomainClassification object."""
+        # DSPy response has attributes directly
         # Extract primary domain
-        primary_domain_str = data.get("PRIMARY DOMAIN", "general").lower()
+        primary_domain_str = (
+            response.primary_domain.lower() if hasattr(response, "primary_domain") else "general"
+        )
         try:
             primary_domain = ScientificDomain(primary_domain_str)
         except ValueError:
             primary_domain = ScientificDomain.GENERAL
 
         # Extract confidence
-        confidence_str = data.get("CONFIDENCE", "medium").lower().replace(" ", "_")
+        confidence_str = (
+            (response.confidence if hasattr(response, "confidence") else "medium")
+            .lower()
+            .replace(" ", "_")
+        )
         try:
             confidence = DomainConfidence(confidence_str)
         except ValueError:
             confidence = DomainConfidence.MEDIUM
 
-        confidence_score = float(data.get("CONFIDENCE_SCORE", "0.6"))
+        try:
+            confidence_score = float(
+                response.confidence_score if hasattr(response, "confidence_score") else "0.6"
+            )
+        except (ValueError, AttributeError):
+            confidence_score = 0.6
 
         # Extract secondary domains
-        secondary_str = data.get("SECONDARY DOMAINS", "none")
+        secondary_str = (
+            response.secondary_domains if hasattr(response, "secondary_domains") else "none"
+        )
         secondary_domains = []
         if secondary_str.lower() != "none":
             for domain_str in secondary_str.split(","):
@@ -395,13 +399,16 @@ REASONING: <your explanation>
                     pass
 
         # Extract key terms
-        key_terms_str = data.get("KEY TERMS", "")
+        key_terms_str = response.key_terms if hasattr(response, "key_terms") else ""
         key_terms = [term.strip() for term in key_terms_str.split(",") if term.strip()]
 
         # Is multi-domain
-        is_multi_domain = data.get("IS MULTI-DOMAIN", "no").lower() in ["yes", "true"]
+        is_multi_domain_str = (
+            response.is_multi_domain if hasattr(response, "is_multi_domain") else "no"
+        )
+        is_multi_domain = is_multi_domain_str.lower() in ["yes", "true"]
 
-        reasoning = data.get("REASONING", "")
+        reasoning = response.reasoning if hasattr(response, "reasoning") else ""
 
         # Calculate domain scores (simplified)
         domain_scores = {primary_domain.value: confidence_score}
@@ -545,15 +552,54 @@ REASONING: <your explanation>
         """
         Determine routing strategy for multi-domain research.
 
+        Uses DSPy to analyze domain dependencies and decide whether domains
+        can be processed in parallel or must be processed sequentially.
+
         Returns:
             "parallel_multi_domain" or "sequential_multi_domain"
         """
-        # If domains are independent, run in parallel
-        # If one domain depends on another, run sequentially
+        try:
+            # Prepare inputs
+            primary_domain_str = classification.primary_domain.value
+            secondary_domains_str = ", ".join([d.value for d in classification.secondary_domains])
+            context_str = str(context) if context else "No additional context"
+            reasoning_str = (
+                classification.classification_reasoning or "Multi-domain research detected"
+            )
 
-        # For now, default to parallel (most efficient)
-        # Future: Use Claude to determine dependencies
-        return "parallel_multi_domain"
+            # Use DSPy to determine strategy
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(MultiDomainStrategySignature)
+                response = predictor(
+                    primary_domain=primary_domain_str,
+                    secondary_domains=secondary_domains_str,
+                    research_context=context_str,
+                    classification_reasoning=reasoning_str,
+                )
+
+            # Extract strategy from response
+            strategy = (
+                response.strategy if hasattr(response, "strategy") else "parallel_multi_domain"
+            )
+
+            # Validate strategy value
+            if strategy not in ["parallel_multi_domain", "sequential_multi_domain"]:
+                logger.warning(
+                    f"Invalid strategy '{strategy}', defaulting to parallel_multi_domain"
+                )
+                strategy = "parallel_multi_domain"
+
+            logger.debug(f"Multi-domain strategy: {strategy}")
+            if hasattr(response, "reasoning"):
+                logger.debug(f"Strategy reasoning: {response.reasoning}")
+
+            return strategy
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to determine multi-domain strategy: {e}. Defaulting to parallel."
+            )
+            return "parallel_multi_domain"
 
     def _determine_synthesis_strategy(self, classification: DomainClassification) -> str:
         """Determine strategy for synthesizing cross-domain results."""
@@ -680,7 +726,7 @@ REASONING: <your explanation>
             List of suggested connection concepts/methods
         """
         # This is a simplified version - in production, this would query
-        # the cross-domain mapping database or use Claude
+        # the cross-domain mapping database or use an LLM to suggest connections.
 
         connections = {
             (ScientificDomain.BIOLOGY, ScientificDomain.NEUROSCIENCE): [

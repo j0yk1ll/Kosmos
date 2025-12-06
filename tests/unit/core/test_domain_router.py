@@ -35,7 +35,7 @@ def mock_llm_client():
 @pytest.fixture
 def domain_router(mock_llm_client, mock_env_vars):
     """Create DomainRouter instance with mocked LLM"""
-    router = DomainRouter(claude_client=mock_llm_client)
+    router = DomainRouter(llm_config={"model": "test", "api_key": "test"})
     return router
 
 
@@ -74,20 +74,20 @@ class TestDomainRouterInit:
 
     def test_init_default(self, mock_env_vars):
         """Test default initialization."""
-        router = DomainRouter(claude_client=Mock())
+        router = DomainRouter(llm_config={"model": "test"})
 
-        assert router.claude is not None
+        assert router.lm is not None
         assert len(router.DOMAIN_KEYWORDS) > 0
         assert len(router.DOMAIN_AGENTS) > 0
         assert len(router.DOMAIN_TEMPLATES) > 0
         assert len(router.DOMAIN_TOOLS) > 0
 
-    def test_init_custom_client(self, mock_env_vars):
-        """Test initialization with custom LLM client."""
-        custom_client = Mock()
-        router = DomainRouter(claude_client=custom_client)
+    def test_init_custom_config(self, mock_env_vars):
+        """Test initialization with custom LLM config."""
+        custom_config = {"model": "custom-model", "api_key": "custom-key"}
+        router = DomainRouter(llm_config=custom_config)
 
-        assert router.claude == custom_client
+        assert router.lm is not None
 
     def test_capabilities_loaded(self, domain_router):
         """Test that domain capabilities are correctly loaded."""
@@ -607,3 +607,222 @@ class TestCapabilitiesAndSuggestions:
         # Should return minimal or empty capabilities
         assert len(capabilities.available_apis) == 0 or capabilities.available_apis == []
         assert len(capabilities.available_templates) == 0 or capabilities.available_templates == []
+
+
+# ============================================================================
+# Test Multi-Domain Strategy Determination
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestMultiDomainStrategy:
+    """Test multi-domain routing strategy determination using DSPy."""
+
+    @pytest.fixture
+    def domain_router_with_dspy(self):
+        """Create DomainRouter with DSPy mocking."""
+        from unittest.mock import Mock, patch
+
+        with patch("kosmos.core.domain_router.dspy.LM"):
+            router = DomainRouter()
+            router.llm = Mock()
+            return router
+
+    @pytest.fixture
+    def biology_neuro_classification(self):
+        """Sample classification for biology + neuroscience."""
+        return DomainClassification(
+            primary_domain=ScientificDomain.BIOLOGY,
+            confidence=DomainConfidence.HIGH,
+            confidence_score=0.85,
+            secondary_domains=[ScientificDomain.NEUROSCIENCE],
+            domain_scores={"biology": 0.85, "neuroscience": 0.65},
+            key_terms=["gene", "expression", "neural"],
+            classification_reasoning="Research spans molecular biology and neuroscience",
+            is_multi_domain=True,
+            cross_domain_rationale="Gene expression affects neural function",
+        )
+
+    @pytest.fixture
+    def materials_physics_classification(self):
+        """Sample classification for materials + physics."""
+        return DomainClassification(
+            primary_domain=ScientificDomain.MATERIALS,
+            confidence=DomainConfidence.HIGH,
+            confidence_score=0.80,
+            secondary_domains=[ScientificDomain.PHYSICS],
+            domain_scores={"materials": 0.80, "physics": 0.60},
+            key_terms=["material", "property", "quantum"],
+            classification_reasoning="Material properties depend on physical principles",
+            is_multi_domain=True,
+            cross_domain_rationale="Materials science requires physics understanding",
+        )
+
+    def test_determine_parallel_strategy(
+        self, domain_router_with_dspy, biology_neuro_classification
+    ):
+        """Test determining parallel multi-domain strategy."""
+        from unittest.mock import Mock, patch
+
+        # Mock DSPy response indicating parallel strategy
+        mock_response = Mock()
+        mock_response.strategy = "parallel_multi_domain"
+        mock_response.dependencies = "Domains are independent"
+        mock_response.reasoning = "Biology and neuroscience can be analyzed in parallel"
+
+        with patch("kosmos.core.domain_router.dspy.context"):
+            with patch("kosmos.core.domain_router.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                strategy = domain_router_with_dspy._determine_multi_domain_strategy(
+                    biology_neuro_classification
+                )
+
+        assert strategy == "parallel_multi_domain"
+
+    def test_determine_sequential_strategy(
+        self, domain_router_with_dspy, materials_physics_classification
+    ):
+        """Test determining sequential multi-domain strategy."""
+        from unittest.mock import Mock, patch
+
+        # Mock DSPy response indicating sequential strategy
+        mock_response = Mock()
+        mock_response.strategy = "sequential_multi_domain"
+        mock_response.dependencies = "Physics analysis must precede materials analysis"
+        mock_response.reasoning = (
+            "Understanding physics principles is prerequisite for materials analysis"
+        )
+
+        with patch("kosmos.core.domain_router.dspy.context"):
+            with patch("kosmos.core.domain_router.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                strategy = domain_router_with_dspy._determine_multi_domain_strategy(
+                    materials_physics_classification
+                )
+
+        assert strategy == "sequential_multi_domain"
+
+    def test_determine_strategy_with_context(
+        self, domain_router_with_dspy, biology_neuro_classification
+    ):
+        """Test strategy determination with additional context."""
+        from unittest.mock import Mock, patch
+
+        mock_response = Mock()
+        mock_response.strategy = "parallel_multi_domain"
+        mock_response.dependencies = "No dependencies"
+        mock_response.reasoning = "Context suggests independent analysis"
+
+        context = {"experiment_type": "observational", "data_sources": ["RNA-seq", "fMRI"]}
+
+        with patch("kosmos.core.domain_router.dspy.context"):
+            with patch("kosmos.core.domain_router.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                strategy = domain_router_with_dspy._determine_multi_domain_strategy(
+                    biology_neuro_classification, context=context
+                )
+
+        assert strategy == "parallel_multi_domain"
+
+    def test_determine_strategy_invalid_response(
+        self, domain_router_with_dspy, biology_neuro_classification
+    ):
+        """Test handling of invalid strategy response."""
+        from unittest.mock import Mock, patch
+
+        # Mock DSPy response with invalid strategy value
+        mock_response = Mock()
+        mock_response.strategy = "invalid_strategy"
+        mock_response.dependencies = "Unknown"
+        mock_response.reasoning = "Invalid"
+
+        with patch("kosmos.core.domain_router.dspy.context"):
+            with patch("kosmos.core.domain_router.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                strategy = domain_router_with_dspy._determine_multi_domain_strategy(
+                    biology_neuro_classification
+                )
+
+        # Should default to parallel when invalid
+        assert strategy == "parallel_multi_domain"
+
+    def test_determine_strategy_dspy_error(
+        self, domain_router_with_dspy, biology_neuro_classification
+    ):
+        """Test fallback when DSPy fails."""
+        from unittest.mock import patch
+
+        # Mock DSPy to raise an exception
+        with patch("kosmos.core.domain_router.dspy.context") as mock_context:
+            mock_context.side_effect = Exception("DSPy error")
+
+            strategy = domain_router_with_dspy._determine_multi_domain_strategy(
+                biology_neuro_classification
+            )
+
+        # Should fallback to parallel on error
+        assert strategy == "parallel_multi_domain"
+
+    def test_determine_strategy_no_response_attributes(
+        self, domain_router_with_dspy, biology_neuro_classification
+    ):
+        """Test handling when response lacks expected attributes."""
+        from unittest.mock import Mock, patch
+
+        # Mock response without strategy attribute
+        mock_response = Mock(spec=[])  # Empty spec, no attributes
+
+        with patch("kosmos.core.domain_router.dspy.context"):
+            with patch("kosmos.core.domain_router.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                strategy = domain_router_with_dspy._determine_multi_domain_strategy(
+                    biology_neuro_classification
+                )
+
+        # Should default to parallel when attribute missing
+        assert strategy == "parallel_multi_domain"
+
+    def test_determine_strategy_predictor_inputs(
+        self, domain_router_with_dspy, biology_neuro_classification
+    ):
+        """Test that correct inputs are passed to DSPy predictor."""
+        from unittest.mock import Mock, patch
+
+        mock_response = Mock()
+        mock_response.strategy = "parallel_multi_domain"
+        mock_response.dependencies = "None"
+        mock_response.reasoning = "Independent domains"
+
+        with patch("kosmos.core.domain_router.dspy.context"):
+            with patch("kosmos.core.domain_router.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                domain_router_with_dspy._determine_multi_domain_strategy(
+                    biology_neuro_classification
+                )
+
+                # Verify predictor was called with correct inputs
+                mock_predictor.assert_called_once()
+                call_kwargs = mock_predictor.call_args[1]
+
+                assert call_kwargs["primary_domain"] == "biology"
+                assert "neuroscience" in call_kwargs["secondary_domains"]
+                assert isinstance(call_kwargs["research_context"], str)
+                assert isinstance(call_kwargs["classification_reasoning"], str)

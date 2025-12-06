@@ -17,7 +17,7 @@ from kosmos.core.workflow import NextAction, WorkflowState
 @pytest.fixture
 def research_director():
     """Create research director with test configuration without real LLM client."""
-    with patch("kosmos.agents.research_director.get_client"):
+    with patch("kosmos.agents.research_director.dspy.LM"):
         agent = ResearchDirectorAgent(
             research_question="Does sample size affect statistical power?",
             domain="statistics",
@@ -27,8 +27,9 @@ def research_director():
                 "optional_stopping_criteria": ["novelty_decline", "diminishing_returns"],
             },
         )
-        # Mock LLM client
-        agent.llm_client = Mock()
+        # Mock LLM
+        agent.llm = Mock()
+        agent.llm_client = agent.llm  # Keep llm_client for backward compatibility
         return agent
 
 
@@ -407,23 +408,27 @@ class TestMessageSending:
 
 @pytest.mark.unit
 class TestResearchPlanning:
-    """Test research planning with Claude."""
+    """Test research planning with DSPy."""
 
-    @patch("kosmos.agents.research_director.get_client")
-    def test_generate_research_plan(self, mock_get_client, research_director):
-        """Test generating research plan using Claude."""
-        mock_client = Mock()
-        mock_client.generate.return_value = (
-            "Research plan: Generate hypotheses about sample size effects..."
-        )
-        mock_get_client.return_value = mock_client
+    @patch("kosmos.agents.research_director.dspy.context")
+    @patch("dspy.predict.Predict")
+    def test_generate_research_plan(self, mock_predict, mock_context, research_director):
+        """Test generating research plan using DSPy."""
+        # Mock DSPy context manager to allow code execution
+        mock_context.return_value.__enter__ = Mock(return_value=None)
+        mock_context.return_value.__exit__ = Mock(return_value=None)
 
-        research_director.llm_client = mock_client
+        # Mock DSPy Predict response
+        mock_response = Mock()
+        mock_response.plan = "Research plan: Generate hypotheses about sample size effects..."
+        mock_predictor = Mock()
+        mock_predictor.return_value = mock_response
+        mock_predict.return_value = mock_predictor
 
         plan = research_director.generate_research_plan()
 
-        # Check Claude was called
-        assert mock_client.generate.call_count == 1
+        # Check DSPy Predict was called
+        assert mock_predict.call_count == 1
 
         # Check plan stored
         assert research_director.research_plan.initial_strategy == plan
@@ -615,14 +620,21 @@ class TestAgentRegistry:
 class TestExecute:
     """Test execute method (BaseAgent interface)."""
 
-    @patch("kosmos.agents.research_director.get_client")
-    def test_execute_start_research(self, mock_get_client, research_director):
+    @patch("kosmos.agents.research_director.dspy.context")
+    @patch("dspy.predict.Predict")
+    def test_execute_start_research(self, mock_predict, mock_context, research_director):
         """Test executing start_research action."""
-        mock_client = Mock()
-        mock_client.generate.return_value = "Research plan..."
-        mock_get_client.return_value = mock_client
+        # Mock DSPy context manager to allow code execution
+        mock_context.return_value.__enter__ = Mock(return_value=None)
+        mock_context.return_value.__exit__ = Mock(return_value=None)
 
-        research_director.llm_client = mock_client
+        # Mock DSPy Predict response
+        mock_response = Mock()
+        mock_response.plan = "Research plan..."
+        mock_predictor = Mock()
+        mock_predictor.return_value = mock_response
+        mock_predict.return_value = mock_predictor
+
         research_director._execute_next_action = Mock()
 
         result = research_director.execute({"action": "start_research"})

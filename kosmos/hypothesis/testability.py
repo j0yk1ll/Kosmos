@@ -12,11 +12,27 @@ import logging
 import re
 from typing import Any
 
-from kosmos.core.llm import get_client
+import dspy
+
+from kosmos.config import get_config
 from kosmos.models.hypothesis import ExperimentType, Hypothesis, TestabilityReport
 
 
 logger = logging.getLogger(__name__)
+
+
+class TestabilityAssessmentSignature(dspy.Signature):
+    """Assess testability of a hypothesis using computational methods."""
+
+    hypothesis_statement: str = dspy.InputField(desc="The hypothesis statement")
+    hypothesis_rationale: str = dspy.InputField(desc="The hypothesis rationale")
+    domain: str = dspy.InputField(desc="Scientific domain")
+
+    confidence: str = dspy.OutputField(desc="Testability confidence score 0.0-1.0")
+    additional_challenges: str = dspy.OutputField(
+        desc="JSON array of additional testing challenges"
+    )
+    additional_limitations: str = dspy.OutputField(desc="JSON array of additional limitations")
 
 
 class TestabilityAnalyzer:
@@ -40,18 +56,31 @@ class TestabilityAnalyzer:
         ```
     """
 
-    def __init__(self, testability_threshold: float = 0.3, use_llm_for_assessment: bool = True):
+    def __init__(
+        self,
+        testability_threshold: float = 0.3,
+        use_llm_for_assessment: bool = True,
+        llm_config: dict[str, Any] | None = None,
+    ):
         """
         Initialize testability analyzer.
 
         Args:
             testability_threshold: Minimum score to be considered testable (0.0-1.0)
             use_llm_for_assessment: Use LLM for detailed assessment
+            llm_config: Optional LLM configuration dict for DSPy
         """
         self.testability_threshold = testability_threshold
         self.use_llm_for_assessment = use_llm_for_assessment
 
-        self.llm_client = get_client() if use_llm_for_assessment else None
+        # Initialize DSPy LM if using LLM assessment
+        if use_llm_for_assessment:
+            if llm_config is None:
+                cfg = get_config()
+                llm_config = cfg.llm.to_dspy_config()
+            self.llm = dspy.LM(**llm_config)
+        else:
+            self.llm = None
 
         logger.info(f"Initialized TestabilityAnalyzer with threshold={testability_threshold}")
 
@@ -90,7 +119,7 @@ class TestabilityAnalyzer:
         limitations = self._identify_limitations(hypothesis)
 
         # Step 6: LLM-based enhancement (if enabled)
-        if self.use_llm_for_assessment and self.llm_client:
+        if self.use_llm_for_assessment and self.llm:
             llm_assessment = self._llm_testability_assessment(hypothesis)
 
             # Merge LLM insights
@@ -509,38 +538,64 @@ class TestabilityAnalyzer:
             Optional[Dict]: LLM assessment results
         """
         try:
-            prompt = f"""Assess the testability of this scientific hypothesis:
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(TestabilityAssessmentSignature)
+                response = predictor(
+                    hypothesis_statement=hypothesis.statement,
+                    hypothesis_rationale=hypothesis.rationale or "No rationale provided",
+                    domain=hypothesis.domain or "General",
+                )
 
-Hypothesis: "{hypothesis.statement}"
-
-Rationale: {hypothesis.rationale}
-
-Domain: {hypothesis.domain}
-
-Evaluate:
-1. How testable is this hypothesis using computational methods? (0.0-1.0)
-2. What additional challenges might arise in testing it?
-3. What limitations should be considered?
-
-Provide assessment as JSON:
-{{
-    "confidence": 0.0-1.0,
-    "additional_challenges": ["challenge 1", "challenge 2"],
-    "additional_limitations": ["limitation 1"]
-}}"""
-
-            response = self.llm_client.generate_structured(
-                prompt=prompt,
-                schema={
-                    "confidence": "float",
-                    "additional_challenges": ["string"],
-                    "additional_limitations": ["string"],
-                },
-                max_tokens=500,
-                temperature=0.3,
+            # Parse response
+            confidence_str = response.confidence if hasattr(response, "confidence") else "0.5"
+            challenges_str = (
+                response.additional_challenges
+                if hasattr(response, "additional_challenges")
+                else "[]"
+            )
+            limitations_str = (
+                response.additional_limitations
+                if hasattr(response, "additional_limitations")
+                else "[]"
             )
 
-            return response
+            # Parse confidence
+            try:
+                confidence = float(confidence_str)
+            except (ValueError, TypeError):
+                confidence = 0.5
+
+            # Parse JSON arrays
+            import json
+
+            try:
+                # Extract JSON from response if wrapped in markdown or text
+                challenges_json = challenges_str
+                if "[" in challenges_json:
+                    start = challenges_json.find("[")
+                    end = challenges_json.rfind("]") + 1
+                    if start >= 0 and end > start:
+                        challenges_json = challenges_json[start:end]
+                additional_challenges = json.loads(challenges_json)
+            except (json.JSONDecodeError, ValueError):
+                additional_challenges = []
+
+            try:
+                limitations_json = limitations_str
+                if "[" in limitations_json:
+                    start = limitations_json.find("[")
+                    end = limitations_json.rfind("]") + 1
+                    if start >= 0 and end > start:
+                        limitations_json = limitations_json[start:end]
+                additional_limitations = json.loads(limitations_json)
+            except (json.JSONDecodeError, ValueError):
+                additional_limitations = []
+
+            return {
+                "confidence": confidence,
+                "additional_challenges": additional_challenges,
+                "additional_limitations": additional_limitations,
+            }
 
         except Exception as e:
             logger.error(f"Error in LLM testability assessment: {e}")

@@ -25,8 +25,8 @@ def domain_kb():
 
 @pytest.fixture
 def domain_router(mock_env_vars):
-    """Domain router instance (no Claude client for testing)"""
-    return DomainRouter(claude_client=None)
+    """Domain router instance (no LLM for testing)"""
+    return DomainRouter(llm_config=None)
 
 
 @pytest.fixture

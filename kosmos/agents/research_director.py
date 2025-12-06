@@ -4,22 +4,22 @@ Research Director Agent - Master orchestrator for autonomous research (Phase 7).
 This agent coordinates all other agents to execute the full research cycle:
 Research Question → Hypotheses → Experiments → Results → Analysis → Refinement → Iteration
 
-Uses message-based async coordination with all specialized agents.
+Uses message-based coordination with all specialized agents.
 """
 
-import asyncio
-import concurrent.futures
 import logging
 import threading
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
+import dspy
+
 from kosmos.agents.base import AgentMessage, BaseAgent, MessageType
-from kosmos.core.llm import get_client
+from kosmos.config import get_config
 from kosmos.core.stage_tracker import get_stage_tracker
 from kosmos.core.workflow import NextAction, ResearchPlan, ResearchWorkflow, WorkflowState
-from kosmos.db import get_session
+from kosmos.db import get_session, init_from_config
 from kosmos.db.operations import get_experiment, get_hypothesis, get_result
 from kosmos.utils.compat import model_to_dict
 from kosmos.world_model import Entity, Relationship, get_world_model
@@ -40,7 +40,7 @@ class ResearchDirectorAgent(BaseAgent):
     - HypothesisRefiner: Refine hypotheses based on results
     - ConvergenceDetector: Detect when research is complete
 
-    Uses message-based coordination for async agent communication.
+    Uses message-based coordination for agent communication.
     """
 
     def __init__(
@@ -82,13 +82,14 @@ class ResearchDirectorAgent(BaseAgent):
             initial_state=WorkflowState.INITIALIZING, research_plan=self.research_plan
         )
 
-        # Claude client for research planning and decision-making
-        self.llm_client = get_client()
-
-        # Initialize database if not already initialized
-        from kosmos.db import init_from_config
+        # DSPy LM for research planning and decision-making
+        config = get_config()
+        llm_config = config.llm.to_dspy_config()
+        self.llm = dspy.LM(**llm_config)
+        self.llm_client = self.llm  # Backward compatibility
 
         try:
+            # Initialize database if not already initialized
             init_from_config()
         except RuntimeError:
             # Database already initialized
@@ -113,55 +114,11 @@ class ResearchDirectorAgent(BaseAgent):
         # Research history
         self.iteration_history: list[dict[str, Any]] = []
 
-        # Thread safety locks for concurrent operations
+        # Thread safety locks for state management
         self._research_plan_lock = threading.RLock()  # Reentrant lock for nested acquisitions
         self._strategy_stats_lock = threading.Lock()
         self._workflow_lock = threading.Lock()
         self._agent_registry_lock = threading.Lock()
-
-        # Concurrent operations support
-        self.enable_concurrent = self.config.get("enable_concurrent_operations", False)
-        self.max_parallel_hypotheses = self.config.get("max_parallel_hypotheses", 3)
-        self.max_concurrent_experiments = self.config.get("max_concurrent_experiments", 4)
-
-        # Initialize ParallelExperimentExecutor if concurrent operations enabled
-        self.parallel_executor = None
-        if self.enable_concurrent:
-            try:
-                from kosmos.execution.parallel import ParallelExperimentExecutor
-
-                self.parallel_executor = ParallelExperimentExecutor(
-                    max_workers=self.max_concurrent_experiments
-                )
-                logger.info(
-                    f"Parallel execution enabled with {self.max_concurrent_experiments} workers"
-                )
-            except ImportError:
-                logger.warning(
-                    "ParallelExperimentExecutor not available, using sequential execution"
-                )
-                self.enable_concurrent = False
-
-        # Initialize AsyncClaudeClient for concurrent LLM calls
-        self.async_llm_client = None
-        if self.enable_concurrent:
-            try:
-                import os
-
-                from kosmos.core.async_llm import AsyncClaudeClient
-
-                api_key = os.getenv("ANTHROPIC_API_KEY")
-                if api_key:
-                    self.async_llm_client = AsyncClaudeClient(
-                        api_key=api_key,
-                        max_concurrent=self.config.get("max_concurrent_llm_calls", 5),
-                        max_requests_per_minute=self.config.get("llm_rate_limit_per_minute", 50),
-                    )
-                    logger.info("Async LLM client initialized for concurrent operations")
-                else:
-                    logger.warning("ANTHROPIC_API_KEY not set, async LLM disabled")
-            except ImportError:
-                logger.warning("AsyncClaudeClient not available, using sequential LLM calls")
 
         # Initialize world model for persistent knowledge graph
         try:
@@ -185,7 +142,7 @@ class ResearchDirectorAgent(BaseAgent):
 
         logger.info(
             f"ResearchDirector initialized for question: '{research_question}' "
-            f"(max_iterations={self.max_iterations}, concurrent={self.enable_concurrent})"
+            f"(max_iterations={self.max_iterations})"
         )
 
     # ========================================================================
@@ -203,13 +160,7 @@ class ResearchDirectorAgent(BaseAgent):
     def _on_stop(self):
         """Cleanup when stopped."""
         logger.info(f"ResearchDirector {self.agent_id} stopped")
-
-        # Cleanup async resources
-        if self.async_llm_client:
-            try:
-                asyncio.run(self.async_llm_client.close())
-            except Exception as e:
-                logger.warning(f"Error closing async LLM client: {e}")
+        # DSPy cleanup is handled automatically
 
     # ========================================================================
     # THREAD-SAFE CONTEXT MANAGERS
@@ -928,262 +879,40 @@ class ResearchDirectorAgent(BaseAgent):
         return message
 
     # ========================================================================
-    # CONCURRENT OPERATIONS
-    # ========================================================================
-
-    def execute_experiments_batch(self, protocol_ids: list[str]) -> list[dict[str, Any]]:
-        """
-        Execute multiple experiments in parallel using ParallelExperimentExecutor.
-
-        Args:
-            protocol_ids: List of protocol IDs to execute
-
-        Returns:
-            List of execution results
-
-        Example:
-            results = director.execute_experiments_batch(["proto1", "proto2", "proto3"])
-        """
-        if not self.enable_concurrent or not self.parallel_executor:
-            logger.warning("Concurrent execution not enabled, falling back to sequential")
-            results = []
-            for protocol_id in protocol_ids:
-                # Sequential fallback
-                self._send_to_executor(protocol_id=protocol_id)
-                results.append({"protocol_id": protocol_id, "status": "queued"})
-            return results
-
-        logger.info(f"Executing {len(protocol_ids)} experiments in parallel")
-
-        try:
-            # Execute batch using parallel executor
-            batch_results = self.parallel_executor.execute_batch(protocol_ids)
-
-            # Process results and update research plan
-            for result in batch_results:
-                if result.get("success"):
-                    result_id = result.get("result_id")
-                    protocol_id = result.get("protocol_id")
-
-                    # Thread-safe update
-                    with self._research_plan_context():
-                        if result_id:
-                            self.research_plan.add_result(result_id)
-                        if protocol_id:
-                            self.research_plan.mark_experiment_complete(protocol_id)
-
-                    logger.info(f"Experiment {protocol_id} completed successfully")
-                else:
-                    logger.error(
-                        f"Experiment {result.get('protocol_id')} failed: {result.get('error')}"
-                    )
-
-            return batch_results
-
-        except Exception as e:
-            logger.error(f"Batch experiment execution failed: {e}")
-            return [{"protocol_id": pid, "success": False, "error": str(e)} for pid in protocol_ids]
-
-    async def evaluate_hypotheses_concurrently(
-        self, hypothesis_ids: list[str]
-    ) -> list[dict[str, Any]]:
-        """
-        Evaluate multiple hypotheses concurrently using AsyncClaudeClient.
-
-        Uses async LLM calls to evaluate testability and potential impact of hypotheses in parallel.
-
-        Args:
-            hypothesis_ids: List of hypothesis IDs to evaluate
-
-        Returns:
-            List of evaluation results with scores and recommendations
-
-        Example:
-            evaluations = await director.evaluate_hypotheses_concurrently(["hyp1", "hyp2", "hyp3"])
-        """
-        if not self.async_llm_client:
-            logger.warning("Async LLM client not available, using sequential evaluation")
-            return []
-
-        logger.info(f"Evaluating {len(hypothesis_ids)} hypotheses concurrently")
-
-        try:
-            from kosmos.core.async_llm import BatchRequest
-
-            # Create batch requests for hypothesis evaluation
-            requests = []
-            for _i, hyp_id in enumerate(hypothesis_ids):
-                # TODO: Load actual hypothesis text from database
-                prompt = f"""Evaluate this hypothesis for testability and scientific merit:
-
-Hypothesis ID: {hyp_id}
-Research Question: {self.research_question}
-Domain: {self.domain or "General"}
-
-Rate on scale 1-10:
-1. Testability: Can this be experimentally tested?
-2. Novelty: Is this approach novel?
-3. Impact: Would confirmation significantly advance the field?
-
-Provide brief JSON response:
-{{"testability": X, "novelty": X, "impact": X, "recommendation": "proceed/refine/reject", "reasoning": "brief explanation"}}
-"""
-
-                requests.append(
-                    BatchRequest(
-                        id=hyp_id,
-                        prompt=prompt,
-                        system="You are a research evaluator. Provide concise, objective assessments.",
-                        temperature=0.3,  # Lower temperature for more consistent evaluations
-                    )
-                )
-
-            # Execute concurrent evaluations
-            responses = await self.async_llm_client.batch_generate(requests)
-
-            # Process responses
-            evaluations = []
-            for resp in responses:
-                if resp.success:
-                    try:
-                        import json
-
-                        # Parse JSON response
-                        eval_data = json.loads(resp.response)
-                        eval_data["hypothesis_id"] = resp.id
-                        evaluations.append(eval_data)
-                    except json.JSONDecodeError:
-                        logger.warning(f"Failed to parse evaluation for {resp.id}")
-                        evaluations.append(
-                            {
-                                "hypothesis_id": resp.id,
-                                "error": "Parse error",
-                                "recommendation": "refine",
-                            }
-                        )
-                else:
-                    evaluations.append(
-                        {"hypothesis_id": resp.id, "error": resp.error, "recommendation": "retry"}
-                    )
-
-            logger.info(f"Completed {len(evaluations)} hypothesis evaluations")
-            return evaluations
-
-        except Exception as e:
-            logger.error(f"Concurrent hypothesis evaluation failed: {e}")
-            return []
-
-    async def analyze_results_concurrently(self, result_ids: list[str]) -> list[dict[str, Any]]:
-        """
-        Analyze multiple experiment results concurrently using AsyncClaudeClient.
-
-        Performs parallel interpretation of results to identify patterns and insights.
-
-        Args:
-            result_ids: List of result IDs to analyze
-
-        Returns:
-            List of analysis results
-
-        Example:
-            analyses = await director.analyze_results_concurrently(["res1", "res2", "res3"])
-        """
-        if not self.async_llm_client:
-            logger.warning("Async LLM client not available, using sequential analysis")
-            return []
-
-        logger.info(f"Analyzing {len(result_ids)} results concurrently")
-
-        try:
-            from kosmos.core.async_llm import BatchRequest
-
-            # Create batch requests for result analysis
-            requests = []
-            for result_id in result_ids:
-                # TODO: Load actual result data from database
-                prompt = f"""Analyze this experiment result:
-
-Result ID: {result_id}
-Research Question: {self.research_question}
-
-Provide analysis including:
-1. Key findings
-2. Statistical significance
-3. Relationship to hypothesis
-4. Next steps
-
-Provide brief JSON response:
-{{"significance": "high/medium/low", "hypothesis_supported": true/false/inconclusive, "key_finding": "summary", "next_steps": "recommendation"}}
-"""
-
-                requests.append(
-                    BatchRequest(
-                        id=result_id,
-                        prompt=prompt,
-                        system="You are a data analyst. Provide objective, evidence-based interpretations.",
-                        temperature=0.3,
-                    )
-                )
-
-            # Execute concurrent analyses
-            responses = await self.async_llm_client.batch_generate(requests)
-
-            # Process responses
-            analyses = []
-            for resp in responses:
-                if resp.success:
-                    try:
-                        import json
-
-                        analysis_data = json.loads(resp.response)
-                        analysis_data["result_id"] = resp.id
-                        analyses.append(analysis_data)
-                    except json.JSONDecodeError:
-                        logger.warning(f"Failed to parse analysis for {resp.id}")
-                        analyses.append({"result_id": resp.id, "error": "Parse error"})
-                else:
-                    analyses.append({"result_id": resp.id, "error": resp.error})
-
-            logger.info(f"Completed {len(analyses)} result analyses")
-            return analyses
-
-        except Exception as e:
-            logger.error(f"Concurrent result analysis failed: {e}")
-            return []
-
-    # ========================================================================
-    # RESEARCH PLANNING (using Claude)
+    # RESEARCH PLANNING
     # ========================================================================
 
     def generate_research_plan(self) -> str:
         """
-        Generate initial research plan using Claude.
+        Generate initial research plan.
 
         Returns:
             str: Research plan description
         """
-        prompt = f"""You are a research director planning an autonomous scientific investigation.
-
-Research Question: {self.research_question}
-Domain: {self.domain or "General"}
-
-Please generate a research plan that includes:
-
-1. **Initial Hypothesis Directions** (3-5 high-level directions to explore)
-2. **Experiment Strategy** (what types of experiments would be most informative)
-3. **Success Criteria** (how will we know when we've answered the question)
-4. **Resource Considerations** (estimated experiments needed, complexity)
-
-Provide a structured, actionable plan in 2-3 paragraphs.
-"""
 
         try:
-            response = self.llm_client.generate(prompt, max_tokens=1000)
+            # Use DSPy for text generation
+            with dspy.context(lm=self.llm):
+                # Simple text generation using DSPy
+                from dspy.predict import Predict
+
+                class ResearchPlanSignature(dspy.Signature):
+                    """Generate a research plan."""
+
+                    question: str = dspy.InputField()
+                    domain: str = dspy.InputField()
+                    plan: str = dspy.OutputField(
+                        desc="Research plan with hypothesis directions, experiment strategy, success criteria, and resource considerations"
+                    )
+
+                predictor = Predict(ResearchPlanSignature)
+                result = predictor(question=self.research_question, domain=self.domain or "General")
+                response = result.plan
 
             # Store in research plan
             self.research_plan.initial_strategy = response
 
-            logger.info("Generated initial research plan using Claude")
+            logger.info("Generated initial research plan using DSPy")
             return response
 
         except Exception as e:
@@ -1274,8 +1003,6 @@ Provide a structured, actionable plan in 2-3 paragraphs.
         """
         Execute the decided next action.
 
-        Uses concurrent execution when enabled and multiple items available.
-
         Args:
             action: Action to execute
         """
@@ -1296,63 +1023,8 @@ Provide a structured, actionable plan in 2-3 paragraphs.
                 untested = self.research_plan.get_untested_hypotheses()
 
             if untested:
-                # Use concurrent evaluation if enabled and multiple hypotheses
-                if self.enable_concurrent and self.async_llm_client and len(untested) > 1:
-                    # Evaluate multiple hypotheses concurrently (up to max_parallel_hypotheses)
-                    batch_size = min(len(untested), self.max_parallel_hypotheses)
-                    hypothesis_batch = untested[:batch_size]
-
-                    try:
-                        # Run async evaluation with timeout
-                        logger.info(
-                            f"Starting concurrent evaluation of {len(hypothesis_batch)} hypotheses"
-                        )
-                        timeout_seconds = 300
-                        evaluations = None
-                        try:
-                            # Check if there's already a running event loop
-                            loop = asyncio.get_running_loop()
-                            # If we're already in an async context, use run_coroutine_threadsafe with timeout
-                            future = asyncio.run_coroutine_threadsafe(
-                                self.evaluate_hypotheses_concurrently(hypothesis_batch), loop
-                            )
-                            evaluations = future.result(timeout=timeout_seconds)
-                            logger.info("Concurrent hypothesis evaluation completed")
-                        except RuntimeError:
-                            # No running loop - this can cause issues with nested event loops
-                            # Fall back to sequential execution for safety
-                            logger.warning(
-                                "No running event loop, falling back to sequential hypothesis evaluation"
-                            )
-                            evaluations = None
-                        except concurrent.futures.TimeoutError:
-                            logger.warning(
-                                f"Hypothesis evaluation timed out after {timeout_seconds}s, falling back to sequential"
-                            )
-                            evaluations = None
-
-                        if evaluations:
-                            # Process best candidate(s)
-                            for eval_result in evaluations:
-                                if eval_result.get("recommendation") == "proceed":
-                                    self._send_to_experiment_designer(
-                                        hypothesis_id=eval_result["hypothesis_id"]
-                                    )
-                                    break  # Design experiment for first promising hypothesis
-                            else:
-                                # No promising hypotheses, design for first untested
-                                self._send_to_experiment_designer(hypothesis_id=untested[0])
-                        else:
-                            # Fallback to sequential
-                            self._send_to_experiment_designer(hypothesis_id=untested[0])
-
-                    except Exception as e:
-                        logger.error(f"Concurrent hypothesis evaluation failed: {e}")
-                        # Fallback to sequential
-                        self._send_to_experiment_designer(hypothesis_id=untested[0])
-                else:
-                    # Sequential: design experiment for first untested hypothesis
-                    self._send_to_experiment_designer(hypothesis_id=untested[0])
+                # Sequential: design experiment for first untested hypothesis
+                self._send_to_experiment_designer(hypothesis_id=untested[0])
 
         elif action == NextAction.EXECUTE_EXPERIMENT:
             # Get queued experiments
@@ -1360,18 +1032,9 @@ Provide a structured, actionable plan in 2-3 paragraphs.
                 experiment_queue = list(self.research_plan.experiment_queue)
 
             if experiment_queue:
-                # Use batch execution if enabled and multiple experiments queued
-                if self.enable_concurrent and self.parallel_executor and len(experiment_queue) > 1:
-                    # Execute multiple experiments in parallel
-                    batch_size = min(len(experiment_queue), self.max_concurrent_experiments)
-                    experiment_batch = experiment_queue[:batch_size]
-
-                    logger.info(f"Executing {batch_size} experiments in parallel")
-                    self.execute_experiments_batch(experiment_batch)
-                else:
-                    # Sequential: execute first queued experiment
-                    protocol_id = experiment_queue[0]
-                    self._send_to_executor(protocol_id=protocol_id)
+                # Sequential: execute first queued experiment
+                protocol_id = experiment_queue[0]
+                self._send_to_executor(protocol_id=protocol_id)
 
         elif action == NextAction.ANALYZE_RESULT:
             # Get recent results
@@ -1379,61 +1042,9 @@ Provide a structured, actionable plan in 2-3 paragraphs.
                 results = list(self.research_plan.results)
 
             if results:
-                # Use concurrent analysis if enabled and multiple results
-                if self.enable_concurrent and self.async_llm_client and len(results) > 1:
-                    # Analyze multiple recent results concurrently
-                    batch_size = min(len(results), 5)  # Analyze up to 5 recent results
-                    result_batch = results[-batch_size:]  # Most recent results
-
-                    try:
-                        # Run async analysis with timeout
-                        logger.info(f"Starting concurrent analysis of {len(result_batch)} results")
-                        timeout_seconds = 300
-                        analyses = None
-                        try:
-                            # Check if there's already a running event loop
-                            loop = asyncio.get_running_loop()
-                            # If we're already in an async context, use run_coroutine_threadsafe with timeout
-                            future = asyncio.run_coroutine_threadsafe(
-                                self.analyze_results_concurrently(result_batch), loop
-                            )
-                            analyses = future.result(timeout=timeout_seconds)
-                            logger.info("Concurrent result analysis completed")
-                        except RuntimeError:
-                            # No running loop - this can cause issues with nested event loops
-                            # Fall back to sequential execution for safety
-                            logger.warning(
-                                "No running event loop, falling back to sequential result analysis"
-                            )
-                            analyses = None
-                        except concurrent.futures.TimeoutError:
-                            logger.warning(
-                                f"Result analysis timed out after {timeout_seconds}s, falling back to sequential"
-                            )
-                            analyses = None
-
-                        if analyses:
-                            # Process analyses and update hypotheses
-                            for analysis in analyses:
-                                result_id = analysis.get("result_id")
-                                # Send to data analyst for full processing
-                                if result_id:
-                                    self._send_to_data_analyst(result_id=result_id)
-                                    break  # Process one at a time in workflow
-                        else:
-                            # Fallback to sequential
-                            result_id = results[-1]
-                            self._send_to_data_analyst(result_id=result_id)
-
-                    except Exception as e:
-                        logger.error(f"Concurrent result analysis failed: {e}")
-                        # Fallback to sequential
-                        result_id = results[-1]
-                        self._send_to_data_analyst(result_id=result_id)
-                else:
-                    # Sequential: analyze most recent result
-                    result_id = results[-1]
-                    self._send_to_data_analyst(result_id=result_id)
+                # Sequential: analyze most recent result
+                result_id = results[-1]
+                self._send_to_data_analyst(result_id=result_id)
 
         elif action == NextAction.REFINE_HYPOTHESIS:
             # Refine most recently tested hypothesis

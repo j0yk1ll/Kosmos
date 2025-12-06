@@ -1,7 +1,7 @@
 """
 Tests for Data Analyst Agent.
 
-Tests Claude-powered result interpretation, anomaly detection, pattern detection.
+Tests LLM-powered result interpretation, anomaly detection, pattern detection.
 """
 
 import json
@@ -29,18 +29,17 @@ from kosmos.models.result import (
 @pytest.fixture
 def data_analyst_agent():
     """Create DataAnalystAgent without real LLM client."""
-    with patch("kosmos.agents.data_analyst.get_client"):
-        agent = DataAnalystAgent(
-            config={
-                "use_literature_context": True,
-                "detailed_interpretation": True,
-                "anomaly_detection_enabled": True,
-                "pattern_detection_enabled": True,
-            }
-        )
-        # Mock LLM client
-        agent.llm_client = Mock()
-        return agent
+    agent = DataAnalystAgent(
+        config={
+            "use_literature_context": True,
+            "detailed_interpretation": True,
+            "anomaly_detection_enabled": True,
+            "pattern_detection_enabled": True,
+        }
+    )
+    # Mock LLM
+    agent.llm = Mock()
+    return agent
 
 
 @pytest.fixture
@@ -135,8 +134,8 @@ def sample_hypothesis():
 
 
 @pytest.fixture
-def mock_claude_interpretation():
-    """Mock Claude interpretation response."""
+def mock_llm_interpretation():
+    """Mock LLM interpretation response."""
     return json.dumps(
         {
             "hypothesis_supported": True,
@@ -188,60 +187,70 @@ class TestResultInterpretation:
         data_analyst_agent,
         sample_experiment_result,
         sample_hypothesis,
-        mock_claude_interpretation,
+        mock_llm_interpretation,
     ):
         """Test successful result interpretation."""
-        # Mock Claude response
-        data_analyst_agent.llm_client.generate.return_value = mock_claude_interpretation
+        # Mock DSPy predictor response
+        with patch("kosmos.agents.data_analyst.dspy.Predict") as mock_predict:
+            mock_response = Mock()
+            mock_response.interpretation = mock_llm_interpretation
+            mock_predict.return_value.return_value = mock_response
 
-        interpretation = data_analyst_agent.interpret_results(
-            result=sample_experiment_result,
-            hypothesis=sample_hypothesis,
-            literature_context="Prior work shows similar effects...",
-        )
+            interpretation = data_analyst_agent.interpret_results(
+                result=sample_experiment_result,
+                hypothesis=sample_hypothesis,
+                literature_context="Prior work shows similar effects...",
+            )
 
-        assert isinstance(interpretation, ResultInterpretation)
-        assert interpretation.experiment_id == "exp-001"
-        assert interpretation.hypothesis_supported is True
-        assert interpretation.confidence == 0.85
-        assert len(interpretation.key_findings) == 3
-        assert len(interpretation.potential_confounds) > 0
-        assert len(interpretation.follow_up_experiments) > 0
+            assert isinstance(interpretation, ResultInterpretation)
+            assert interpretation.experiment_id == "exp-001"
+            assert interpretation.hypothesis_supported is True
+            assert interpretation.confidence == 0.85
+            assert len(interpretation.key_findings) == 3
+            assert len(interpretation.potential_confounds) > 0
+            assert len(interpretation.follow_up_experiments) > 0
 
     def test_interpret_results_without_hypothesis(
-        self, data_analyst_agent, sample_experiment_result, mock_claude_interpretation
+        self, data_analyst_agent, sample_experiment_result, mock_llm_interpretation
     ):
         """Test interpretation without hypothesis."""
-        data_analyst_agent.llm_client.generate.return_value = mock_claude_interpretation
+        with patch("kosmos.agents.data_analyst.dspy.Predict") as mock_predict:
+            mock_response = Mock()
+            mock_response.interpretation = mock_llm_interpretation
+            mock_predict.return_value.return_value = mock_response
 
-        interpretation = data_analyst_agent.interpret_results(
-            result=sample_experiment_result, hypothesis=None, literature_context=None
-        )
+            interpretation = data_analyst_agent.interpret_results(
+                result=sample_experiment_result, hypothesis=None, literature_context=None
+            )
 
-        assert isinstance(interpretation, ResultInterpretation)
-        assert interpretation.experiment_id == "exp-001"
+            assert isinstance(interpretation, ResultInterpretation)
+            assert interpretation.experiment_id == "exp-001"
 
-    def test_interpret_results_claude_failure(self, data_analyst_agent, sample_experiment_result):
-        """Test fallback when Claude fails."""
-        data_analyst_agent.llm_client.generate.side_effect = Exception("Claude API error")
+    def test_interpret_results_llm_failure(self, data_analyst_agent, sample_experiment_result):
+        """Test fallback when LLM fails."""
+        with patch("kosmos.agents.data_analyst.dspy.Predict") as mock_predict:
+            mock_predict.return_value.side_effect = Exception("LLM API error")
 
-        interpretation = data_analyst_agent.interpret_results(result=sample_experiment_result)
+            interpretation = data_analyst_agent.interpret_results(result=sample_experiment_result)
 
-        # Should return fallback interpretation
-        assert isinstance(interpretation, ResultInterpretation)
-        assert (
-            "fallback" in interpretation.overall_assessment.lower()
-            or "automated" in interpretation.overall_assessment.lower()
-        )
+            # Should return fallback interpretation
+            assert isinstance(interpretation, ResultInterpretation)
+            assert (
+                "fallback" in interpretation.overall_assessment.lower()
+                or "automated" in interpretation.overall_assessment.lower()
+            )
 
     def test_interpret_results_invalid_json(self, data_analyst_agent, sample_experiment_result):
-        """Test handling of invalid JSON from Claude."""
-        data_analyst_agent.llm_client.generate.return_value = "This is not valid JSON"
+        """Test handling of invalid JSON from LLM."""
+        with patch("kosmos.agents.data_analyst.dspy.Predict") as mock_predict:
+            mock_response = Mock()
+            mock_response.interpretation = "This is not valid JSON"
+            mock_predict.return_value.return_value = mock_response
 
-        interpretation = data_analyst_agent.interpret_results(result=sample_experiment_result)
+            interpretation = data_analyst_agent.interpret_results(result=sample_experiment_result)
 
-        # Should return fallback interpretation
-        assert isinstance(interpretation, ResultInterpretation)
+            # Should return fallback interpretation
+            assert isinstance(interpretation, ResultInterpretation)
 
     def test_extract_result_summary(self, data_analyst_agent, sample_experiment_result):
         """Test extraction of result summary."""
@@ -254,22 +263,6 @@ class TestResultInterpretation:
         assert summary["primary_effect_size"] == 0.65
         assert len(summary["statistical_tests"]) == 1
         assert len(summary["variables"]) == 2
-
-    def test_build_interpretation_prompt(
-        self, data_analyst_agent, sample_experiment_result, sample_hypothesis
-    ):
-        """Test interpretation prompt building."""
-        summary = data_analyst_agent._extract_result_summary(sample_experiment_result)
-        prompt = data_analyst_agent._build_interpretation_prompt(
-            summary, sample_hypothesis, "Literature context..."
-        )
-
-        assert "HYPOTHESIS:" in prompt
-        assert sample_hypothesis.statement in prompt
-        assert "EXPERIMENTAL RESULTS:" in prompt
-        assert "P-value: 0.012" in prompt
-        assert "LITERATURE CONTEXT:" in prompt
-        assert "Format your response as JSON" in prompt
 
 
 ####################################################################
@@ -619,34 +612,36 @@ class TestAgentLifecycle:
 
     def test_agent_initialization(self):
         """Test agent initializes correctly."""
-        with patch("kosmos.agents.data_analyst.get_client"):
-            agent = DataAnalystAgent(
-                config={"use_literature_context": False, "detailed_interpretation": True}
-            )
+        agent = DataAnalystAgent(
+            config={"use_literature_context": False, "detailed_interpretation": True}
+        )
 
-            assert agent.agent_type == "DataAnalystAgent"
-            assert agent.use_literature_context is False
-            assert agent.detailed_interpretation is True
-            assert agent.interpretation_history == []
+        assert agent.agent_type == "DataAnalystAgent"
+        assert agent.use_literature_context is False
+        assert agent.detailed_interpretation is True
+        assert agent.interpretation_history == []
 
     def test_execute_interpret_results_task(
-        self, data_analyst_agent, sample_experiment_result, mock_claude_interpretation
+        self, data_analyst_agent, sample_experiment_result, mock_llm_interpretation
     ):
         """Test execute() with interpret_results action."""
-        data_analyst_agent.llm_client.generate.return_value = mock_claude_interpretation
+        with patch("kosmos.agents.data_analyst.dspy.Predict") as mock_predict:
+            mock_response = Mock()
+            mock_response.interpretation = mock_llm_interpretation
+            mock_predict.return_value.return_value = mock_response
 
-        task = {
-            "action": "interpret_results",
-            "result": sample_experiment_result,
-            "hypothesis": None,
-            "literature_context": None,
-        }
+            task = {
+                "action": "interpret_results",
+                "result": sample_experiment_result,
+                "hypothesis": None,
+                "literature_context": None,
+            }
 
-        result = data_analyst_agent.execute(task)
+            result = data_analyst_agent.execute(task)
 
-        assert result["success"] is True
-        assert "interpretation" in result
-        assert result["interpretation"]["experiment_id"] == "exp-001"
+            assert result["success"] is True
+            assert "interpretation" in result
+            assert result["interpretation"]["experiment_id"] == "exp-001"
 
     def test_execute_detect_anomalies_task(self, data_analyst_agent, sample_experiment_result):
         """Test execute() with detect_anomalies action."""

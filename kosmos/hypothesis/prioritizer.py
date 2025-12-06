@@ -9,14 +9,28 @@ Ranks hypotheses using multi-criteria scoring:
 """
 
 import logging
+from typing import Any
 
-from kosmos.core.llm import get_client
+import dspy
+
+from kosmos.config import get_config
 from kosmos.hypothesis.novelty_checker import NoveltyChecker
 from kosmos.hypothesis.testability import TestabilityAnalyzer
 from kosmos.models.hypothesis import Hypothesis, PrioritizedHypothesis
 
 
 logger = logging.getLogger(__name__)
+
+
+class ImpactPredictionSignature(dspy.Signature):
+    """Assess the potential scientific impact of a hypothesis."""
+
+    hypothesis_statement: str = dspy.InputField(desc="The hypothesis statement")
+    rationale: str = dspy.InputField(desc="The hypothesis rationale")
+    domain: str = dspy.InputField(desc="The scientific domain")
+
+    impact_score: str = dspy.OutputField(desc="Impact score between 0.0 and 1.0")
+    reasoning: str = dspy.OutputField(desc="Brief explanation of the impact assessment")
 
 
 class HypothesisPrioritizer:
@@ -49,6 +63,7 @@ class HypothesisPrioritizer:
         use_novelty_checker: bool = True,
         use_testability_analyzer: bool = True,
         use_impact_prediction: bool = True,
+        llm_config: dict[str, Any] | None = None,
     ):
         """
         Initialize hypothesis prioritizer.
@@ -58,6 +73,7 @@ class HypothesisPrioritizer:
             use_novelty_checker: Run novelty checking
             use_testability_analyzer: Run testability analysis
             use_impact_prediction: Use LLM for impact prediction
+            llm_config: Optional LLM configuration dict for DSPy
         """
         # Default weights (must sum to 1.0)
         self.weights = weights or {
@@ -79,7 +95,15 @@ class HypothesisPrioritizer:
         # Components
         self.novelty_checker = NoveltyChecker() if use_novelty_checker else None
         self.testability_analyzer = TestabilityAnalyzer() if use_testability_analyzer else None
-        self.llm_client = get_client() if use_impact_prediction else None
+
+        # Initialize DSPy LM for impact prediction
+        if use_impact_prediction:
+            if llm_config is None:
+                config = get_config()
+                llm_config = config.llm.to_dspy_config()
+            self.llm = dspy.LM(**llm_config)
+        else:
+            self.llm = None
 
         logger.info(f"Initialized HypothesisPrioritizer with weights: {self.weights}")
 
@@ -300,42 +324,29 @@ class HypothesisPrioritizer:
         Returns:
             float: Impact score (0.0-1.0)
         """
-        if not self.use_impact_prediction or not self.llm_client:
+        if not self.use_impact_prediction or not self.llm:
             # Heuristic fallback
             return self._heuristic_impact_score(hypothesis)
 
         try:
-            prompt = f"""Assess the potential scientific impact of this hypothesis:
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(ImpactPredictionSignature)
+                response = predictor(
+                    hypothesis_statement=hypothesis.statement,
+                    rationale=hypothesis.rationale or "No rationale provided",
+                    domain=hypothesis.domain or "General",
+                )
 
-Hypothesis: "{hypothesis.statement}"
+            # Parse impact score from response
+            impact_score_str = response.impact_score if hasattr(response, "impact_score") else "0.5"
+            try:
+                impact_score = float(impact_score_str)
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse impact score: {impact_score_str}")
+                impact_score = 0.5
 
-Rationale: {hypothesis.rationale}
-
-Domain: {hypothesis.domain}
-
-Rate the potential impact on a scale of 0.0 to 1.0, considering:
-- Significance to the field
-- Potential for advancing knowledge
-- Practical applications
-- Breadth of implications
-
-Provide a JSON response:
-{{
-    "impact_score": 0.0-1.0,
-    "reasoning": "brief explanation"
-}}"""
-
-            response = self.llm_client.generate_structured(
-                prompt=prompt,
-                schema={"impact_score": "float", "reasoning": "string"},
-                max_tokens=300,
-                temperature=0.5,
-            )
-
-            impact_score = response.get("impact_score", 0.5)
-            logger.debug(
-                f"LLM impact score: {impact_score:.2f} - {response.get('reasoning', '')[:50]}"
-            )
+            reasoning = response.reasoning if hasattr(response, "reasoning") else ""
+            logger.debug(f"LLM impact score: {impact_score:.2f} - {reasoning[:50]}")
 
             return max(0.0, min(1.0, impact_score))
 
@@ -489,15 +500,22 @@ class ImpactPredictor:
     (This is a utility class used by HypothesisPrioritizer)
     """
 
-    def __init__(self, use_llm: bool = True):
+    def __init__(self, use_llm: bool = True, llm_config: dict[str, Any] | None = None):
         """
         Initialize impact predictor.
 
         Args:
             use_llm: Whether to use LLM for prediction
+            llm_config: Optional LLM configuration dict for DSPy
         """
         self.use_llm = use_llm
-        self.llm_client = get_client() if use_llm else None
+        if use_llm:
+            if llm_config is None:
+                config = get_config()
+                llm_config = config.llm.to_dspy_config()
+            self.llm = dspy.LM(**llm_config)
+        else:
+            self.llm = None
 
     def predict(self, hypothesis: Hypothesis) -> float:
         """
@@ -509,8 +527,13 @@ class ImpactPredictor:
         Returns:
             float: Impact score (0.0-1.0)
         """
-        # Use the prioritizer's calculation
-        prioritizer = HypothesisPrioritizer(use_impact_prediction=self.use_llm)
+        # Use the prioritizer's calculation with shared LLM
+        prioritizer = HypothesisPrioritizer(
+            use_impact_prediction=self.use_llm,
+            use_novelty_checker=False,
+            use_testability_analyzer=False,
+        )
+        prioritizer.llm = self.llm  # Share the same LLM instance
         return prioritizer._predict_impact_score(hypothesis)
 
 

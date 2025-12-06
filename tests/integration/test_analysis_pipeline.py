@@ -138,24 +138,41 @@ def temp_output_dir():
 class TestCompleteAnalysisPipeline:
     """Tests for complete analysis pipeline."""
 
-    @patch("kosmos.agents.data_analyst.get_client")
     def test_full_pipeline_result_to_interpretation(
-        self, mock_get_client, sample_experiment_result, sample_hypothesis
+        self, sample_experiment_result, sample_hypothesis
     ):
         """Test Result → DataAnalystAgent → Interpretation."""
-        # Mock Claude client
-        mock_client = Mock()
-        mock_client.generate.return_value = '{"hypothesis_supported": true, "confidence": 0.85, "summary": "Test summary", "key_findings": ["Finding 1"], "significance_interpretation": "Significant", "biological_significance": "Meaningful", "comparison_to_prior_work": "Similar", "potential_confounds": ["Confound 1"], "follow_up_experiments": ["Experiment 1"], "overall_assessment": "Good"}'
-        mock_get_client.return_value = mock_client
+        # Mock DSPy response
+        mock_response = Mock()
+        mock_response.hypothesis_supported = "true"
+        mock_response.confidence = "0.85"
+        mock_response.summary = "Test summary"
+        mock_response.key_findings = '["Finding 1"]'
+        mock_response.significance_interpretation = "Significant"
+        mock_response.biological_significance = "Meaningful"
+        mock_response.comparison_to_prior_work = "Similar"
+        mock_response.potential_confounds = '["Confound 1"]'
+        mock_response.follow_up_experiments = '["Experiment 1"]'
+        mock_response.overall_assessment = "Good"
 
-        # Create agent
-        agent = DataAnalystAgent()
-        agent.llm_client = mock_client
+        # Create agent with DSPy mocking
+        with patch("kosmos.agents.data_analyst.dspy.LM") as mock_lm:
+            mock_llm = Mock()
+            mock_lm.return_value = mock_llm
 
-        # Interpret results
-        interpretation = agent.interpret_results(
-            result=sample_experiment_result, hypothesis=sample_hypothesis
-        )
+            # Pass llm_config so self.llm is not None
+            agent = DataAnalystAgent(llm_config={"model": "test", "api_key": "test"})
+
+            with patch("kosmos.agents.data_analyst.dspy.context"):
+                with patch("kosmos.agents.data_analyst.dspy.Predict") as mock_predict:
+                    mock_predictor = Mock()
+                    mock_predictor.return_value = mock_response
+                    mock_predict.return_value = mock_predictor
+
+                    # Interpret results
+                    interpretation = agent.interpret_results(
+                        result=sample_experiment_result, hypothesis=sample_hypothesis
+                    )
 
         assert isinstance(interpretation, ResultInterpretation)
         assert interpretation.experiment_id == "exp-001"
@@ -186,42 +203,41 @@ class TestCompleteAnalysisPipeline:
 
         assert os.path.exists(output_path)
 
-    @patch("kosmos.analysis.summarizer.get_client")
-    def test_full_pipeline_result_to_summary(
-        self, mock_get_client, sample_experiment_result, sample_hypothesis
-    ):
+    def test_full_pipeline_result_to_summary(self, sample_experiment_result, sample_hypothesis):
         """Test Result → ResultSummarizer → Summary."""
-        # Mock Claude client
-        mock_client = Mock()
-        mock_client.generate.return_value = """
-SUMMARY: The experiment tested whether Treatment X increases outcome Y compared to control. Results show a statistically significant increase with medium-large effect size.
-
-KEY FINDINGS:
-1. Treatment group significantly higher than control (p=0.012)
+        # Mock DSPy response
+        mock_response = Mock()
+        mock_response.summary = "The experiment tested whether Treatment X increases outcome Y compared to control. Results show a statistically significant increase with medium-large effect size."
+        mock_response.key_findings = """1. Treatment group significantly higher than control (p=0.012)
 2. Effect size Cohen's d=0.65 (medium-large)
-3. Results support the hypothesis
-
-HYPOTHESIS ASSESSMENT: Results support the hypothesis that Treatment X increases outcome Y.
-
-LIMITATIONS:
-- Sample size moderate (n=100)
-- Single-center study
-
-FUTURE WORK:
-1. Replicate in larger cohort
-2. Investigate mechanism
-3. Test dose-response
-"""
-        mock_get_client.return_value = mock_client
-
-        # Create summarizer
-        summarizer = ResultSummarizer()
-        summarizer.llm_client = mock_client
-
-        # Generate summary
-        summary = summarizer.generate_summary(
-            result=sample_experiment_result, hypothesis=sample_hypothesis
+3. Results support the hypothesis"""
+        mock_response.hypothesis_assessment = (
+            "Results support the hypothesis that Treatment X increases outcome Y."
         )
+        mock_response.limitations = """- Sample size moderate (n=100)
+- Single-center study"""
+        mock_response.future_work = """1. Replicate in larger cohort
+2. Investigate mechanism
+3. Test dose-response"""
+
+        # Create summarizer with DSPy mocking
+        with patch("kosmos.analysis.summarizer.dspy.LM") as mock_lm:
+            mock_llm = Mock()
+            mock_lm.return_value = mock_llm
+
+            # Pass llm_config
+            summarizer = ResultSummarizer(llm_config={"model": "test", "api_key": "test"})
+
+            with patch("kosmos.analysis.summarizer.dspy.context"):
+                with patch("kosmos.analysis.summarizer.dspy.Predict") as mock_predict:
+                    mock_predictor = Mock()
+                    mock_predictor.return_value = mock_response
+                    mock_predict.return_value = mock_predictor
+
+                    # Generate summary
+                    summary = summarizer.generate_summary(
+                        result=sample_experiment_result, hypothesis=sample_hypothesis
+                    )
 
         assert isinstance(summary, ResultSummary)
         assert summary.experiment_id == "exp-001"
@@ -233,17 +249,35 @@ FUTURE WORK:
         self, sample_experiment_result, sample_hypothesis, temp_output_dir
     ):
         """Test complete pipeline: Result → All Analysis Components."""
-        # 1. Interpret results
-        with patch("kosmos.agents.data_analyst.get_client") as mock_client:
-            mock_client.return_value = Mock()
-            mock_client.return_value.generate.return_value = '{"hypothesis_supported": true, "confidence": 0.85, "summary": "Test", "key_findings": ["F1"], "significance_interpretation": "Sig", "biological_significance": "Bio", "comparison_to_prior_work": "Comp", "potential_confounds": ["C1"], "follow_up_experiments": ["E1"], "overall_assessment": "Good"}'
+        # 1. Interpret results with DSPy mocking
+        mock_analysis_response = Mock()
+        mock_analysis_response.hypothesis_supported = "true"
+        mock_analysis_response.confidence = "0.85"
+        mock_analysis_response.summary = "Test"
+        mock_analysis_response.key_findings = '["F1"]'
+        mock_analysis_response.significance_interpretation = "Sig"
+        mock_analysis_response.biological_significance = "Bio"
+        mock_analysis_response.comparison_to_prior_work = "Comp"
+        mock_analysis_response.potential_confounds = '["C1"]'
+        mock_analysis_response.follow_up_experiments = '["E1"]'
+        mock_analysis_response.overall_assessment = "Good"
 
-            agent = DataAnalystAgent()
-            agent.llm_client = mock_client.return_value
+        with patch("kosmos.agents.data_analyst.dspy.LM") as mock_lm:
+            mock_llm = Mock()
+            mock_lm.return_value = mock_llm
 
-            interpretation = agent.interpret_results(
-                result=sample_experiment_result, hypothesis=sample_hypothesis
-            )
+            # Pass llm_config so self.llm is not None
+            agent = DataAnalystAgent(llm_config={"model": "test", "api_key": "test"})
+
+            with patch("kosmos.agents.data_analyst.dspy.context"):
+                with patch("kosmos.agents.data_analyst.dspy.Predict") as mock_predict:
+                    mock_predictor = Mock()
+                    mock_predictor.return_value = mock_analysis_response
+                    mock_predict.return_value = mock_predictor
+
+                    interpretation = agent.interpret_results(
+                        result=sample_experiment_result, hypothesis=sample_hypothesis
+                    )
 
         # 2. Generate visualizations
         viz = PublicationVisualizer()
@@ -257,16 +291,29 @@ FUTURE WORK:
         viz.box_plot_with_points(data=data, output_path=plot_path)
 
         # 3. Generate summary
-        with patch("kosmos.analysis.summarizer.get_client") as mock_client2:
-            mock_client2.return_value = Mock()
-            mock_client2.return_value.generate.return_value = "SUMMARY: Test\nKEY FINDINGS:\n1. Finding 1\nHYPOTHESIS ASSESSMENT: Supported\nLIMITATIONS:\n- Limit 1\nFUTURE WORK:\n1. Work 1"
+        mock_summary_response = Mock()
+        mock_summary_response.summary = "Test summary"
+        mock_summary_response.key_findings = "1. Finding 1"
+        mock_summary_response.hypothesis_assessment = "Supported"
+        mock_summary_response.limitations = "- Limit 1"
+        mock_summary_response.future_work = "1. Work 1"
 
-            summarizer = ResultSummarizer()
-            summarizer.llm_client = mock_client2.return_value
+        with patch("kosmos.analysis.summarizer.dspy.LM") as mock_lm2:
+            mock_llm2 = Mock()
+            mock_lm2.return_value = mock_llm2
 
-            summary = summarizer.generate_summary(
-                result=sample_experiment_result, hypothesis=sample_hypothesis
-            )
+            # Pass llm_config
+            summarizer = ResultSummarizer(llm_config={"model": "test", "api_key": "test"})
+
+            with patch("kosmos.analysis.summarizer.dspy.context"):
+                with patch("kosmos.analysis.summarizer.dspy.Predict") as mock_predict:
+                    mock_predictor = Mock()
+                    mock_predictor.return_value = mock_summary_response
+                    mock_predict.return_value = mock_predictor
+
+                    summary = summarizer.generate_summary(
+                        result=sample_experiment_result, hypothesis=sample_hypothesis
+                    )
 
         # Verify all components completed successfully
         assert interpretation is not None
@@ -353,14 +400,13 @@ class TestVisualizationFormats:
 class TestDetectionPipeline:
     """Tests for anomaly and pattern detection."""
 
-    @patch("kosmos.agents.data_analyst.get_client")
-    def test_anomaly_detection_in_pipeline(self, mock_get_client):
+    def test_anomaly_detection_in_pipeline(self):
         """Test anomaly detection on problematic results."""
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
+        with patch("kosmos.agents.data_analyst.dspy.LM") as mock_lm:
+            mock_llm = Mock()
+            mock_lm.return_value = mock_llm
 
-        agent = DataAnalystAgent()
-        agent.llm_client = mock_client
+            agent = DataAnalystAgent(llm_config={"model": "test", "api_key": "test"})
 
         # Create result with anomaly (significant p-value, tiny effect)
         anomalous_result = ExperimentResult(
@@ -410,14 +456,13 @@ class TestDetectionPipeline:
         assert len(anomalies) > 0
         assert any("tiny effect size" in a.lower() for a in anomalies)
 
-    @patch("kosmos.agents.data_analyst.get_client")
-    def test_pattern_detection_across_results(self, mock_get_client):
+    def test_pattern_detection_across_results(self):
         """Test pattern detection across multiple results."""
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
+        with patch("kosmos.agents.data_analyst.dspy.LM") as mock_lm:
+            mock_llm = Mock()
+            mock_lm.return_value = mock_llm
 
-        agent = DataAnalystAgent()
-        agent.llm_client = mock_client
+            agent = DataAnalystAgent(llm_config={"model": "test", "api_key": "test"})
 
         # Create results with consistent positive effects
         results = [

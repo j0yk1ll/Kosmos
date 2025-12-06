@@ -4,7 +4,6 @@ Tests for HypothesisRefiner (Phase 7).
 Tests hybrid retirement logic, hypothesis evolution, contradiction detection, and lineage tracking.
 """
 
-import json
 from datetime import datetime
 
 import pytest
@@ -132,10 +131,10 @@ def sample_failed_result():
 
 
 @pytest.fixture
-def refiner(mock_llm_client):
+def refiner():
     """Create a HypothesisRefiner instance."""
     return HypothesisRefiner(
-        llm_client=mock_llm_client,
+        llm_config={"model": "test", "api_key": "test"},
         vector_db=None,
         config={
             "failure_threshold": 3,
@@ -153,17 +152,17 @@ def refiner(mock_llm_client):
 class TestHypothesisRefinerInitialization:
     """Test HypothesisRefiner initialization."""
 
-    def test_initialization_default_config(self, mock_llm_client):
+    def test_initialization_default_config(self):
         """Test refiner initializes with default configuration."""
-        refiner = HypothesisRefiner(llm_client=mock_llm_client)
+        refiner = HypothesisRefiner(llm_config={"model": "test", "api_key": "test"})
 
-        assert refiner.llm_client is mock_llm_client
+        assert refiner.llm is not None
         assert refiner.failure_threshold == 3
         assert refiner.confidence_retirement_threshold == 0.1
         assert refiner.similarity_threshold == 0.8
         assert refiner.lineage_tracking == {}
 
-    def test_initialization_custom_config(self, mock_llm_client):
+    def test_initialization_custom_config(self):
         """Test refiner initializes with custom configuration."""
         custom_config = {
             "failure_threshold": 5,
@@ -171,15 +170,19 @@ class TestHypothesisRefinerInitialization:
             "similarity_threshold": 0.9,
         }
 
-        refiner = HypothesisRefiner(llm_client=mock_llm_client, config=custom_config)
+        refiner = HypothesisRefiner(
+            llm_config={"model": "test", "api_key": "test"}, config=custom_config
+        )
 
         assert refiner.failure_threshold == 5
         assert refiner.confidence_retirement_threshold == 0.2
         assert refiner.similarity_threshold == 0.9
 
-    def test_initialization_with_vector_db(self, mock_llm_client, mock_vector_db):
+    def test_initialization_with_vector_db(self, mock_vector_db):
         """Test refiner initializes with vector database."""
-        refiner = HypothesisRefiner(llm_client=mock_llm_client, vector_db=mock_vector_db)
+        refiner = HypothesisRefiner(
+            llm_config={"model": "test", "api_key": "test"}, vector_db=mock_vector_db
+        )
 
         assert refiner.vector_db is mock_vector_db
 
@@ -387,88 +390,105 @@ class TestRetirementDecisionBayesian:
 
 
 # ============================================================================
-# Test Class 4: Claude-Powered Retirement
+# Test Class 4: LLM-Powered Retirement
 # ============================================================================
 
 
-class TestRetirementDecisionClaude:
-    """Test Claude-powered retirement decisions."""
+class TestRetirementDecisionLLM:
+    """Test LLM-powered retirement decisions."""
 
-    def test_claude_retirement_decision_retire(
+    def test_llm_retirement_decision_retire(
         self, refiner, sample_hypothesis, sample_rejected_result
     ):
-        """Test Claude decides to retire hypothesis."""
-        # Mock Claude response
-        refiner.llm_client.generate.return_value = json.dumps(
-            {
-                "decision": "retire",
-                "confidence": 0.85,
-                "rationale": "Consistent evidence against hypothesis",
-                "suggested_action": "Consider alternative mechanisms",
-            }
-        )
+        """Test LLM decides to retire hypothesis."""
+        from unittest.mock import Mock, patch
 
-        should_retire, rationale = refiner.should_retire_hypothesis_claude(
-            sample_hypothesis, [sample_rejected_result]
-        )
+        # Mock DSPy response
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_response = Mock()
+                mock_response.decision = "retire"
+                mock_response.confidence = "0.85"
+                mock_response.rationale = "Consistent evidence against hypothesis"
+                mock_response.suggested_action = "Consider alternative mechanisms"
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                should_retire, rationale = refiner.should_retire_hypothesis_llm(
+                    sample_hypothesis, [sample_rejected_result]
+                )
 
         assert should_retire is True
         assert "Consistent evidence" in rationale
 
-    def test_claude_retirement_decision_continue(
+    def test_llm_retirement_decision_continue(
         self, refiner, sample_hypothesis, sample_supported_result
     ):
-        """Test Claude decides to continue testing."""
-        refiner.llm_client.generate.return_value = json.dumps(
-            {
-                "decision": "continue",
-                "confidence": 0.9,
-                "rationale": "Strong supporting evidence warrants more investigation",
-                "suggested_action": "Test boundary conditions",
-            }
-        )
+        """Test LLM decides to continue testing."""
+        from unittest.mock import Mock, patch
 
-        should_retire, rationale = refiner.should_retire_hypothesis_claude(
-            sample_hypothesis, [sample_supported_result]
-        )
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_response = Mock()
+                mock_response.decision = "continue"
+                mock_response.confidence = "0.9"
+                mock_response.rationale = "Strong supporting evidence warrants more investigation"
+                mock_response.suggested_action = "Test boundary conditions"
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                should_retire, rationale = refiner.should_retire_hypothesis_llm(
+                    sample_hypothesis, [sample_supported_result]
+                )
 
         assert should_retire is False
         assert "supporting evidence" in rationale
 
-    def test_claude_retirement_decision_refine(
+    def test_llm_retirement_decision_refine(
         self, refiner, sample_hypothesis, sample_rejected_result
     ):
-        """Test Claude decides to refine hypothesis."""
-        refiner.llm_client.generate.return_value = json.dumps(
-            {
-                "decision": "refine",
-                "confidence": 0.75,
-                "rationale": "Core idea has merit but needs refinement",
-                "suggested_action": "Narrow scope or adjust variables",
-            }
-        )
+        """Test LLM decides to refine hypothesis."""
+        from unittest.mock import Mock, patch
 
-        should_retire, rationale = refiner.should_retire_hypothesis_claude(
-            sample_hypothesis, [sample_rejected_result]
-        )
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_response = Mock()
+                mock_response.decision = "refine"
+                mock_response.confidence = "0.75"
+                mock_response.rationale = "Core idea has merit but needs refinement"
+                mock_response.suggested_action = "Narrow scope or adjust variables"
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                should_retire, rationale = refiner.should_retire_hypothesis_llm(
+                    sample_hypothesis, [sample_rejected_result]
+                )
 
         # Refine means don't retire
         assert should_retire is False
         assert "refinement" in rationale
 
-    def test_claude_retirement_handles_parsing_error(
+    def test_llm_retirement_handles_parsing_error(
         self, refiner, sample_hypothesis, sample_rejected_result
     ):
-        """Test Claude retirement handles invalid JSON response."""
-        refiner.llm_client.generate.return_value = "This is not valid JSON"
+        """Test LLM retirement handles invalid response."""
+        from unittest.mock import patch
 
-        should_retire, rationale = refiner.should_retire_hypothesis_claude(
-            sample_hypothesis, [sample_rejected_result]
-        )
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                # Simulate an error during prediction
+                mock_predict.side_effect = Exception("API error")
+
+                should_retire, rationale = refiner.should_retire_hypothesis_llm(
+                    sample_hypothesis, [sample_rejected_result]
+                )
 
         # Should default to not retiring on error
         assert should_retire is False
-        assert "Parsing error" in rationale or "error" in rationale.lower()
+        assert "error" in rationale.lower()
 
 
 # ============================================================================
@@ -481,16 +501,22 @@ class TestHypothesisRefinement:
 
     def test_refine_hypothesis(self, refiner, sample_hypothesis, sample_rejected_result):
         """Test hypothesis refinement creates new refined hypothesis."""
-        refiner.llm_client.generate.return_value = json.dumps(
-            {
-                "refined_statement": "Caffeine (200mg) improves working memory performance in young adults aged 18-25",
-                "refined_rationale": "Evidence suggests specific dosage and age range matter",
-                "changes_made": "Added dosage specificity and age range",
-                "confidence": 0.6,
-            }
-        )
+        from unittest.mock import Mock, patch
 
-        refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_response = Mock()
+                mock_response.refined_statement = "Caffeine (200mg) improves working memory performance in young adults aged 18-25"
+                mock_response.refined_rationale = (
+                    "Evidence suggests specific dosage and age range matter"
+                )
+                mock_response.changes_made = "Added dosage specificity and age range"
+                mock_response.confidence = "0.6"
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
 
         assert refined is not None
         assert refined.id != sample_hypothesis.id
@@ -504,16 +530,24 @@ class TestHypothesisRefinement:
         self, refiner, sample_hypothesis, sample_rejected_result
     ):
         """Test refinement tracks lineage correctly."""
-        refiner.llm_client.generate.return_value = json.dumps(
-            {
-                "refined_statement": "Refined statement that affects outcomes more specifically",
-                "refined_rationale": "Refined rationale with sufficient scientific justification for testing",
-                "changes_made": "Changes",
-                "confidence": 0.6,
-            }
-        )
+        from unittest.mock import Mock, patch
 
-        refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_response = Mock()
+                mock_response.refined_statement = (
+                    "Refined statement that affects outcomes more specifically"
+                )
+                mock_response.refined_rationale = (
+                    "Refined rationale with sufficient scientific justification for testing"
+                )
+                mock_response.changes_made = "Changes"
+                mock_response.confidence = "0.6"
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
+
+                refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
 
         # Check lineage was tracked
         lineage = refiner.get_lineage(refined.id)
@@ -525,28 +559,40 @@ class TestHypothesisRefinement:
         self, refiner, sample_hypothesis, sample_rejected_result
     ):
         """Test refinement increments generation number."""
-        refiner.llm_client.generate.return_value = json.dumps(
-            {
-                "refined_statement": "Refined statement that affects outcomes more specifically",
-                "refined_rationale": "Refined rationale with sufficient scientific justification for testing",
-                "changes_made": "Changes",
-                "confidence": 0.6,
-            }
-        )
+        from unittest.mock import Mock, patch
 
-        sample_hypothesis.generation = 2  # Start at generation 2
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_response = Mock()
+                mock_response.refined_statement = (
+                    "Refined statement that affects outcomes more specifically"
+                )
+                mock_response.refined_rationale = (
+                    "Refined rationale with sufficient scientific justification for testing"
+                )
+                mock_response.changes_made = "Changes"
+                mock_response.confidence = "0.6"
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
 
-        refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
+                sample_hypothesis.generation = 2  # Start at generation 2
+
+                refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
 
         assert refined.generation == 3
 
     def test_refine_hypothesis_handles_error(
         self, refiner, sample_hypothesis, sample_rejected_result
     ):
-        """Test refinement handles Claude API errors gracefully."""
-        refiner.llm_client.generate.side_effect = Exception("API error")
+        """Test refinement handles LLM API errors gracefully."""
+        from unittest.mock import patch
 
-        refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                mock_predict.side_effect = Exception("API error")
+
+                refined = refiner.refine_hypothesis(sample_hypothesis, sample_rejected_result)
 
         # Should return original hypothesis on error
         assert refined.id == sample_hypothesis.id
@@ -560,11 +606,11 @@ class TestHypothesisRefinement:
 class TestContradictionDetection:
     """Test contradiction detection between hypotheses."""
 
-    def test_detect_contradictions_similar_opposite_outcomes(self, mock_llm_client):
+    def test_detect_contradictions_similar_opposite_outcomes(self):
         """Test detects contradictions when similar hypotheses have opposite outcomes."""
         # Create refiner with lower similarity threshold for word overlap matching
         refiner = HypothesisRefiner(
-            llm_client=mock_llm_client,
+            llm_config={"model": "test", "api_key": "test"},
             vector_db=None,
             config={
                 "failure_threshold": 3,
@@ -719,6 +765,8 @@ class TestHypothesisMerging:
 
     def test_merge_hypotheses(self, refiner):
         """Test merging multiple similar hypotheses."""
+        from unittest.mock import Mock, patch
+
         hyp1 = Hypothesis(
             id="hyp_merge_1",
             research_question="Question",
@@ -737,15 +785,21 @@ class TestHypothesisMerging:
             generation=1,
         )
 
-        refiner.llm_client.generate.return_value = json.dumps(
-            {
-                "merged_statement": "Caffeine improves both memory and attention in cognitive tasks",
-                "merged_rationale": "Combined evidence shows multi-faceted cognitive benefits",
-                "synthesis_explanation": "Merged memory and attention effects",
-            }
-        )
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_response = Mock()
+                mock_response.merged_statement = (
+                    "Caffeine improves both memory and attention in cognitive tasks"
+                )
+                mock_response.merged_rationale = (
+                    "Combined evidence shows multi-faceted cognitive benefits"
+                )
+                mock_response.synthesis_explanation = "Merged memory and attention effects"
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
 
-        merged = refiner.merge_hypotheses([hyp1, hyp2])
+                merged = refiner.merge_hypotheses([hyp1, hyp2])
 
         assert merged is not None
         assert "memory and attention" in merged.statement
@@ -758,6 +812,8 @@ class TestHypothesisMerging:
 
     def test_merge_handles_different_generations(self, refiner):
         """Test merging hypotheses from different generations."""
+        from unittest.mock import Mock, patch
+
         hyp1 = Hypothesis(
             id="hyp_gen_1",
             research_question="Question",
@@ -776,15 +832,19 @@ class TestHypothesisMerging:
             generation=3,
         )
 
-        refiner.llm_client.generate.return_value = json.dumps(
-            {
-                "merged_statement": "Merged statement that combines both hypotheses",
-                "merged_rationale": "Merged rationale with sufficient scientific justification from both sources",
-                "synthesis_explanation": "Synthesis",
-            }
-        )
+        with patch("kosmos.hypothesis.refiner.dspy.context"):
+            with patch("kosmos.hypothesis.refiner.dspy.Predict") as mock_predict:
+                mock_predictor = Mock()
+                mock_response = Mock()
+                mock_response.merged_statement = "Merged statement that combines both hypotheses"
+                mock_response.merged_rationale = (
+                    "Merged rationale with sufficient scientific justification from both sources"
+                )
+                mock_response.synthesis_explanation = "Synthesis"
+                mock_predictor.return_value = mock_response
+                mock_predict.return_value = mock_predictor
 
-        merged = refiner.merge_hypotheses([hyp1, hyp2])
+                merged = refiner.merge_hypotheses([hyp1, hyp2])
 
         # Should be max(1, 3) + 1 = 4
         assert merged.generation == 4

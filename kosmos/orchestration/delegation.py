@@ -17,8 +17,6 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 
-from kosmos.core.providers.base import ProviderAPIError
-
 
 logger = logging.getLogger(__name__)
 
@@ -312,11 +310,6 @@ class DelegationManager:
             except Exception as e:
                 last_error = str(e)
                 logger.warning(f"Task {task_id} failed (attempt {attempt+1}): {e}")
-
-                # Check if error is non-recoverable (don't retry)
-                if isinstance(e, ProviderAPIError) and not e.is_recoverable():
-                    logger.info(f"Task {task_id} failed with non-recoverable error, not retrying")
-                    break
 
             # Track retry
             self.task_retries[task_id] = attempt + 1

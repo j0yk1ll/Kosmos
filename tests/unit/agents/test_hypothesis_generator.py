@@ -3,7 +3,7 @@ Tests for kosmos.agents.hypothesis_generator module.
 """
 
 from datetime import datetime
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -14,14 +14,14 @@ from kosmos.models.hypothesis import ExperimentType, Hypothesis, HypothesisGener
 
 @pytest.fixture
 def hypothesis_agent():
-    """Create HypothesisGeneratorAgent for testing without real LLM client."""
+    """Create HypothesisGeneratorAgent for testing without real LLM."""
     agent = HypothesisGeneratorAgent(
         config={
             "num_hypotheses": 3,
             "use_literature_context": False,
         },
-        llm_client=Mock(),
     )
+    agent.llm = Mock()
     return agent
 
 
@@ -61,7 +61,7 @@ class TestHypothesisGeneratorInit:
 
     def test_init_default(self):
         """Test default initialization."""
-        agent = HypothesisGeneratorAgent(llm_client=Mock())
+        agent = HypothesisGeneratorAgent()
         assert agent.agent_type == "HypothesisGeneratorAgent"
         assert agent.num_hypotheses == 3
         assert agent.use_literature_context is True
@@ -70,7 +70,6 @@ class TestHypothesisGeneratorInit:
         """Test initialization with custom config."""
         agent = HypothesisGeneratorAgent(
             config={"num_hypotheses": 5, "use_literature_context": False, "min_novelty_score": 0.7},
-            llm_client=Mock(),
         )
         assert agent.num_hypotheses == 5
         assert agent.use_literature_context is False
@@ -83,69 +82,73 @@ class TestHypothesisGeneration:
 
     def test_generate_hypotheses_success(self, hypothesis_agent, mock_llm_response):
         """Test successful hypothesis generation."""
-        # Mock LLM client
-        mock_client = Mock()
-        mock_client.generate_structured.return_value = mock_llm_response
-        mock_client.generate.return_value = "machine_learning"  # Domain detection
-        hypothesis_agent.llm_client = mock_client
+        # Mock DSPy predictor
+        with patch("kosmos.agents.hypothesis_generator.dspy.Predict") as mock_predict:
+            mock_response = Mock()
+            mock_response.hypotheses = mock_llm_response["hypotheses"]
+            mock_predict.return_value.return_value = mock_response
 
-        # Generate hypotheses
-        response = hypothesis_agent.generate_hypotheses(
-            research_question="How does attention mechanism affect transformer performance?",
-            domain="machine_learning",
-            store_in_db=False,
-        )
+            # Generate hypotheses
+            response = hypothesis_agent.generate_hypotheses(
+                research_question="How does attention mechanism affect transformer performance?",
+                domain="machine_learning",
+                store_in_db=False,
+            )
 
-        # Assertions
-        assert isinstance(response, HypothesisGenerationResponse)
-        assert len(response.hypotheses) == 3
-        assert (
-            response.research_question
-            == "How does attention mechanism affect transformer performance?"
-        )
-        assert response.domain == "machine_learning"
-        assert response.generation_time_seconds > 0
+            # Assertions
+            assert isinstance(response, HypothesisGenerationResponse)
+            assert len(response.hypotheses) == 3 == 3
+            assert (
+                response.research_question
+                == "How does attention mechanism affect transformer performance?"
+            )
+            assert response.domain == "machine_learning"
+            assert response.generation_time_seconds > 0
 
-        # Check first hypothesis
-        hyp = response.hypotheses[0]
-        assert isinstance(hyp, Hypothesis)
-        assert "attention" in hyp.statement.lower() or "attention" in hyp.rationale.lower()
-        assert hyp.confidence_score == 0.75
-        assert hyp.testability_score == 0.90
-        assert ExperimentType.COMPUTATIONAL in hyp.suggested_experiment_types
+            # Check first hypothesis
+            hyp = response.hypotheses[0]
+            assert isinstance(hyp, Hypothesis)
+            assert "attention" in hyp.statement.lower() or "attention" in hyp.rationale.lower()
+            assert hyp.confidence_score == 0.75
+            assert hyp.testability_score == 0.90
+            assert ExperimentType.COMPUTATIONAL in hyp.suggested_experiment_types
 
     def test_generate_with_custom_num_hypotheses(self, hypothesis_agent, mock_llm_response):
         """Test generating custom number of hypotheses."""
-        mock_client = Mock()
-        mock_client.generate_structured.return_value = {
-            "hypotheses": mock_llm_response["hypotheses"][:2]  # Return only 2
-        }
-        mock_client.generate.return_value = "biology"
-        hypothesis_agent.llm_client = mock_client
+        with patch("kosmos.agents.hypothesis_generator.dspy.Predict") as mock_predict:
+            mock_response = Mock()
+            mock_response.hypotheses = mock_llm_response["hypotheses"][:2]
+            mock_predict.return_value.return_value = mock_response
 
-        response = hypothesis_agent.generate_hypotheses(
-            research_question="How does CRISPR affect gene expression?",
-            num_hypotheses=2,
-            store_in_db=False,
-        )
+            response = hypothesis_agent.generate_hypotheses(
+                research_question="How does CRISPR affect gene expression?",
+                domain="biology",  # Provide explicit domain to avoid auto-detection
+                num_hypotheses=2,
+                store_in_db=False,
+            )
 
-        assert len(response.hypotheses) == 2
+            assert len(response.hypotheses) == 2
 
     def test_domain_auto_detection(self, hypothesis_agent):
         """Test automatic domain detection."""
-        mock_client = Mock()
-        mock_client.generate.return_value = "neuroscience"
-        mock_client.generate_structured.return_value = {"hypotheses": []}
-        hypothesis_agent.llm_client = mock_client
+        with patch("kosmos.agents.hypothesis_generator.dspy.Predict") as mock_predict:
+            # Mock domain detection
+            domain_response = Mock()
+            domain_response.domain = "neuroscience"
 
-        response = hypothesis_agent.generate_hypotheses(
-            research_question="How do neurons communicate?",
-            domain=None,  # Auto-detect
-            store_in_db=False,
-        )
+            # Mock hypothesis generation
+            hyp_response = Mock()
+            hyp_response.hypotheses = []
 
-        assert response.domain == "neuroscience"
-        mock_client.generate.assert_called_once()
+            mock_predict.return_value.side_effect = [domain_response, hyp_response]
+
+            response = hypothesis_agent.generate_hypotheses(
+                research_question="How do neurons communicate?",
+                domain=None,  # Auto-detect
+                store_in_db=False,
+            )
+
+            assert response.domain == "neuroscience"
 
 
 @pytest.mark.unit
@@ -303,34 +306,32 @@ class TestLiteratureContext:
 class TestAgentExecute:
     """Test agent execute method."""
 
-    def test_execute_generate_hypotheses_task(
-        self, hypothesis_agent, mock_llm_response
-    ):
+    def test_execute_generate_hypotheses_task(self, hypothesis_agent, mock_llm_response):
         """Test executing hypothesis generation via message."""
         from kosmos.agents.base import AgentMessage, MessageType
 
-        mock_client = Mock()
-        mock_client.generate_structured.return_value = mock_llm_response
-        mock_client.generate.return_value = "test_domain"
-        hypothesis_agent.llm_client = mock_client
+        with patch("kosmos.agents.hypothesis_generator.dspy.Predict") as mock_predict:
+            mock_response = Mock()
+            mock_response.hypotheses = mock_llm_response["hypotheses"]
+            mock_predict.return_value.return_value = mock_response
 
-        message = AgentMessage(
-            type=MessageType.REQUEST,
-            from_agent="test",
-            to_agent=hypothesis_agent.agent_id,
-            content={
-                "task_type": "generate_hypotheses",
-                "research_question": "Test question?",
-                "num_hypotheses": 2,
-                "domain": "test_domain",
-            },
-        )
+            message = AgentMessage(
+                type=MessageType.REQUEST,
+                from_agent="test",
+                to_agent=hypothesis_agent.agent_id,
+                content={
+                    "task_type": "generate_hypotheses",
+                    "research_question": "Test question?",
+                    "num_hypotheses": 2,
+                    "domain": "test_domain",
+                },
+            )
 
-        response = hypothesis_agent.execute(message)
+            response = hypothesis_agent.execute(message)
 
-        assert response.type == MessageType.RESPONSE
-        assert "response" in response.content
-        assert response.correlation_id == message.correlation_id
+            assert response.type == MessageType.RESPONSE
+            assert "response" in response.content
+            assert response.correlation_id == message.correlation_id
 
 
 @pytest.mark.unit
@@ -339,46 +340,42 @@ class TestEdgeCases:
 
     def test_empty_llm_response(self, hypothesis_agent):
         """Test handling empty LLM response."""
-        mock_client = Mock()
-        mock_client.generate_structured.return_value = {"hypotheses": []}
-        mock_client.generate.return_value = "test"
-        hypothesis_agent.llm_client = mock_client
+        with patch("kosmos.agents.hypothesis_generator.dspy.Predict") as mock_predict:
+            mock_response = Mock()
+            mock_response.hypotheses = []
+            mock_predict.return_value.return_value = mock_response
 
-        response = hypothesis_agent.generate_hypotheses(
-            research_question="Test?", store_in_db=False
-        )
+            response = hypothesis_agent.generate_hypotheses(
+                research_question="Test?", domain="test", store_in_db=False
+            )
 
-        assert len(response.hypotheses) == 0
+            assert len(response.hypotheses) == 0
 
     def test_malformed_llm_response(self, hypothesis_agent):
         """Test handling malformed LLM response."""
-        mock_client = Mock()
-        mock_client.generate_structured.return_value = {
-            "hypotheses": [
+        with patch("kosmos.agents.hypothesis_generator.dspy.Predict") as mock_predict:
+            mock_response = Mock()
+            mock_response.hypotheses = [
                 {"statement": "Valid statement"},  # Missing required fields
                 {"rationale": "Valid rationale"},  # Missing statement
             ]
-        }
-        mock_client.generate.return_value = "test"
-        hypothesis_agent.llm_client = mock_client
+            mock_predict.return_value.return_value = mock_response
 
-        response = hypothesis_agent.generate_hypotheses(
-            research_question="Test?", store_in_db=False
-        )
+            response = hypothesis_agent.generate_hypotheses(
+                research_question="Test?", domain="test", store_in_db=False
+            )
 
-        # Should filter out malformed hypotheses
-        assert len(response.hypotheses) == 0
+            # Should filter out malformed hypotheses
+            assert len(response.hypotheses) == 0
 
     def test_llm_exception_handling(self, hypothesis_agent):
         """Test handling LLM exceptions."""
-        mock_client = Mock()
-        mock_client.generate_structured.side_effect = Exception("LLM Error")
-        mock_client.generate.return_value = "test"
-        hypothesis_agent.llm_client = mock_client
+        with patch("kosmos.agents.hypothesis_generator.dspy.Predict") as mock_predict:
+            mock_predict.return_value.side_effect = Exception("LLM Error")
 
-        response = hypothesis_agent.generate_hypotheses(
-            research_question="Test?", store_in_db=False
-        )
+            response = hypothesis_agent.generate_hypotheses(
+                research_question="Test?", domain="test", store_in_db=False
+            )
 
         # Should return empty list on error
         assert len(response.hypotheses) == 0

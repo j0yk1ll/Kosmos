@@ -20,7 +20,6 @@ from typing import Any
 import dspy
 
 from kosmos.agents.base import AgentStatus, BaseAgent
-from kosmos.agents.dspy_client import DSPyAgentClient
 from kosmos.knowledge.concept_extractor import get_concept_extractor
 from kosmos.knowledge.embeddings import get_embedder
 from kosmos.knowledge.graph import get_knowledge_graph
@@ -130,7 +129,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
         agent_id: str | None = None,
         agent_type: str | None = None,
         config: dict[str, Any] | None = None,
-        llm_client: DSPyAgentClient | None = None,
+        llm_config: dict[str, Any] | None = None,
     ):
         """
         Initialize Literature Analyzer Agent.
@@ -139,6 +138,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
             agent_id: Unique agent identifier
             agent_type: Agent type name
             config: Configuration dictionary
+            llm_config: Configuration for dspy.LM
         """
         super().__init__(agent_id, agent_type or "LiteratureAnalyzerAgent", config)
 
@@ -152,7 +152,7 @@ class LiteratureAnalyzerAgent(BaseAgent):
         self.use_semantic_similarity = self.config.get("use_semantic_similarity", True)
 
         # Initialize components
-        self.llm_client = llm_client
+        self.llm = dspy.LM(**llm_config) if llm_config else None
 
         if self.use_knowledge_graph:
             try:
@@ -305,8 +305,8 @@ class LiteratureAnalyzerAgent(BaseAgent):
         if not self._validate_paper(paper):
             raise ValueError(f"Paper lacks required data: {paper.primary_identifier}")
 
-        if not self.llm_client:
-            raise ValueError("Language model client is not configured")
+        if not self.llm:
+            raise ValueError("LLM is not configured")
 
         # Generate with DSPy LM
         try:
@@ -322,12 +322,13 @@ class LiteratureAnalyzerAgent(BaseAgent):
                 ]
             )
 
-            prediction = self.llm_client.predict(
-                PaperSummarySignature,
-                paper_title=paper.title or paper.primary_identifier,
-                abstract=paper.abstract or "",
-                body_text=body_text,
-            )
+            with dspy.context(lm=self.llm):
+                predictor = dspy.Predict(PaperSummarySignature)
+                prediction = predictor(
+                    paper_title=paper.title or paper.primary_identifier,
+                    abstract=paper.abstract or "",
+                    body_text=body_text,
+                )
 
             result = PaperAnalysis(
                 paper_id=paper.primary_identifier,
@@ -375,14 +376,17 @@ class LiteratureAnalyzerAgent(BaseAgent):
                 [text for text in [paper.abstract or "", getattr(paper, "summary", "")] if text]
             )
 
-            prediction = self.llm_client.predict(
-                KeyFindingsSignature,
-                paper_title=paper.title or paper.primary_identifier,
-                abstract=paper.abstract or "",
-                body_text=body_text,
-                max_findings=max_findings,
-            )
-            return getattr(prediction, "findings", [])
+            if self.llm:
+                with dspy.context(lm=self.llm):
+                    predictor = dspy.Predict(KeyFindingsSignature)
+                    prediction = predictor(
+                        paper_title=paper.title or paper.primary_identifier,
+                        abstract=paper.abstract or "",
+                        body_text=body_text,
+                        max_findings=max_findings,
+                    )
+                    return getattr(prediction, "findings", [])
+            return []
 
         except Exception as e:
             logger.error(f"Key findings extraction failed: {e}")
@@ -441,16 +445,22 @@ class LiteratureAnalyzerAgent(BaseAgent):
         if not methodology["experimental_methods"] and not methodology["computational_methods"]:
             try:
                 body_text = "\n\n".join(
-                    [text for text in [paper.abstract or "", getattr(paper, "full_text", "")] if text]
+                    [
+                        text
+                        for text in [paper.abstract or "", getattr(paper, "full_text", "")]
+                        if text
+                    ]
                 )
 
-                prediction = self.llm_client.predict(
-                    MethodologyExtractionSignature,
-                    paper_title=paper.title or paper.primary_identifier,
-                    abstract=paper.abstract or "",
-                    body_text=body_text,
-                )
-                methodology.update(getattr(prediction, "methodology", {}))
+                if self.llm:
+                    with dspy.context(lm=self.llm):
+                        predictor = dspy.Predict(MethodologyExtractionSignature)
+                        prediction = predictor(
+                            paper_title=paper.title or paper.primary_identifier,
+                            abstract=paper.abstract or "",
+                            body_text=body_text,
+                        )
+                        methodology.update(getattr(prediction, "methodology", {}))
 
             except Exception as e:
                 logger.error(f"Methodology extraction failed: {e}")
